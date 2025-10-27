@@ -1,2 +1,1 @@
-This is a simple test file created to fulfill the task requirements.
-It can be used to verify that file creation and basic text content work as expected.
+Sample text for testing purposes.
