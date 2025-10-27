@@ -1,1 +1,1 @@
-Sample text for testing purposes.
+This is a sample test file for validation purposes.
