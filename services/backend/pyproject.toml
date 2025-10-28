@@ -1,0 +1,38 @@
+[project]
+name = "mindwell-backend"
+version = "0.1.0"
+description = "MindWell API platform scaffolding."
+authors = [
+  { name = "MindWell Engineering", email = "engineering@mindwell.health" }
+]
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+  "fastapi>=0.110,<1.0",
+  "uvicorn[standard]>=0.27,<1.0",
+  "pydantic-settings>=2.2,<3.0",
+  "sqlalchemy>=2.0,<3.0",
+  "asyncpg>=0.29,<1.0",
+  "aioboto3>=12.4,<13.0",
+  "httpx>=0.27,<1.0"
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=8.2,<9.0",
+  "pytest-asyncio>=0.23,<0.24",
+  "ruff>=0.6,<0.7",
+  "mypy>=1.9,<2.0",
+  "types-requests"
+]
+
+[project.scripts]
+mindwell-api = "app.main:run"
+
+[build-system]
+requires = ["setuptools>=61", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["app*"]
