@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 
 from app.api.deps import get_reports_service
 from app.schemas.reports import JourneyReportsResponse
@@ -15,4 +15,7 @@ router = APIRouter()
 async def get_journey_reports(
     user_id: str, service: ReportsService = Depends(get_reports_service)
 ) -> JourneyReportsResponse:
-    return await service.get_reports(user_id)
+    try:
+        return await service.get_reports(user_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc

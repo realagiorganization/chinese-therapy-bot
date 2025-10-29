@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 
 from app.api.deps import get_chat_service
 from app.schemas.chat import ChatRequest, ChatResponse
@@ -15,4 +15,7 @@ router = APIRouter()
 async def process_chat_turn(
     payload: ChatRequest, service: ChatService = Depends(get_chat_service)
 ) -> ChatResponse:
-    return await service.process_turn(payload)
+    try:
+        return await service.process_turn(payload)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc

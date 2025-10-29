@@ -21,8 +21,10 @@
 
 ## Phase 3 – Backend Services
 - [x] Scaffold backend service (FastAPI) with modular architecture. *(see `docs/phase3_backend_scaffold.md` & `services/backend/`)*
+- [x] Define SQLAlchemy persistence layer covering users, therapists, chat sessions/messages, and summary tables.
+- [x] Integrate async database access for chat, therapist directory, and reports services with graceful seed fallbacks.
 - [ ] Implement authentication service supporting SMS, Google OAuth, and token renewal endpoints.
-- [ ] Build chat service for message ingestion, streaming responses, and persistence to database/S3.
+- [ ] Build chat service for message ingestion, streaming responses, and persistence to database/S3. *(database persistence complete; streaming + S3 storage pending.)*
 - [ ] Integrate AI model orchestrator (Azure OpenAI primary, AWS Bedrock fallback) with prompt templates.
 - [ ] Implement therapist data management APIs (list/get, filtering, admin imports, i18n support).
 - [ ] Develop summary generation pipeline (daily & weekly) with scheduled workers and storage integration.

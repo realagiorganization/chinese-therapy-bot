@@ -1,5 +1,6 @@
 from datetime import datetime
 from typing import Optional
+from uuid import UUID
 
 from pydantic import BaseModel, Field
 
@@ -11,8 +12,10 @@ class ChatMessage(BaseModel):
 
 
 class ChatRequest(BaseModel):
-    session_id: Optional[str] = Field(
-        default=None, description="Existing session identifier or null for new session."
+    user_id: UUID = Field(..., description="Identifier of the user engaged in the session.")
+    session_id: Optional[UUID] = Field(
+        default=None,
+        description="Existing session identifier or null for a new session.",
     )
     message: str = Field(..., description="User input text.")
     locale: str = Field(default="zh-CN", description="Preferred localization code.")
@@ -22,7 +25,7 @@ class ChatRequest(BaseModel):
 
 
 class ChatResponse(BaseModel):
-    session_id: str
+    session_id: UUID
     reply: ChatMessage
     recommended_therapist_ids: list[str] = Field(
         default_factory=list,

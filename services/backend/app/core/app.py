@@ -3,6 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.router import api_router
 from app.core.config import get_settings
+from app.core.database import init_database
 
 
 def create_app() -> FastAPI:
@@ -23,6 +24,11 @@ def create_app() -> FastAPI:
     )
 
     app.include_router(api_router, prefix="/api")
+
+    @app.on_event("startup")
+    async def _startup() -> None:
+        if settings.database_url:
+            await init_database()
 
     @app.get("/", tags=["health"])
     async def root() -> dict[str, str]:

@@ -18,8 +18,14 @@ class AppSettings(BaseSettings):
     )
 
     openai_api_key: Optional[SecretStr] = Field(default=None, alias="OPENAI_API_KEY")
+    azure_openai_endpoint: Optional[str] = Field(default=None, alias="AZURE_OPENAI_ENDPOINT")
+    azure_openai_api_key: Optional[SecretStr] = Field(default=None, alias="AZURE_OPENAI_API_KEY")
+    azure_openai_deployment: Optional[str] = Field(default=None, alias="AZURE_OPENAI_DEPLOYMENT")
+    azure_openai_api_version: Optional[str] = Field(default=None, alias="AZURE_OPENAI_API_VERSION")
     database_url: Optional[str] = Field(default=None, alias="DATABASE_URL")
     aws_region: Optional[str] = Field(default=None, alias="AWS_REGION")
+    aws_access_key_id: Optional[SecretStr] = Field(default=None, alias="AWS_ACCESS_KEY_ID")
+    aws_secret_access_key: Optional[SecretStr] = Field(default=None, alias="AWS_SECRET_ACCESS_KEY")
     s3_conversation_logs_bucket: Optional[str] = Field(
         default=None, alias="S3_CONVERSATION_LOGS_BUCKET"
     )
@@ -27,6 +33,29 @@ class AppSettings(BaseSettings):
         default=None, alias="S3_SUMMARIES_BUCKET"
     )
     s3_media_bucket: Optional[str] = Field(default=None, alias="S3_MEDIA_BUCKET")
+    therapist_data_s3_prefix: Optional[str] = Field(
+        default=None, alias="THERAPIST_DATA_S3_PREFIX"
+    )
+    bedrock_region: Optional[str] = Field(default=None, alias="BEDROCK_REGION")
+    bedrock_model_id: Optional[str] = Field(default=None, alias="BEDROCK_MODEL_ID")
+    sms_provider_api_key: Optional[SecretStr] = Field(
+        default=None, alias="SMS_PROVIDER_API_KEY"
+    )
+    google_oauth_client_id: Optional[str] = Field(
+        default=None, alias="GOOGLE_OAUTH_CLIENT_ID"
+    )
+    google_oauth_client_secret: Optional[SecretStr] = Field(
+        default=None, alias="GOOGLE_OAUTH_CLIENT_SECRET"
+    )
+    tts_service_api_key: Optional[SecretStr] = Field(
+        default=None, alias="TTS_SERVICE_API_KEY"
+    )
+    asr_service_api_key: Optional[SecretStr] = Field(
+        default=None, alias="ASR_SERVICE_API_KEY"
+    )
+    wechat_app_id: Optional[str] = Field(default=None, alias="WECHAT_APP_ID")
+    token_refresh_ttl: Optional[int] = Field(default=None, alias="TOKEN_REFRESH_TTL")
+    feature_flags: Optional[str] = Field(default=None, alias="FEATURE_FLAGS")
 
     class Config:
         env_file = ".env"

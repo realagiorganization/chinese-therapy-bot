@@ -1,0 +1,190 @@
+from __future__ import annotations
+
+import uuid
+from datetime import date, datetime
+
+from sqlalchemy import (
+    Boolean,
+    Date,
+    DateTime,
+    Float,
+    ForeignKey,
+    Index,
+    Integer,
+    String,
+    Text,
+    UniqueConstraint,
+)
+from sqlalchemy.dialects.postgresql import ARRAY, UUID
+from sqlalchemy.orm import Mapped, mapped_column, relationship
+
+from app.models.base import Base
+
+
+class User(Base):
+    """End-user interacting with the therapy chatbot."""
+
+    __tablename__ = "users"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
+    external_id: Mapped[str | None] = mapped_column(
+        String(64), nullable=True, unique=True, doc="External identity provider ID."
+    )
+    phone_number: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    email: Mapped[str | None] = mapped_column(String(254), nullable=True)
+    display_name: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    locale: Mapped[str] = mapped_column(String(16), default="zh-CN")
+    timezone: Mapped[str] = mapped_column(String(40), default="Asia/Shanghai")
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=datetime.utcnow
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=datetime.utcnow, onupdate=datetime.utcnow
+    )
+
+    sessions: Mapped[list[ChatSession]] = relationship(
+        back_populates="user", cascade="all, delete-orphan"
+    )
+
+
+class Therapist(Base):
+    """Licensed therapist metadata surfaced to the user."""
+
+    __tablename__ = "therapists"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
+    slug: Mapped[str] = mapped_column(String(64), unique=True)
+    name: Mapped[str] = mapped_column(String(120))
+    title: Mapped[str] = mapped_column(String(120))
+    specialties: Mapped[list[str]] = mapped_column(ARRAY(String), default=list)
+    languages: Mapped[list[str]] = mapped_column(ARRAY(String), default=list)
+    price_per_session: Mapped[float | None] = mapped_column(Float, nullable=True)
+    currency: Mapped[str] = mapped_column(String(8), default="CNY")
+    biography: Mapped[str | None] = mapped_column(Text, nullable=True)
+    is_recommended: Mapped[bool] = mapped_column(Boolean, default=False)
+    profile_image_url: Mapped[str | None] = mapped_column(String(512), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=datetime.utcnow
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=datetime.utcnow, onupdate=datetime.utcnow
+    )
+
+    sessions: Mapped[list[ChatSession]] = relationship(back_populates="therapist")
+
+
+class ChatSession(Base):
+    """Conversation session between user and chatbot."""
+
+    __tablename__ = "chat_sessions"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="cascade"), nullable=False
+    )
+    therapist_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("therapists.id", ondelete="set null"), nullable=True
+    )
+    session_state: Mapped[str] = mapped_column(String(32), default="active")
+    started_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=datetime.utcnow
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=datetime.utcnow, onupdate=datetime.utcnow
+    )
+
+    user: Mapped[User] = relationship(back_populates="sessions")
+    therapist: Mapped[Therapist | None] = relationship(back_populates="sessions")
+    messages: Mapped[list[ChatMessage]] = relationship(
+        back_populates="session", cascade="all, delete-orphan", order_by="ChatMessage.created_at"
+    )
+
+    __table_args__ = (
+        Index("ix_chat_sessions_user", "user_id", postgresql_using="btree"),
+    )
+
+
+class ChatMessage(Base):
+    """Individual messages exchanged in a chat session."""
+
+    __tablename__ = "chat_messages"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
+    session_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("chat_sessions.id", ondelete="cascade"),
+        nullable=False,
+    )
+    role: Mapped[str] = mapped_column(String(16))
+    content: Mapped[str] = mapped_column(Text)
+    sequence_index: Mapped[int] = mapped_column(Integer)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=datetime.utcnow
+    )
+
+    session: Mapped[ChatSession] = relationship(back_populates="messages")
+
+    __table_args__ = (
+        Index("ix_chat_messages_session_idx", "session_id", "sequence_index"),
+    )
+
+
+class DailySummary(Base):
+    """Daily reflection generated by summary agents."""
+
+    __tablename__ = "daily_summaries"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="cascade"), nullable=False
+    )
+    summary_date: Mapped[date] = mapped_column(Date, nullable=False)
+    title: Mapped[str] = mapped_column(String(200))
+    spotlight: Mapped[str] = mapped_column(String(280))
+    summary: Mapped[str] = mapped_column(Text)
+    mood_delta: Mapped[int] = mapped_column(Integer, default=0)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=datetime.utcnow
+    )
+
+    __table_args__ = (
+        UniqueConstraint("user_id", "summary_date", name="uq_daily_summary_day"),
+        Index("ix_daily_summaries_user", "user_id"),
+    )
+
+
+class WeeklySummary(Base):
+    """Weekly compilation of therapy journey insights."""
+
+    __tablename__ = "weekly_summaries"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="cascade"), nullable=False
+    )
+    week_start: Mapped[date] = mapped_column(Date, nullable=False)
+    themes: Mapped[list[str]] = mapped_column(ARRAY(String), default=list)
+    highlights: Mapped[str] = mapped_column(Text)
+    action_items: Mapped[list[str]] = mapped_column(ARRAY(String), default=list)
+    risk_level: Mapped[str] = mapped_column(String(16), default="low")
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=datetime.utcnow
+    )
+
+    __table_args__ = (
+        UniqueConstraint("user_id", "week_start", name="uq_weekly_summary_week"),
+        Index("ix_weekly_summaries_user", "user_id"),
+    )
+
