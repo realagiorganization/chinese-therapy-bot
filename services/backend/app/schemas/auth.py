@@ -17,6 +17,7 @@ class SMSLoginRequest(BaseModel):
 
 class LoginChallengeResponse(BaseModel):
     channel: AuthProvider
+    challenge_id: str = Field(..., description="Identifier required for completing the login flow.")
     expires_in: int = Field(..., description="Seconds until the current challenge expires.")
     detail: str = Field(..., description="Human-readable status for product analytics.")
 
@@ -24,8 +25,25 @@ class LoginChallengeResponse(BaseModel):
 class TokenExchangeRequest(BaseModel):
     provider: AuthProvider
     code: str = Field(..., description="Verification code or OAuth authorization code.")
+    challenge_id: Optional[str] = Field(
+        default=None,
+        description="Challenge identifier (required for SMS OTP verification).",
+    )
     redirect_uri: Optional[str] = None
     session_id: Optional[str] = None
+
+
+class TokenRefreshRequest(BaseModel):
+    refresh_token: str = Field(..., description="Previously issued refresh token.")
+    session_id: Optional[str] = Field(
+        default=None, description="Optional session identifier for auditing."
+    )
+    user_agent: Optional[str] = Field(
+        default=None, description="Client user agent string used for telemetry."
+    )
+    ip_address: Optional[str] = Field(
+        default=None, description="Caller IP address recorded for fraud detection."
+    )
 
 
 class TokenResponse(BaseModel):

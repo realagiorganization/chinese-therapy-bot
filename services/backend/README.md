@@ -37,10 +37,22 @@ Application settings are defined in `app/core/config.py` using `pydantic-setting
 - `DATABASE_URL`
 - `AWS_REGION`
 - `S3_SUMMARIES_BUCKET`
+- `S3_BUCKET_THERAPISTS`
 
 ## Next Steps
 
-- Flesh out persistence models in `app/models` backed by SQLAlchemy.
-- Connect authentication routes to SMS OTP and Google OAuth providers.
-- Implement streaming chat orchestration that bridges Azure OpenAI and AWS Bedrock.
-- Wire background tasks for summary generation and therapist data sync.
+- Connect OTP delivery to production SMS providers and replace the Console stub.
+- Integrate real Google OAuth exchanges and persist profile metadata securely.
+- Harden summary and chat pipelines with structured logging, metrics, and retries.
+- Expand automated tests across auth/chat/summaries and wire them into CI Runner.
+
+## Therapist Directory Import
+
+- `TherapistService` supports importing normalized therapist profiles from an S3-compatible bucket via the `/api/therapists/admin/import` endpoint.
+- Configure `S3_BUCKET_THERAPISTS` and (optionally) `THERAPIST_DATA_S3_PREFIX` so the Data Sync Agent can publish localized JSON payloads that the backend ingests.
+- Use the `dry_run` flag on the import endpoint to preview changes before committing updates to the Postgres store.
+
+## Summary Scheduler Agent
+
+- `SummaryGenerationService` (see `app/services/summaries.py`) aggregates recent chat transcripts, calls the LLM orchestrator for structured JSON, and stores daily/weekly summaries in Postgres plus `S3_SUMMARIES_BUCKET`.
+- Use the CLI entry point `mindwell-summary-scheduler [daily|weekly|both] --date YYYY-MM-DD` to run schedules or backfill summaries. The command bootstraps the database schema automatically before processing.

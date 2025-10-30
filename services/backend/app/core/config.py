@@ -17,6 +17,13 @@ class AppSettings(BaseSettings):
         default_factory=lambda: ["*"], alias="CORS_ALLOW_ORIGINS"
     )
 
+    jwt_secret_key: Optional[SecretStr] = Field(default=None, alias="JWT_SECRET_KEY")
+    jwt_algorithm: str = Field(default="HS256", alias="JWT_ALGORITHM")
+    access_token_ttl: int = Field(default=3600, alias="ACCESS_TOKEN_TTL")
+    refresh_token_ttl: int = Field(default=60 * 60 * 24 * 30, alias="REFRESH_TOKEN_TTL")
+    otp_expiry_seconds: int = Field(default=300, alias="OTP_EXPIRY_SECONDS")
+    otp_attempt_limit: int = Field(default=5, alias="OTP_ATTEMPT_LIMIT")
+
     openai_api_key: Optional[SecretStr] = Field(default=None, alias="OPENAI_API_KEY")
     azure_openai_endpoint: Optional[str] = Field(default=None, alias="AZURE_OPENAI_ENDPOINT")
     azure_openai_api_key: Optional[SecretStr] = Field(default=None, alias="AZURE_OPENAI_API_KEY")
@@ -32,6 +39,12 @@ class AppSettings(BaseSettings):
     s3_summaries_bucket: Optional[str] = Field(
         default=None, alias="S3_SUMMARIES_BUCKET"
     )
+    s3_therapists_bucket: Optional[str] = Field(
+        default=None, alias="S3_BUCKET_THERAPISTS"
+    )
+    s3_conversation_logs_prefix: Optional[str] = Field(
+        default="conversations/", alias="S3_CONVERSATION_LOGS_PREFIX"
+    )
     s3_media_bucket: Optional[str] = Field(default=None, alias="S3_MEDIA_BUCKET")
     therapist_data_s3_prefix: Optional[str] = Field(
         default=None, alias="THERAPIST_DATA_S3_PREFIX"
@@ -41,11 +54,15 @@ class AppSettings(BaseSettings):
     sms_provider_api_key: Optional[SecretStr] = Field(
         default=None, alias="SMS_PROVIDER_API_KEY"
     )
+    sms_sender_id: Optional[str] = Field(default=None, alias="SMS_SENDER_ID")
     google_oauth_client_id: Optional[str] = Field(
         default=None, alias="GOOGLE_OAUTH_CLIENT_ID"
     )
     google_oauth_client_secret: Optional[SecretStr] = Field(
         default=None, alias="GOOGLE_OAUTH_CLIENT_SECRET"
+    )
+    google_oauth_redirect_uri: Optional[str] = Field(
+        default=None, alias="GOOGLE_OAUTH_REDIRECT_URI"
     )
     tts_service_api_key: Optional[SecretStr] = Field(
         default=None, alias="TTS_SERVICE_API_KEY"

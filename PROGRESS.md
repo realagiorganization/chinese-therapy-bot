@@ -23,12 +23,15 @@
 - [x] Scaffold backend service (FastAPI) with modular architecture. *(see `docs/phase3_backend_scaffold.md` & `services/backend/`)*
 - [x] Define SQLAlchemy persistence layer covering users, therapists, chat sessions/messages, and summary tables.
 - [x] Integrate async database access for chat, therapist directory, and reports services with graceful seed fallbacks.
-- [ ] Implement authentication service supporting SMS, Google OAuth, and token renewal endpoints.
-- [ ] Build chat service for message ingestion, streaming responses, and persistence to database/S3. *(database persistence complete; streaming + S3 storage pending.)*
-- [ ] Integrate AI model orchestrator (Azure OpenAI primary, AWS Bedrock fallback) with prompt templates.
-- [ ] Implement therapist data management APIs (list/get, filtering, admin imports, i18n support).
-- [ ] Develop summary generation pipeline (daily & weekly) with scheduled workers and storage integration.
-- [ ] Expose journey report APIs delivering recent summaries and chat history slices.
+- [x] Implement SMS OTP challenge persistence with expiration, throttling, and SMS provider abstraction.
+- [x] Implement token issuance with JWT access/refresh tokens, rotation, and token renewal endpoint.
+- [x] Integrate Google OAuth code verification stub and user identity linking.
+- [x] Build chat service for message ingestion, streaming responses, and persistence to database/S3. *(FastAPI endpoint now supports SSE streaming with transcript archival.)*
+- [x] Integrate AI model orchestrator (Azure OpenAI primary, AWS Bedrock fallback) with prompt templates.
+- [x] Persist chat transcripts and metadata to AWS S3 conversation logs bucket.
+- [x] Implement therapist data management APIs (list/get, filtering, admin imports, i18n support). *(FastAPI service now supports locale-aware responses and S3-backed imports via `/api/therapists/admin/import`.)*
+- [x] Develop summary generation pipeline (daily & weekly) with scheduled workers and storage integration. *(see `services/backend/app/services/summaries.py` & `app/agents/summary_scheduler.py`)*
+- [x] Expose journey report APIs delivering recent summaries and chat history slices. *(Journey endpoint returns daily/weekly digests plus recent conversation slices via `ReportsService`.)*
 - [ ] Add feature flags/configuration service to toggle experimental capabilities.
 
 ## Phase 4 – Frontend & Mobile Clients

@@ -3,6 +3,8 @@ from __future__ import annotations
 import uuid
 from datetime import date, datetime
 
+from typing import Any
+
 from sqlalchemy import (
     Boolean,
     Date,
@@ -11,6 +13,7 @@ from sqlalchemy import (
     ForeignKey,
     Index,
     Integer,
+    JSON,
     String,
     Text,
     UniqueConstraint,
@@ -47,6 +50,15 @@ class User(Base):
     sessions: Mapped[list[ChatSession]] = relationship(
         back_populates="user", cascade="all, delete-orphan"
     )
+    tokens: Mapped[list["RefreshToken"]] = relationship(
+        back_populates="user", cascade="all, delete-orphan"
+    )
+
+    __table_args__ = (
+        UniqueConstraint("phone_number", name="uq_users_phone"),
+        UniqueConstraint("email", name="uq_users_email"),
+        Index("ix_users_external_id", "external_id"),
+    )
 
 
 class Therapist(Base):
@@ -67,6 +79,7 @@ class Therapist(Base):
     biography: Mapped[str | None] = mapped_column(Text, nullable=True)
     is_recommended: Mapped[bool] = mapped_column(Boolean, default=False)
     profile_image_url: Mapped[str | None] = mapped_column(String(512), nullable=True)
+    availability: Mapped[list[str]] = mapped_column(ARRAY(String), default=list)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=datetime.utcnow
     )
@@ -75,6 +88,9 @@ class Therapist(Base):
     )
 
     sessions: Mapped[list[ChatSession]] = relationship(back_populates="therapist")
+    localizations: Mapped[list["TherapistLocalization"]] = relationship(
+        back_populates="therapist", cascade="all, delete-orphan"
+    )
 
 
 class ChatSession(Base):
@@ -188,3 +204,81 @@ class WeeklySummary(Base):
         Index("ix_weekly_summaries_user", "user_id"),
     )
 
+
+class LoginChallenge(Base):
+    """Authentication challenge for SMS OTP or third-party flows."""
+
+    __tablename__ = "login_challenges"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
+    user_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="set null"), nullable=True
+    )
+    provider: Mapped[str] = mapped_column(String(32))
+    phone_number: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    code_hash: Mapped[str] = mapped_column(String(128))
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    attempts: Mapped[int] = mapped_column(Integer, default=0)
+    max_attempts: Mapped[int] = mapped_column(Integer, default=5)
+    payload: Mapped[dict[str, Any] | None] = mapped_column(JSON, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=datetime.utcnow
+    )
+    verified_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+    user: Mapped[User | None] = relationship("User")
+
+    __table_args__ = (
+        Index("ix_login_challenges_phone", "phone_number"),
+        Index("ix_login_challenges_provider", "provider"),
+    )
+
+
+class RefreshToken(Base):
+    """Refresh token registry enabling rotation and revocation."""
+
+    __tablename__ = "refresh_tokens"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="cascade"), nullable=False
+    )
+    token_hash: Mapped[str] = mapped_column(String(128), unique=True)
+    issued_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=datetime.utcnow
+    )
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    user_agent: Mapped[str | None] = mapped_column(String(256), nullable=True)
+    ip_address: Mapped[str | None] = mapped_column(String(64), nullable=True)
+
+    user: Mapped[User] = relationship(back_populates="tokens")
+
+    __table_args__ = (
+        Index("ix_refresh_tokens_user", "user_id"),
+    )
+
+
+class TherapistLocalization(Base):
+    """Localized therapist profile values."""
+
+    __tablename__ = "therapist_localizations"
+
+    therapist_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("therapists.id", ondelete="cascade"),
+        primary_key=True,
+    )
+    locale: Mapped[str] = mapped_column(String(16), primary_key=True)
+    title: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    biography: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+    therapist: Mapped[Therapist] = relationship(back_populates="localizations")
+
+    __table_args__ = (
+        Index("ix_therapist_localizations_locale", "locale"),
+    )

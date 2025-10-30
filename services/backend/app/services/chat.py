@@ -1,45 +1,97 @@
 from __future__ import annotations
 
+from collections.abc import AsyncIterator
 from uuid import UUID
+from typing import Any
 
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.schemas.chat import ChatRequest, ChatResponse, ChatMessage
+from app.integrations.llm import ChatOrchestrator
+from app.integrations.storage import ChatTranscriptStorage
 from app.models import ChatMessage as ChatMessageModel
 from app.models import ChatSession, Therapist, User
+from app.schemas.chat import ChatMessage, ChatRequest, ChatResponse
 
 
 class ChatService:
-    """Chat orchestration coordinating persistence and recommendation stubs."""
+    """Chat orchestration coordinating persistence, LLM responses, and transcript storage."""
 
-    def __init__(self, session: AsyncSession):
+    def __init__(
+        self,
+        session: AsyncSession,
+        orchestrator: ChatOrchestrator,
+        storage: ChatTranscriptStorage,
+    ):
         self._session = session
+        self._orchestrator = orchestrator
+        self._storage = storage
 
     async def process_turn(self, payload: ChatRequest) -> ChatResponse:
-        user = await self._get_or_create_user(payload.user_id)
-        chat_session = await self._get_or_create_session(user, payload.session_id)
-
-        await self._append_message(
-            chat_session,
-            role="user",
-            content=payload.message,
+        context = await self._prepare_turn(payload)
+        reply_text = await self._orchestrator.generate_reply(
+            context["history"], language=payload.locale
         )
 
-        reply_text = self._generate_placeholder_response(payload.message)
-        therapist_recs = await self._recommend_therapists(payload.message)
-
         assistant_message = await self._append_message(
-            chat_session,
+            context["chat_session"],
             role="assistant",
             content=reply_text,
         )
 
+        await self._persist_transcript(context["chat_session"], context["user"].id)
+
         return ChatResponse(
-            session_id=chat_session.id,
+            session_id=context["chat_session"].id,
             reply=ChatMessage.model_validate(assistant_message),
-            recommended_therapist_ids=[str(therapist.id) for therapist in therapist_recs],
+            recommended_therapist_ids=context["recommended_ids"],
         )
+
+    async def stream_turn(self, payload: ChatRequest) -> AsyncIterator[dict[str, Any]]:
+        context = await self._prepare_turn(payload)
+
+        yield {
+            "event": "session_established",
+            "data": {
+                "session_id": str(context["chat_session"].id),
+                "recommended_therapist_ids": context["recommended_ids"],
+            },
+        }
+
+        reply_fragments: list[str] = []
+        async for delta in self._orchestrator.stream_reply(
+            context["history"], language=payload.locale
+        ):
+            if not delta:
+                continue
+            reply_fragments.append(delta)
+            yield {
+                "event": "token",
+                "data": {"delta": delta},
+            }
+
+        reply_text = "".join(reply_fragments).strip()
+        if not reply_text:
+            reply_text = await self._orchestrator.generate_reply(
+                context["history"], language=payload.locale
+            )
+
+        assistant_message = await self._append_message(
+            context["chat_session"],
+            role="assistant",
+            content=reply_text,
+        )
+
+        await self._persist_transcript(context["chat_session"], context["user"].id)
+
+        yield {
+            "event": "complete",
+            "data": {
+                "session_id": str(context["chat_session"].id),
+                "message": ChatMessage.model_validate(assistant_message).model_dump(),
+                "recommended_therapist_ids": context["recommended_ids"],
+            },
+        }
 
     async def _get_or_create_user(self, user_id: UUID) -> User:
         user = await self._session.get(User, user_id)
@@ -84,6 +136,48 @@ class ChatService:
             created_at=record.created_at,
         )
 
+    async def _prepare_turn(self, payload: ChatRequest) -> dict[str, Any]:
+        user = await self._get_or_create_user(payload.user_id)
+        chat_session = await self._get_or_create_session(user, payload.session_id)
+        await self._append_message(chat_session, role="user", content=payload.message)
+
+        history = await self._load_history(chat_session.id)
+        therapist_recs = await self._recommend_therapists(payload.message)
+        recommended_ids = [str(therapist.id) for therapist in therapist_recs]
+
+        return {
+            "user": user,
+            "chat_session": chat_session,
+            "history": history,
+            "therapist_recs": therapist_recs,
+            "recommended_ids": recommended_ids,
+        }
+
+    async def _persist_transcript(self, chat_session: ChatSession, user_id: UUID) -> None:
+        history = await self._load_history(chat_session.id)
+        await self._storage.persist_transcript(
+            session_id=chat_session.id,
+            user_id=user_id,
+            messages=history,
+        )
+
+    async def _load_history(self, session_id: UUID) -> list[dict[str, str]]:
+        stmt = (
+            select(ChatMessageModel)
+            .where(ChatMessageModel.session_id == session_id)
+            .order_by(ChatMessageModel.sequence_index.asc())
+        )
+        result = await self._session.execute(stmt)
+        messages = result.scalars().all()
+        return [
+            {
+                "role": message.role,
+                "content": message.content,
+                "created_at": message.created_at.isoformat(),
+            }
+            for message in messages
+        ]
+
     async def _next_sequence_index(self, session_id: UUID) -> int:
         stmt = (
             select(func.max(ChatMessageModel.sequence_index))
@@ -122,12 +216,3 @@ class ChatService:
             if matched_topics.intersection(set(therapist.specialties or []))
         ]
         return therapists[:3]
-
-    def _generate_placeholder_response(self, message: str) -> str:
-        if "焦虑" in message:
-            return "我注意到你提到了焦虑。试着进行三分钟的深呼吸练习，并记录触发焦虑的情境。"
-        if "睡" in message or "失眠" in message:
-            return "保持规律的睡前仪式会有所帮助，比如泡脚或听轻音乐。我们可以一起记录这一周的睡眠状况。"
-        if "压力" in message:
-            return "当压力累积时，适度的身体活动和碎片化休息很重要。可以尝试番茄钟安排一天的节奏。"
-        return "我在这里陪伴你。可以告诉我今天最想分享的事情，我们一起找出可以改善的方向。"

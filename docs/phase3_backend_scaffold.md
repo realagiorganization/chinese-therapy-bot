@@ -30,10 +30,15 @@ services/backend/
 | `/api/healthz` | GET | Liveness probe. |
 | `/api/auth/sms` | POST | Initiates SMS OTP flow (stubbed response). |
 | `/api/auth/token` | POST | Exchanges OTP/OAuth code for tokens (fake tokens). |
-| `/api/chat/message` | POST | Processes a chat turn, returning placeholder assistant reply. |
+| `/api/chat/message` | POST | Processes a chat turn; streams assistant tokens via SSE when `enable_streaming` is true, otherwise returns the full reply payload. |
 | `/api/therapists/` | GET | Lists therapists with filters, backed by static seed data. |
 | `/api/therapists/{id}` | GET | Returns therapist detail payload. |
-| `/api/reports/{userId}` | GET | Emits example daily/weekly journey reports. |
+| `/api/reports/{userId}` | GET | Returns latest daily/weekly journey reports plus recent conversation slices for context. |
+
+### 3.1 Streaming Response Contract
+- The chat endpoint emits **Server-Sent Events (SSE)** when `enable_streaming=true` in the request body.
+- Event order: `session_established` (session metadata + therapist IDs) → repeated `token` events (delta text) → terminal `complete` event with the persisted assistant message.
+- Clients that prefer non-streaming behaviour can set `enable_streaming=false` and receive the legacy JSON `ChatResponse`.
 
 ## 4. Environment & Configuration
 - Settings managed via `AppSettings` in `app/core/config.py`.
@@ -47,3 +52,28 @@ services/backend/
 4. Replace in-memory therapist data with repository pattern backed by Postgres + S3-sourced i18n profiles.
 5. Schedule background tasks for Summary Scheduler and Data Sync agents via Celery, Redis, or Azure Container Apps jobs.
 6. Expand automated tests around auth, chat, and reports flows; wire into CI Runner agent pipeline.
+
+## 6. Therapist Data Management
+
+- `TherapistService` now incorporates locale-aware lookups, enriched availability metadata, and a persistence model for localized profiles.
+- `/api/therapists/admin/import` enables administrators or automation agents to ingest normalized therapist JSON payloads from `S3_BUCKET_THERAPISTS`, honoring `THERAPIST_DATA_S3_PREFIX` and optional locale filters.
+- The service can run in dry-run mode to preview changes without mutating the database, returning counts of created, updated, and unchanged records.
+
+## 7. Summary Generation Pipeline
+
+- `SummaryGenerationService` collates recent chat transcripts, calls the AI orchestrator for JSON-formatted daily/weekly digests, and persists results to Postgres plus the `S3_SUMMARIES_BUCKET`.
+- Keyword-driven heuristics provide resilient fallbacks when LLM providers are unavailable, ensuring the Summary Scheduler Agent still produces output.
+- The CLI entry point `mindwell-summary-scheduler` (see `app/agents/summary_scheduler.py`) powers automation jobs:
+
+```bash
+# Generate daily summaries for today
+mindwell-summary-scheduler
+
+# Generate both daily and weekly summaries anchored to a specific date
+mindwell-summary-scheduler both --date 2025-01-15
+```
+
+## 8. Journey Reports API
+
+- `ReportsService` queries stored summaries and recent chat sessions (up to 3 sessions × 20 messages) to surface contextual conversation slices alongside daily and weekly aggregates.
+- `/api/reports/{userId}` now returns `conversations` in addition to `daily` and `weekly` payloads, enabling Journey surfaces to render recency-aware chat excerpts.

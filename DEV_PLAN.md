@@ -70,10 +70,10 @@
 
 - Persistent conversation storage
   - Real-time chat logging ⌛️
-  - Daily chat snapshot storage ⌛️
+  - Daily chat snapshot storage ✅ *(persisted to S3 via ChatTranscriptStorage)*
 - Summary generation
-  - Daily summaries
-  - Weekly summaries
+  - Daily summaries ✅ *(pipeline implemented via Summary Scheduler Agent)*
+  - Weekly summaries ✅ *(weekly aggregation + storage complete)*
 
 #### **Model Integration**
 
