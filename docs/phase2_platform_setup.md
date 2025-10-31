@@ -23,8 +23,10 @@ This document records the baseline infrastructure design for Phase 2 of the Mind
 
 ## 4. Observability & Cost Guardrails
 - **Log Analytics Workspace** – Central ingestion point for AKS, agents, and custom app logs (30-day retention default, configurable).
-- **Azure Dashboard** – Terraform-rendered dashboard visualizes API server traffic and node CPU trending for the selected environment.
-- **Metric Alert** – AKS node CPU alert paged to on-call action group (email + SMS). Additional rules can reuse the same action group.
+- **Application Insights** – Workspace-based component enables distributed tracing, request/failure metrics, and dependency insights for FastAPI services.
+- **Azure Dashboard** – Terraform-rendered dashboard surfaces environment metadata plus App Insights request/failure charts for quick triage.
+- **Metric Alerts** – AKS node CPU alert and AppTraces error-rate scheduled query route to the shared on-call action group (email + SMS).
+- **Cost Budget** – Subscription-level monthly budget with 80% and 95% thresholds notifying the platform + finance distro.
 
 ## 5. Deployment Workflow Alignment
 - Terraform can be executed locally or via GitHub Actions runners with OIDC federation.
@@ -35,6 +37,11 @@ This document records the baseline infrastructure design for Phase 2 of the Mind
 - Apply operations have **not** been run yet; cloud resources remain to be provisioned.
 - Production-grade setup will introduce additional node pools (GPU/inference) and dedicated subnets for private endpoints (OpenAI, Redis, etc.).
 - AWS IAM access patterns for Data Sync/Summary Scheduler agents will be expanded when their execution environments are finalized.
-- Observability dashboards currently focus on infrastructure; app-level SLO dashboards (latency, error rate, cost) will follow after service deployment.
-- Azure Cost Management alerts require an enterprise agreement scope; placeholders will be added after subscription details are confirmed.
+- Observability dashboards currently focus on infrastructure; deep-dive workbooks (latency percentiles, conversation-level KPIs) will follow after service deployment.
+- Cost budget thresholds assume USD billing; revisit amounts when accurate Azure pricing projections are finalized.
 
+## 7. Terraform Implementation Snapshot
+- **Source:** `infra/terraform/`
+- **Key Files:** `azure_core.tf`, `azure_aks.tf`, `azure_postgres.tf`, `azure_keyvault.tf`, `aws_storage.tf`, `observability.tf`, `secrets.tf`.
+- **Highlights:** AKS workload identity enabled; PostgreSQL admin password seeded to Key Vault; three S3 buckets with encryption/versioning; CI Runner Agent IAM role; App Insights + AKS CPU & error alerts; Azure Portal dashboard and cost budget notifications.
+- **Next Steps:** Wire Terraform remote state, add database migration module, and extend monitoring dashboards (Grafana/Workbook) once application metrics are defined.

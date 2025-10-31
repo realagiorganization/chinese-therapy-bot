@@ -17,6 +17,7 @@ from sqlalchemy import (
     String,
     Text,
     UniqueConstraint,
+    CheckConstraint,
 )
 from sqlalchemy.dialects.postgresql import ARRAY, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -205,6 +206,37 @@ class WeeklySummary(Base):
     )
 
 
+class ConversationMemory(Base):
+    """Long-lived conversation memory slices derived from user messages."""
+
+    __tablename__ = "conversation_memories"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="cascade"), nullable=False
+    )
+    session_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("chat_sessions.id", ondelete="set null"), nullable=True
+    )
+    keywords: Mapped[list[str]] = mapped_column(ARRAY(String), default=list)
+    summary: Mapped[str] = mapped_column(Text)
+    last_message_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=datetime.utcnow
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=datetime.utcnow, onupdate=datetime.utcnow
+    )
+
+    __table_args__ = (
+        UniqueConstraint("session_id", name="uq_conversation_memory_session"),
+        Index("ix_conversation_memories_user", "user_id"),
+        Index("ix_conversation_memories_keywords", "keywords", postgresql_using="gin"),
+    )
+
+
 class LoginChallenge(Base):
     """Authentication challenge for SMS OTP or third-party flows."""
 
@@ -260,6 +292,30 @@ class RefreshToken(Base):
 
     __table_args__ = (
         Index("ix_refresh_tokens_user", "user_id"),
+    )
+
+
+class FeatureFlag(Base):
+    """Runtime-configurable feature switches."""
+
+    __tablename__ = "feature_flags"
+
+    key: Mapped[str] = mapped_column(String(64), primary_key=True)
+    enabled: Mapped[bool] = mapped_column(Boolean, default=False)
+    description: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    rollout_percentage: Mapped[int] = mapped_column(Integer, default=100)
+    metadata_json: Mapped[dict[str, Any] | None] = mapped_column(
+        "metadata", JSON, nullable=True
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=datetime.utcnow, onupdate=datetime.utcnow
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=datetime.utcnow
+    )
+
+    __table_args__ = (
+        CheckConstraint("rollout_percentage >= 0 AND rollout_percentage <= 100", name="ck_feature_flags_rollout_range"),
     )
 
 

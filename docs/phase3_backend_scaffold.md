@@ -34,6 +34,7 @@ services/backend/
 | `/api/therapists/` | GET | Lists therapists with filters, backed by static seed data. |
 | `/api/therapists/{id}` | GET | Returns therapist detail payload. |
 | `/api/reports/{userId}` | GET | Returns latest daily/weekly journey reports plus recent conversation slices for context. |
+| `/api/memory/{userId}` | GET | Returns keyword-filtered conversation memories to power long-lived context. |
 
 ### 3.1 Streaming Response Contract
 - The chat endpoint emits **Server-Sent Events (SSE)** when `enable_streaming=true` in the request body.

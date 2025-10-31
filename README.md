@@ -8,6 +8,7 @@ MindWell is a Chinese-first digital therapy companion that pairs an empathetic c
 - **Authentication service** featuring persisted SMS OTP challenges, JWT access/refresh token rotation, and Google OAuth code exchange stubs.
 - **Chat orchestration** wired to Azure OpenAI (with AWS Bedrock fallback) and automatic transcript archiving to S3.
 - **Seed therapist directory** with database-backed lookups and graceful fallbacks.
+- **Conversation memory service** that distills keyword-triggered highlights and exposes them via `/api/memory/{userId}`.
 - **Terraform infrastructure stubs** (`infra/terraform`) targeting Azure AKS, Azure Postgres, and AWS S3/Bedrock integrations.
 - **Design and implementation roadmap** documented in `DEV_PLAN.md` and tracked via `PROGRESS.md`.
 
@@ -65,9 +66,13 @@ The API expects a Postgres database reachable via `DATABASE_URL` (e.g. `postgres
 - `POST /api/auth/token` – exchange OTP or Google authorization code for a JWT/refresh token pair.
 - `POST /api/auth/token/refresh` – rotate refresh tokens and mint a fresh access token.
 - `POST /api/chat/message` – persist a chat turn, generate an Azure OpenAI (or Bedrock/heuristic) response, archive the transcript to S3, and surface therapist suggestions.
+- `GET /api/features/` – inspect feature toggles (merged defaults + database overrides).
+- `PUT /api/features/{key}` – create or update a runtime feature switch with optional rollout percentage.
+- `POST /api/features/{key}/evaluate` – check if a subject should see an experimental capability.
 - `GET /api/therapists/` – list therapists with optional specialty/language/price filters (DB-backed with seed fallback).
 - `GET /api/therapists/{therapist_id}` – fetch therapist detail payload.
 - `GET /api/reports/{user_id}` – return the most recent daily and weekly summaries (DB-backed with illustrative fallback).
+- `GET /api/memory/{user_id}` – retrieve long-lived conversation memories filtered by tracked keywords.
 
 ### Authentication Flow
 1. **Request OTP** – `POST /api/auth/sms` with the user’s phone number. The server stores a challenge record (5 minute expiry, attempt limits) and logs the OTP through the console provider in development.
@@ -95,8 +100,8 @@ Reference `ENVS.md` for detailed descriptions. Production deployments must at le
 
 ## Current Status & Next Steps
 See `PROGRESS.md` for an up-to-date checklist. Immediate priorities include:
-1. Wiring real SMS and Google OAuth providers into the authentication flow.
-2. Connecting chat orchestration to Azure OpenAI with Bedrock fallback and transcript storage in S3.
-3. Building scheduled agents for daily/weekly summary generation backed by the new persistence layer.
+1. Executing the Phase 2 Terraform apply and wiring remote state for collaborative infrastructure management.
+2. Bootstrapping the shared design system and chat UI for the React Native/web clients (Phase 4).
+3. Extending intelligent agent capabilities with therapist recommendations and RAG context injection (Phase 5).
 
 Contributions should follow the staged plan—update `PROGRESS.md` and relevant docs as features move forward.

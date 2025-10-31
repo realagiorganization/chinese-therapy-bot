@@ -7,16 +7,21 @@ This directory holds infrastructure-as-code artifacts for provisioning MindWell'
 ```
 infra/
   terraform/
-    environments/
-      dev/
-        main.tf         # Azure + AWS resources for the dev environment
-        variables.tf    # Input variables for the dev stack
-        outputs.tf      # Useful outputs (AKS ID, Postgres FQDN, bucket names)
-        templates/
-          azure_dashboard.json.tftpl  # Observability dashboard definition
+    providers.tf        # Provider requirements for Azure + AWS
+    variables.tf        # Input variables (shared across environments)
+    locals.tf           # Naming helpers and default tags
+    azure_core.tf       # Resource group, virtual network, subnets, Log Analytics
+    azure_aks.tf        # AKS cluster + workload node pool + federated identity
+    azure_postgres.tf   # Azure Database for PostgreSQL Flexible Server
+    azure_keyvault.tf   # RBAC-enabled Key Vault with seeded secrets
+    aws_storage.tf      # Conversation logs / summaries / media buckets + IAM role
+    secrets.tf          # AWS Secrets Manager placeholders for agents
+    observability.tf    # Monitor action group and AKS CPU alert
+    outputs.tf          # Handy outputs for downstream automation
+    README.md           # Usage instructions and tfvars example
 ```
 
-Additional environments (`staging/`, `prod/`) can reuse the same module patterns with environment-specific variable files.
+Create environment-specific `*.tfvars` files at the root of `infra/terraform/` (e.g., `dev.tfvars`, `staging.tfvars`). Terraform workspaces or wrapper scripts can select the desired variable set during deployment.
 
 ## Usage
 
@@ -25,53 +30,41 @@ Additional environments (`staging/`, `prod/`) can reuse the same module patterns
 3. Initialize and plan:
 
 ```bash
-cd infra/terraform/environments/dev
+cd infra/terraform
 terraform init
-terraform plan -out plan.tfplan
+terraform plan -var-file=dev.tfvars -out dev.tfplan
 ```
 
 4. Apply once the plan is reviewed:
 
 ```bash
-terraform apply plan.tfplan
+terraform apply dev.tfplan
 ```
 
 ### Sample `terraform.tfvars`
 
 ```hcl
-project_name                   = "MindWell"
 environment                    = "dev"
 azure_subscription_id          = "00000000-0000-0000-0000-000000000000"
 azure_tenant_id                = "00000000-0000-0000-0000-000000000000"
 azure_location                 = "eastasia"
+aws_account_id                 = "111111111111"
 aws_region                     = "ap-northeast-1"
-aws_access_key                 = "REDACTED"
-aws_secret_key                 = "REDACTED"
-default_tags = {
-  owner        = "platform"
-  cost_center  = "mindwell-core"
-  project      = "mindwell"
+s3_logs_bucket_name            = "mindwell-dev-conversation-logs"
+s3_summaries_bucket_name       = "mindwell-dev-summaries"
+s3_media_bucket_name           = "mindwell-dev-media"
+aks_kubernetes_version         = "1.29.4"
+aks_system_node_count          = 2
+aks_workload_node_count        = 3
+key_vault_admin_object_ids     = ["22222222-2222-2222-2222-222222222222"]
+oidc_github_workload_client_id = "33333333-3333-3333-3333-333333333333"
+tags = {
+  owner       = "platform"
+  cost_center = "mindwell-core"
 }
-vnet_address_space             = ["10.20.0.0/16"]
-subnet_aks_system              = "10.20.0.0/24"
-subnet_aks_workload            = "10.20.1.0/24"
-subnet_postgres                = "10.20.2.0/24"
-oncall_email                   = "alerts@mindwell.health"
-oncall_country_code            = "86"
-oncall_phone                   = "13800000000"
-aks_version                    = "1.29.4"
-aks_service_cidr               = "10.21.0.0/16"
-aks_dns_service_ip             = "10.21.0.10"
-aks_docker_bridge_cidr         = "172.17.0.1/16"
-aks_admin_group_object_ids     = ["00000000-0000-0000-0000-000000000000"]
-postgres_sku_name              = "GP_Standard_D4s_v3"
-key_vault_admin_object_id      = "00000000-0000-0000-0000-000000000000"
-key_vault_allowed_ips          = ["123.123.123.123/32"]
-placeholder_openai_api_key     = "sk-REPLACE-ME"
 ```
 
 ### Notes
 - Enable an Azure Storage Account backend for Terraform state before multi-user usage.
 - Configure Azure Key Vault firewall rules to include GitHub Action runner egress IPs when running in CI.
-- Replace the placeholder OpenAI secret with a secure value or remove after CI secret sync is in place.
-
+- Populate secret values (OpenAI, SMS, Bedrock) via AWS Secrets Manager once credentials are provisioned.

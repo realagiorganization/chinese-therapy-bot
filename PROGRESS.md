@@ -4,7 +4,7 @@
 - [x] Review DEV_PLAN.md and existing documentation to align on scope and priorities.
 - [x] Define target architecture diagram covering frontend, backend, data, and AI services.
 - [x] Select primary cloud deployment target (default Azure AKS) and document rationale.
-- [x] Establish project repositories, branching strategy, and CI/CD workflow (GitHub Actions on EC2 runners).
+- [x] Establish project repositories, branching strategy, and CI/CD workflow (GitHub Actions on EC2 runners). *(CI pipeline codified in `.github/workflows/ci.yml` running backend tests & linting.)*
 
 ## Phase 1 – Core Product Design
 - [x] Document detailed user journeys for chatbot therapy sessions, therapist browsing, and progress tracking. *(see `docs/phase1_product_design.md`)*
@@ -13,11 +13,11 @@
 - [x] Define UX wireframes for chatbot, therapist showcase, Journey reports, and Explore page. *(see `docs/phase1_product_design.md`)*
 
 ## Phase 2 – Platform & Infrastructure Setup
-- [ ] Provision Azure AKS cluster, configure node pools, and set up cluster networking. *(Terraform definitions prepared; apply pending.)*
-- [ ] Configure AWS S3 buckets for conversation logs, summaries, and media assets with appropriate IAM roles. *(Buckets + IAM role codified in Terraform.)*
-- [ ] Set up managed database (Azure Postgres or AWS RDS) with schemas for users, therapists, sessions, and reports. *(Azure Flexible Server defined with private networking; migrations pending.)*
-- [ ] Implement secret management (Azure Key Vault + AWS Secrets Manager) and IaC templates (Terraform/Bicep). *(Key Vault + Secrets Manager configuration authored.)*
-- [ ] Configure observability stack (logging, metrics, alerts) and cost monitoring dashboards. *(Log Analytics, dashboard, and alert wiring added via Terraform.)*
+- [ ] Provision Azure AKS cluster, configure node pools, and set up cluster networking. *(Terraform definitions in `infra/terraform/azure_*.tf`; apply pending.)*
+- [ ] Configure AWS S3 buckets for conversation logs, summaries, and media assets with appropriate IAM roles. *(Buckets + IAM role codified in `infra/terraform/aws_storage.tf`.)*
+- [ ] Set up managed database (Azure Postgres or AWS RDS) with schemas for users, therapists, sessions, and reports. *(Azure Flexible Server defined with private networking in `infra/terraform/azure_postgres.tf`; migrations pending.)*
+- [ ] Implement secret management (Azure Key Vault + AWS Secrets Manager) and IaC templates (Terraform/Bicep). *(Key Vault and Secrets Manager placeholders authored in `infra/terraform/azure_keyvault.tf` & `secrets.tf`.)*
+- [x] Configure observability stack (logging, metrics, alerts) and cost monitoring dashboards. *(App Insights, AKS CPU + error alerts, Azure Portal dashboard, and cost budget alerts codified in `infra/terraform/observability.tf`.)*
 
 ## Phase 3 – Backend Services
 - [x] Scaffold backend service (FastAPI) with modular architecture. *(see `docs/phase3_backend_scaffold.md` & `services/backend/`)*
@@ -32,7 +32,7 @@
 - [x] Implement therapist data management APIs (list/get, filtering, admin imports, i18n support). *(FastAPI service now supports locale-aware responses and S3-backed imports via `/api/therapists/admin/import`.)*
 - [x] Develop summary generation pipeline (daily & weekly) with scheduled workers and storage integration. *(see `services/backend/app/services/summaries.py` & `app/agents/summary_scheduler.py`)*
 - [x] Expose journey report APIs delivering recent summaries and chat history slices. *(Journey endpoint returns daily/weekly digests plus recent conversation slices via `ReportsService`.)*
-- [ ] Add feature flags/configuration service to toggle experimental capabilities.
+- [x] Add feature flags/configuration service to toggle experimental capabilities. *(FeatureFlagService with `/api/features` router enables runtime toggles + percentage rollouts backed by Postgres.)*
 
 ## Phase 4 – Frontend & Mobile Clients
 - [ ] Set up shared design system and localization framework (Chinese-first).
@@ -45,7 +45,7 @@
 - [ ] Ensure Android optimization (voice integration parity, performance, compatibility).
 
 ## Phase 5 – Intelligent Agent Features
-- [ ] Implement conversation memory service with keyword filtering and summarization store.
+- [x] Implement conversation memory service with keyword filtering and summarization store. *(see `services/backend/app/services/memory.py` & `/api/memory/{userId}`)*
 - [ ] Build therapist recommendation engine leveraging embeddings + prompt standardization.
 - [ ] Add RAG pipeline for contextual response generation with conversation snippets and therapist knowledge base.
 - [ ] Develop tooling to evaluate model response quality and guardrails.

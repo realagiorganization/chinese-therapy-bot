@@ -12,6 +12,8 @@ from app.integrations.storage import ChatTranscriptStorage
 from app.integrations.therapists import TherapistDataStorage
 from app.services.auth import AuthService
 from app.services.chat import ChatService
+from app.services.feature_flags import FeatureFlagService
+from app.services.memory import ConversationMemoryService
 from app.services.reports import ReportsService
 from app.services.therapists import TherapistService
 
@@ -63,7 +65,8 @@ async def get_chat_service(
         _orchestrator = ChatOrchestrator(settings)
     if _storage is None:
         _storage = ChatTranscriptStorage(settings)
-    return ChatService(session, _orchestrator, _storage)
+    memory_service = ConversationMemoryService(session, _orchestrator)
+    return ChatService(session, _orchestrator, _storage, memory_service=memory_service)
 
 
 async def get_therapist_service(
@@ -82,3 +85,22 @@ async def get_reports_service(
 ) -> ReportsService:
     """Provide ReportsService instance."""
     return ReportsService(session)
+
+
+async def get_feature_flag_service(
+    session: AsyncSession = Depends(get_db_session),
+) -> FeatureFlagService:
+    """Provide FeatureFlagService instance."""
+    settings = get_settings()
+    return FeatureFlagService(session, settings)
+
+
+async def get_memory_service(
+    session: AsyncSession = Depends(get_db_session),
+) -> ConversationMemoryService:
+    """Provide ConversationMemoryService instance for API routes."""
+    settings = get_settings()
+    global _orchestrator
+    if _orchestrator is None:
+        _orchestrator = ChatOrchestrator(settings)
+    return ConversationMemoryService(session, _orchestrator)

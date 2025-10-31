@@ -316,6 +316,19 @@ class ChatOrchestrator:
 
     def _summary_instructions(self, summary_type: str, language: str) -> str:
         zh = language.startswith("zh")
+        if summary_type == "memory":
+            if zh:
+                return (
+                    "你是一名中文心理健康教练。请根据用户与助手的对话记录，提炼一段简洁的记忆摘要。"
+                    "返回 JSON，字段包括: memory (字符串，总结用户关注点)、keywords (字符串数组，列出核心主题)。"
+                    "只输出有效 JSON。"
+                )
+            return (
+                "You are a bilingual mental health coach. Review the transcript and return JSON "
+                "with fields memory (string summary of the user's focus) and keywords (array of strings). "
+                "Respond with strictly valid JSON."
+            )
+
         if summary_type == "weekly":
             if zh:
                 return (
@@ -373,6 +386,14 @@ class ChatOrchestrator:
         except json.JSONDecodeError:
             logger.debug("Summary response not valid JSON; returning heuristic structure.")
             parsed = {}
+
+        if summary_type == "memory":
+            keywords = parsed.get("keywords") if isinstance(parsed.get("keywords"), list) else []
+            memory_text = parsed.get("memory") or parsed.get("summary") or ""
+            return {
+                "summary": str(memory_text),
+                "keywords": [str(item).strip() for item in keywords if str(item).strip()],
+            }
 
         if summary_type == "weekly":
             themes = parsed.get("themes") if isinstance(parsed.get("themes"), list) else []

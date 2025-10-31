@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from collections.abc import AsyncIterator
 from uuid import UUID
 from typing import Any
@@ -12,6 +13,10 @@ from app.integrations.storage import ChatTranscriptStorage
 from app.models import ChatMessage as ChatMessageModel
 from app.models import ChatSession, Therapist, User
 from app.schemas.chat import ChatMessage, ChatRequest, ChatResponse
+from app.services.memory import ConversationMemoryService
+
+
+logger = logging.getLogger(__name__)
 
 
 class ChatService:
@@ -22,10 +27,12 @@ class ChatService:
         session: AsyncSession,
         orchestrator: ChatOrchestrator,
         storage: ChatTranscriptStorage,
+        memory_service: ConversationMemoryService | None = None,
     ):
         self._session = session
         self._orchestrator = orchestrator
         self._storage = storage
+        self._memory = memory_service
 
     async def process_turn(self, payload: ChatRequest) -> ChatResponse:
         context = await self._prepare_turn(payload)
@@ -39,7 +46,12 @@ class ChatService:
             content=reply_text,
         )
 
-        await self._persist_transcript(context["chat_session"], context["user"].id)
+        history = await self._persist_transcript(context["chat_session"], context["user"].id)
+        await self._capture_memory(
+            user=context["user"],
+            chat_session=context["chat_session"],
+            history=history,
+        )
 
         return ChatResponse(
             session_id=context["chat_session"].id,
@@ -82,7 +94,12 @@ class ChatService:
             content=reply_text,
         )
 
-        await self._persist_transcript(context["chat_session"], context["user"].id)
+        history = await self._persist_transcript(context["chat_session"], context["user"].id)
+        await self._capture_memory(
+            user=context["user"],
+            chat_session=context["chat_session"],
+            history=history,
+        )
 
         yield {
             "event": "complete",
@@ -153,13 +170,14 @@ class ChatService:
             "recommended_ids": recommended_ids,
         }
 
-    async def _persist_transcript(self, chat_session: ChatSession, user_id: UUID) -> None:
+    async def _persist_transcript(self, chat_session: ChatSession, user_id: UUID) -> list[dict[str, str]]:
         history = await self._load_history(chat_session.id)
         await self._storage.persist_transcript(
             session_id=chat_session.id,
             user_id=user_id,
             messages=history,
         )
+        return history
 
     async def _load_history(self, session_id: UUID) -> list[dict[str, str]]:
         stmt = (
@@ -216,3 +234,22 @@ class ChatService:
             if matched_topics.intersection(set(therapist.specialties or []))
         ]
         return therapists[:3]
+
+    async def _capture_memory(
+        self,
+        *,
+        user: User,
+        chat_session: ChatSession,
+        history: list[dict[str, str]],
+    ) -> None:
+        if not self._memory:
+            return
+
+        try:
+            await self._memory.capture(
+                user=user,
+                session=chat_session,
+                history=history,
+            )
+        except Exception as exc:  # pragma: no cover - defensive logging
+            logger.warning("Failed to capture conversation memory: %s", exc, exc_info=exc)
