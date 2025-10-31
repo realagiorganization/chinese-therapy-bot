@@ -1,6 +1,15 @@
 from fastapi import APIRouter
 
-from app.api.routes import auth, chat, features, health, memory, reports, therapists
+from app.api.routes import (
+    auth,
+    chat,
+    evaluations,
+    features,
+    health,
+    memory,
+    reports,
+    therapists,
+)
 
 api_router = APIRouter()
 
@@ -11,3 +20,4 @@ api_router.include_router(therapists.router, prefix="/therapists", tags=["therap
 api_router.include_router(reports.router, prefix="/reports", tags=["reports"])
 api_router.include_router(features.router, prefix="/features", tags=["feature-flags"])
 api_router.include_router(memory.router, prefix="/memory", tags=["memory"])
+api_router.include_router(evaluations.router, prefix="/evaluations", tags=["evaluations"])

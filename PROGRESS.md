@@ -15,7 +15,7 @@
 ## Phase 2 – Platform & Infrastructure Setup
 - [ ] Provision Azure AKS cluster, configure node pools, and set up cluster networking. *(Terraform definitions in `infra/terraform/azure_*.tf`; apply pending.)*
 - [ ] Configure AWS S3 buckets for conversation logs, summaries, and media assets with appropriate IAM roles. *(Buckets + IAM role codified in `infra/terraform/aws_storage.tf`.)*
-- [ ] Set up managed database (Azure Postgres or AWS RDS) with schemas for users, therapists, sessions, and reports. *(Azure Flexible Server defined with private networking in `infra/terraform/azure_postgres.tf`; migrations pending.)*
+- [x] Set up managed database (Azure Postgres or AWS RDS) with schemas for users, therapists, sessions, and reports. *(Azure Flexible Server defined with private networking in `infra/terraform/azure_postgres.tf`; Alembic migrations under `services/backend/alembic/` bootstrap the schema.)*
 - [ ] Implement secret management (Azure Key Vault + AWS Secrets Manager) and IaC templates (Terraform/Bicep). *(Key Vault and Secrets Manager placeholders authored in `infra/terraform/azure_keyvault.tf` & `secrets.tf`.)*
 - [x] Configure observability stack (logging, metrics, alerts) and cost monitoring dashboards. *(App Insights, AKS CPU + error alerts, Azure Portal dashboard, and cost budget alerts codified in `infra/terraform/observability.tf`.)*
 
@@ -46,9 +46,9 @@
 
 ## Phase 5 – Intelligent Agent Features
 - [x] Implement conversation memory service with keyword filtering and summarization store. *(see `services/backend/app/services/memory.py` & `/api/memory/{userId}`)*
-- [ ] Build therapist recommendation engine leveraging embeddings + prompt standardization.
-- [ ] Add RAG pipeline for contextual response generation with conversation snippets and therapist knowledge base.
-- [ ] Develop tooling to evaluate model response quality and guardrails.
+- [x] Build therapist recommendation engine leveraging embeddings + prompt standardization. *(see `services/backend/app/services/recommendations.py` using Azure/OpenAI embeddings with heuristic fallback + `ChatService` integration)*
+- [x] Add RAG pipeline for contextual response generation with conversation snippets and therapist knowledge base. *(chat context prompt now stitches therapist recommendations + memory highlights in `services/backend/app/services/chat.py`)*
+- [x] Develop tooling to evaluate model response quality and guardrails. *(Guardrail heuristics + evaluation API via `services/backend/app/services/evaluation.py` and `/api/evaluations/response`.)*
 
 ## Phase 6 – Quality Assurance & Compliance
 - [ ] Create automated testing suites (unit, integration, end-to-end) and load testing scenarios.

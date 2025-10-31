@@ -28,6 +28,17 @@ mindwell-api
 
 By default the API listens on `http://0.0.0.0:8000`. The current implementation exposes stub endpoints (health, auth, chat, therapists, reports) that illustrate the modular architecture without connecting to external systems yet.
 
+## Database Migrations
+
+The project uses Alembic to manage the PostgreSQL schema. Ensure `DATABASE_URL` is configured (e.g. `postgresql+asyncpg://user:pass@localhost:5432/mindwell`). Then run:
+
+```bash
+cd services/backend
+alembic upgrade head
+```
+
+This command applies the latest migrations, including the bootstrap revision that creates users, therapy, memory, feature flag, and summary tables. The summary scheduler CLI also invokes Alembic via `init_database()` so worker jobs can safely run without manual setup.
+
 ## Environment Configuration
 
 Application settings are defined in `app/core/config.py` using `pydantic-settings`. Populate a `.env` file or environment variables for the following fields as they become available:
@@ -56,3 +67,9 @@ Application settings are defined in `app/core/config.py` using `pydantic-setting
 
 - `SummaryGenerationService` (see `app/services/summaries.py`) aggregates recent chat transcripts, calls the LLM orchestrator for structured JSON, and stores daily/weekly summaries in Postgres plus `S3_SUMMARIES_BUCKET`.
 - Use the CLI entry point `mindwell-summary-scheduler [daily|weekly|both] --date YYYY-MM-DD` to run schedules or backfill summaries. The command bootstraps the database schema automatically before processing.
+
+## Response Evaluation & Guardrails
+
+- `ResponseEvaluator` (see `app/services/evaluation.py`) applies heuristic checks for empathy, actionable guidance, disclaimers, and high-risk language to score assistant replies.
+- `POST /api/evaluations/response` exposes the guardrail check so the Monitoring Agent or CI Runner can gate new prompt templates and regression suites.
+- The evaluation response includes normalized metric scores, detected issues with severities, and recommended remediation steps.

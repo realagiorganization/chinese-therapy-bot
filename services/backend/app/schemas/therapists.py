@@ -31,6 +31,15 @@ class TherapistDetailResponse(TherapistSummary):
     availability: list[str] = Field(default_factory=list)
 
 
+class TherapistRecommendation(TherapistSummary):
+    score: float = Field(default=0.0, ge=0.0, le=1.0)
+    reason: str = Field(default="", description="Natural language rationale for the recommendation.")
+    matched_keywords: list[str] = Field(
+        default_factory=list,
+        description="Keywords detected in the query that align with the therapist profile.",
+    )
+
+
 class TherapistLocalePayload(BaseModel):
     locale: str
     title: Optional[str] = None

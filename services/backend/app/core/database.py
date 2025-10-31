@@ -9,7 +9,7 @@ from sqlalchemy.ext.asyncio import (
 )
 
 from app.core.config import get_settings
-from app.models import Base
+from app.core.migrations import migrate_database
 
 
 _engine: AsyncEngine | None = None
@@ -54,7 +54,7 @@ async def session_scope() -> AsyncIterator[AsyncSession]:
 
 
 async def init_database() -> None:
-    """Create database schema if it does not exist."""
-    engine = get_engine()
-    async with engine.begin() as connection:
-        await connection.run_sync(Base.metadata.create_all)
+    """Ensure the database schema is up to date via Alembic migrations."""
+    # Initialize engine so session factory is ready for subsequent usage.
+    get_engine()
+    await migrate_database()

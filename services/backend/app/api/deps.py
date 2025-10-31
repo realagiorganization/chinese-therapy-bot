@@ -5,6 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import get_settings
 from app.core.database import get_session_factory
+from app.integrations.embeddings import EmbeddingClient
 from app.integrations.google import GoogleOAuthClient
 from app.integrations.llm import ChatOrchestrator
 from app.integrations.sms import ConsoleSMSProvider
@@ -12,8 +13,10 @@ from app.integrations.storage import ChatTranscriptStorage
 from app.integrations.therapists import TherapistDataStorage
 from app.services.auth import AuthService
 from app.services.chat import ChatService
+from app.services.evaluation import ResponseEvaluator
 from app.services.feature_flags import FeatureFlagService
 from app.services.memory import ConversationMemoryService
+from app.services.recommendations import TherapistRecommendationService
 from app.services.reports import ReportsService
 from app.services.therapists import TherapistService
 
@@ -22,6 +25,8 @@ _google_client: GoogleOAuthClient | None = None
 _orchestrator: ChatOrchestrator | None = None
 _storage: ChatTranscriptStorage | None = None
 _therapist_storage: TherapistDataStorage | None = None
+_embedding_client: EmbeddingClient | None = None
+_response_evaluator: ResponseEvaluator | None = None
 
 
 async def get_db_session() -> AsyncGenerator[AsyncSession, None]:
@@ -60,13 +65,30 @@ async def get_chat_service(
 ) -> ChatService:
     """Provide ChatService instance."""
     settings = get_settings()
-    global _orchestrator, _storage
+    global _orchestrator, _storage, _embedding_client, _therapist_storage
     if _orchestrator is None:
         _orchestrator = ChatOrchestrator(settings)
     if _storage is None:
         _storage = ChatTranscriptStorage(settings)
+    if _embedding_client is None:
+        _embedding_client = EmbeddingClient(settings)
+    if _therapist_storage is None:
+        _therapist_storage = TherapistDataStorage(settings)
+
     memory_service = ConversationMemoryService(session, _orchestrator)
-    return ChatService(session, _orchestrator, _storage, memory_service=memory_service)
+    therapist_service = TherapistService(session, storage=_therapist_storage)
+    recommendation_service = TherapistRecommendationService(
+        session,
+        _embedding_client,
+        therapist_service=therapist_service,
+    )
+    return ChatService(
+        session,
+        _orchestrator,
+        _storage,
+        memory_service=memory_service,
+        recommendation_service=recommendation_service,
+    )
 
 
 async def get_therapist_service(
@@ -104,3 +126,11 @@ async def get_memory_service(
     if _orchestrator is None:
         _orchestrator = ChatOrchestrator(settings)
     return ConversationMemoryService(session, _orchestrator)
+
+
+async def get_response_evaluator() -> ResponseEvaluator:
+    """Provide singleton ResponseEvaluator for guardrail checks."""
+    global _response_evaluator
+    if _response_evaluator is None:
+        _response_evaluator = ResponseEvaluator()
+    return _response_evaluator

@@ -41,3 +41,5 @@
 - `FEATURE_FLAGS`: JSON or comma-separated toggles enabling experimental functionality.
 - `AZURE_KEY_VAULT_NAME`: Name of the Azure Key Vault storing secrets when externalized.
 - `LOG_LEVEL`: Overrides default logging verbosity (`info`, `debug`, `warn`, `error`).
+- `AZURE_OPENAI_EMBEDDINGS_DEPLOYMENT`: Deployment identifier for the Azure OpenAI embeddings model powering the recommendation index.
+- `OPENAI_EMBEDDING_MODEL`: Model identifier to use when falling back to OpenAI embeddings (defaults to `text-embedding-3-small`).

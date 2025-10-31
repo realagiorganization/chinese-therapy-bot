@@ -11,9 +11,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.integrations.llm import ChatOrchestrator
 from app.integrations.storage import ChatTranscriptStorage
 from app.models import ChatMessage as ChatMessageModel
-from app.models import ChatSession, Therapist, User
-from app.schemas.chat import ChatMessage, ChatRequest, ChatResponse
+from app.models import ChatSession, User
+from app.schemas.chat import ChatMessage, ChatRequest, ChatResponse, MemoryHighlight
+from app.schemas.therapists import TherapistRecommendation
 from app.services.memory import ConversationMemoryService
+from app.services.recommendations import TherapistRecommendationService
 
 
 logger = logging.getLogger(__name__)
@@ -28,16 +30,20 @@ class ChatService:
         orchestrator: ChatOrchestrator,
         storage: ChatTranscriptStorage,
         memory_service: ConversationMemoryService | None = None,
+        recommendation_service: TherapistRecommendationService | None = None,
     ):
         self._session = session
         self._orchestrator = orchestrator
         self._storage = storage
         self._memory = memory_service
+        self._recommendations = recommendation_service
 
     async def process_turn(self, payload: ChatRequest) -> ChatResponse:
         context = await self._prepare_turn(payload)
         reply_text = await self._orchestrator.generate_reply(
-            context["history"], language=payload.locale
+            context["history"],
+            language=payload.locale,
+            context_prompt=context["context_prompt"],
         )
 
         assistant_message = await self._append_message(
@@ -57,6 +63,8 @@ class ChatService:
             session_id=context["chat_session"].id,
             reply=ChatMessage.model_validate(assistant_message),
             recommended_therapist_ids=context["recommended_ids"],
+            recommendations=context["recommendations"],
+            memory_highlights=context["memories"],
         )
 
     async def stream_turn(self, payload: ChatRequest) -> AsyncIterator[dict[str, Any]]:
@@ -67,12 +75,21 @@ class ChatService:
             "data": {
                 "session_id": str(context["chat_session"].id),
                 "recommended_therapist_ids": context["recommended_ids"],
+                "recommendations": [
+                    recommendation.model_dump()
+                    for recommendation in context["recommendations"]
+                ],
+                "memory_highlights": [
+                    highlight.model_dump() for highlight in context["memories"]
+                ],
             },
         }
 
         reply_fragments: list[str] = []
         async for delta in self._orchestrator.stream_reply(
-            context["history"], language=payload.locale
+            context["history"],
+            language=payload.locale,
+            context_prompt=context["context_prompt"],
         ):
             if not delta:
                 continue
@@ -107,6 +124,13 @@ class ChatService:
                 "session_id": str(context["chat_session"].id),
                 "message": ChatMessage.model_validate(assistant_message).model_dump(),
                 "recommended_therapist_ids": context["recommended_ids"],
+                "recommendations": [
+                    recommendation.model_dump()
+                    for recommendation in context["recommendations"]
+                ],
+                "memory_highlights": [
+                    highlight.model_dump() for highlight in context["memories"]
+                ],
             },
         }
 
@@ -159,8 +183,14 @@ class ChatService:
         await self._append_message(chat_session, role="user", content=payload.message)
 
         history = await self._load_history(chat_session.id)
-        therapist_recs = await self._recommend_therapists(payload.message)
-        recommended_ids = [str(therapist.id) for therapist in therapist_recs]
+        therapist_recs = await self._recommend_therapists(payload.message, locale=payload.locale)
+        memories = await self._load_memories(user.id, locale=payload.locale)
+        recommended_ids = [recommendation.therapist_id for recommendation in therapist_recs]
+        context_prompt = self._build_context_prompt(
+            recommendations=therapist_recs,
+            memories=memories,
+            locale=payload.locale,
+        )
 
         return {
             "user": user,
@@ -168,6 +198,9 @@ class ChatService:
             "history": history,
             "therapist_recs": therapist_recs,
             "recommended_ids": recommended_ids,
+            "recommendations": therapist_recs,
+            "memories": memories,
+            "context_prompt": context_prompt,
         }
 
     async def _persist_transcript(self, chat_session: ChatSession, user_id: UUID) -> list[dict[str, str]]:
@@ -208,32 +241,90 @@ class ChatService:
             return 0
         return current + 1
 
-    async def _recommend_therapists(self, message: str) -> list[Therapist]:
-        keywords = {
-            "焦虑": "焦虑管理",
-            "压力": "认知行为疗法",
-            "紧张": "认知行为疗法",
-            "失眠": "认知行为疗法",
-            "睡": "认知行为疗法",
-            "家庭": "家庭治疗",
-            "婚姻": "家庭治疗",
-            "孩子": "青少年成长",
-        }
-
-        lowered = message.lower()
-        matched_topics = {topic for key, topic in keywords.items() if key in lowered}
-
-        if not matched_topics:
+    async def _recommend_therapists(
+        self,
+        message: str,
+        *,
+        locale: str,
+    ) -> list[TherapistRecommendation]:
+        if not self._recommendations:
             return []
 
-        stmt = select(Therapist).limit(10)
-        result = await self._session.execute(stmt)
-        therapists = [
-            therapist
-            for therapist in result.scalars().all()
-            if matched_topics.intersection(set(therapist.specialties or []))
-        ]
-        return therapists[:3]
+        try:
+            return await self._recommendations.recommend(
+                message,
+                locale=locale,
+                limit=3,
+            )
+        except Exception as exc:  # pragma: no cover - defensive logging
+            logger.warning("Therapist recommendation failed: %s", exc, exc_info=exc)
+            return []
+
+    async def _load_memories(
+        self,
+        user_id: UUID,
+        *,
+        locale: str,
+        limit: int = 5,
+    ) -> list[MemoryHighlight]:
+        if not self._memory:
+            return []
+
+        try:
+            records = await self._memory.list_memories(user_id, limit=limit)
+        except Exception as exc:  # pragma: no cover - defensive logging
+            logger.warning("Failed to load conversation memories: %s", exc, exc_info=exc)
+            return []
+
+        formatted: list[MemoryHighlight] = []
+        for memory in records:
+            summary = memory.summary or ""
+            formatted.append(
+                MemoryHighlight(
+                    summary=summary,
+                    keywords=list(memory.keywords or []),
+                )
+            )
+        return formatted
+
+    def _build_context_prompt(
+        self,
+        *,
+        recommendations: list[TherapistRecommendation],
+        memories: list[MemoryHighlight],
+        locale: str,
+    ) -> str | None:
+        sections: list[str] = []
+
+        if recommendations:
+            rec_lines = ["以下是适合本次对话的治疗师推荐，请在回复中适时给出温和的转介建议："]
+            for recommendation in recommendations:
+                specialties = "、".join(recommendation.specialties[:3]) or "综合心理支持"
+                reason = recommendation.reason or "擅长相关主题。"
+                rec_lines.append(
+                    f"- {recommendation.name}（{recommendation.title}）：专长 {specialties}。{reason}"
+                )
+            sections.append("\n".join(rec_lines))
+
+        if memories:
+            memory_heading = "用户近期重点关切：" if locale.startswith("zh") else "User focus areas:"
+            mem_lines = [memory_heading]
+            for memory in memories:
+                keywords = "、".join(memory.keywords)
+                summary = memory.summary
+                if keywords:
+                    mem_lines.append(f"- 关键词：{keywords}。摘要：{summary}")
+                else:
+                    mem_lines.append(f"- 摘要：{summary}")
+            sections.append("\n".join(mem_lines))
+
+        if not sections:
+            return None
+
+        lines = []
+        for section in sections:
+            lines.append(section)
+        return "\n".join(lines)
 
     async def _capture_memory(
         self,

@@ -29,6 +29,9 @@ class AppSettings(BaseSettings):
     azure_openai_api_key: Optional[SecretStr] = Field(default=None, alias="AZURE_OPENAI_API_KEY")
     azure_openai_deployment: Optional[str] = Field(default=None, alias="AZURE_OPENAI_DEPLOYMENT")
     azure_openai_api_version: Optional[str] = Field(default=None, alias="AZURE_OPENAI_API_VERSION")
+    azure_openai_embeddings_deployment: Optional[str] = Field(
+        default=None, alias="AZURE_OPENAI_EMBEDDINGS_DEPLOYMENT"
+    )
     database_url: Optional[str] = Field(default=None, alias="DATABASE_URL")
     aws_region: Optional[str] = Field(default=None, alias="AWS_REGION")
     aws_access_key_id: Optional[SecretStr] = Field(default=None, alias="AWS_ACCESS_KEY_ID")
@@ -73,6 +76,7 @@ class AppSettings(BaseSettings):
     wechat_app_id: Optional[str] = Field(default=None, alias="WECHAT_APP_ID")
     token_refresh_ttl: Optional[int] = Field(default=None, alias="TOKEN_REFRESH_TTL")
     feature_flags: Optional[str] = Field(default=None, alias="FEATURE_FLAGS")
+    openai_embedding_model: Optional[str] = Field(default=None, alias="OPENAI_EMBEDDING_MODEL")
 
     class Config:
         env_file = ".env"

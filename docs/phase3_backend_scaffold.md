@@ -35,6 +35,7 @@ services/backend/
 | `/api/therapists/{id}` | GET | Returns therapist detail payload. |
 | `/api/reports/{userId}` | GET | Returns latest daily/weekly journey reports plus recent conversation slices for context. |
 | `/api/memory/{userId}` | GET | Returns keyword-filtered conversation memories to power long-lived context. |
+| `/api/evaluations/response` | POST | Scores an assistant reply for empathy, actionability, disclaimers, and guardrail violations. |
 
 ### 3.1 Streaming Response Contract
 - The chat endpoint emits **Server-Sent Events (SSE)** when `enable_streaming=true` in the request body.
@@ -78,3 +79,8 @@ mindwell-summary-scheduler both --date 2025-01-15
 
 - `ReportsService` queries stored summaries and recent chat sessions (up to 3 sessions × 20 messages) to surface contextual conversation slices alongside daily and weekly aggregates.
 - `/api/reports/{userId}` now returns `conversations` in addition to `daily` and `weekly` payloads, enabling Journey surfaces to render recency-aware chat excerpts.
+
+## 9. Guardrail Evaluation Service
+
+- `ResponseEvaluator` (see `app/services/evaluation.py`) implements heuristic guardrails for high-risk language, medical claims, empathetic tone, and actionable guidance.
+- The endpoint `/api/evaluations/response` provides machine-readable scoring so CI pipelines and agents can block unsafe template changes or flag sessions for human review.

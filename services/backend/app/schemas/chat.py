@@ -4,11 +4,21 @@ from uuid import UUID
 
 from pydantic import BaseModel, Field
 
+from app.schemas.therapists import TherapistRecommendation
+
 
 class ChatMessage(BaseModel):
     role: str = Field(..., description="sender role, e.g. user or assistant")
     content: str
     created_at: datetime = Field(default_factory=datetime.utcnow)
+
+
+class MemoryHighlight(BaseModel):
+    summary: str = Field(..., description="Condensed reflection of a recurring focus.")
+    keywords: list[str] = Field(
+        default_factory=list,
+        description="Keywords associated with the memory highlight.",
+    )
 
 
 class ChatRequest(BaseModel):
@@ -30,4 +40,12 @@ class ChatResponse(BaseModel):
     recommended_therapist_ids: list[str] = Field(
         default_factory=list,
         description="Therapists surfaced during the turn (if any).",
+    )
+    recommendations: list[TherapistRecommendation] = Field(
+        default_factory=list,
+        description="Detailed therapist recommendations to surface in the UI.",
+    )
+    memory_highlights: list[MemoryHighlight] = Field(
+        default_factory=list,
+        description="Existing conversation memories relevant to this turn.",
     )

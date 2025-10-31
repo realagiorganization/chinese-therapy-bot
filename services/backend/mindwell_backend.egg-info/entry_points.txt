@@ -1,0 +1,3 @@
+[console_scripts]
+mindwell-api = app.main:run
+mindwell-summary-scheduler = app.agents.summary_scheduler:main

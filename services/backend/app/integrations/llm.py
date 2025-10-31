@@ -37,13 +37,14 @@ class ChatOrchestrator:
         *,
         language: str = "zh-CN",
         max_tokens: int = 512,
+        context_prompt: str | None = None,
     ) -> str:
         """Return a chat completion response using configured providers."""
         if self._azure_client:
             try:
                 response = await self._azure_client.chat.completions.create(
                     model=self._settings.azure_openai_deployment,
-                    messages=self._augment_history(history, language),
+                    messages=self._augment_history(history, language, context_prompt=context_prompt),
                     temperature=0.3,
                     max_tokens=max_tokens,
                 )
@@ -57,7 +58,7 @@ class ChatOrchestrator:
             try:
                 response = await self._openai_client.chat.completions.create(
                     model="gpt-3.5-turbo",
-                    messages=self._augment_history(history, language),
+                    messages=self._augment_history(history, language, context_prompt=context_prompt),
                     temperature=0.4,
                     max_tokens=max_tokens,
                 )
@@ -72,7 +73,7 @@ class ChatOrchestrator:
             if bedrock_text:
                 return bedrock_text
 
-        return self._heuristic_reply(history, language=language)
+        return self._heuristic_reply(history, language=language, context_prompt=context_prompt)
 
     async def stream_reply(
         self,
@@ -80,13 +81,14 @@ class ChatOrchestrator:
         *,
         language: str = "zh-CN",
         max_tokens: int = 512,
+        context_prompt: str | None = None,
     ) -> AsyncIterator[str]:
         """Yield token fragments for a chat completion request."""
         if self._azure_client:
             try:
                 stream = await self._azure_client.chat.completions.create(
                     model=self._settings.azure_openai_deployment,
-                    messages=self._augment_history(history, language),
+                    messages=self._augment_history(history, language, context_prompt=context_prompt),
                     temperature=0.3,
                     max_tokens=max_tokens,
                     stream=True,
@@ -107,7 +109,7 @@ class ChatOrchestrator:
             try:
                 stream = await self._openai_client.chat.completions.create(
                     model="gpt-3.5-turbo",
-                    messages=self._augment_history(history, language),
+                    messages=self._augment_history(history, language, context_prompt=context_prompt),
                     temperature=0.4,
                     max_tokens=max_tokens,
                     stream=True,
@@ -125,7 +127,7 @@ class ChatOrchestrator:
                 logger.warning("OpenAI streaming failed; falling back.", exc_info=exc)
 
         fallback_reply = await self.generate_reply(
-            history, language=language, max_tokens=max_tokens
+            history, language=language, max_tokens=max_tokens, context_prompt=context_prompt
         )
         for chunk in self._chunk_text(fallback_reply):
             yield chunk
@@ -177,7 +179,13 @@ class ChatOrchestrator:
 
         raise RuntimeError("Unable to generate summary with configured providers.")
 
-    def _augment_history(self, history: list[dict[str, str]], language: str) -> list[dict[str, str]]:
+    def _augment_history(
+        self,
+        history: list[dict[str, str]],
+        language: str,
+        *,
+        context_prompt: str | None = None,
+    ) -> list[dict[str, str]]:
         """Prepend a system prompt tailored for Chinese therapy support."""
         system_prompt = (
             "你是一名中文心理健康支持教练。提供温柔、结构化、务实的建议，并强调自我觉察。"
@@ -188,7 +196,11 @@ class ChatOrchestrator:
         else:
             system_prompt += " You may respond bilingually if the user prefers."
 
-        return [{"role": "system", "content": system_prompt}, *history]
+        prompts = [{"role": "system", "content": system_prompt}]
+        if context_prompt:
+            prompts.append({"role": "system", "content": context_prompt})
+
+        return [*prompts, *history]
 
     async def _invoke_bedrock(
         self,
@@ -247,7 +259,13 @@ class ChatOrchestrator:
         lines.append("助手:")
         return "\n".join(lines)
 
-    def _heuristic_reply(self, history: list[dict[str, str]], *, language: str) -> str:
+    def _heuristic_reply(
+        self,
+        history: list[dict[str, str]],
+        *,
+        language: str,
+        context_prompt: str | None = None,
+    ) -> str:
         """Fallback deterministic reply mirroring legacy placeholder logic."""
         last_user_message = next(
             (message["content"] for message in reversed(history) if message["role"] == "user"),
@@ -262,6 +280,9 @@ class ChatOrchestrator:
             response = "长期压力会消耗精力。试试番茄钟，将任务拆成25分钟的小块，并安排奖励性的休息。"
         else:
             response = "谢谢你的分享。我在这里陪你，可以继续描述最困扰你的情绪或事件，我们一起找出下一个可行的行动。"
+
+        if context_prompt:
+            response += " 如果你愿意，也可以考虑与推荐的治疗师进一步交流。"
 
         if not language.startswith("zh"):
             response += " (Reply translated: I am here with you. Please tell me more so we can plan the next small step.)"

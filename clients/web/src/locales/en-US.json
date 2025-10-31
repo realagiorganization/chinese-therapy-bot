@@ -1,0 +1,47 @@
+{
+  "app": {
+    "title": "MindWell Companion",
+    "welcome": "Welcome back, {{name}}",
+    "tagline": "Your Mandarin-first mental wellness partner blending AI guidance with therapist support.",
+    "cta_start": "Start a new session",
+    "cta_resume": "Resume journey",
+    "journey_highlights": "Recent highlights",
+    "daily_reflection": "Today’s check-in",
+    "therapist_recommendations": "Suggested therapists",
+    "language_label": "Interface language",
+    "cta_invite": "Invite a friend to MindWell",
+    "voice_hint": "Voice input, emotional summaries, and daily companionship included."
+  },
+  "journey": {
+    "streak": "{{days}} day streak",
+    "mood_trend": "Mood trend",
+    "weekly_report": "This week’s summary",
+    "insight_spotlight": "Insight spotlight",
+    "next_steps": "Next steps"
+  },
+  "therapists": {
+    "availability": "Available slots",
+    "book": "Book",
+    "languages": "Languages: {{languages}}",
+    "price": "{{price}} CNY / session",
+    "recommended": "Recommended",
+    "filters": {
+      "title": "Refine your therapist matches",
+      "specialty": "Specialty",
+      "language": "Language",
+      "any": "Any",
+      "max_price": "Budget ceiling ({{currency}})",
+      "up_to": "Up to",
+      "recommended_only": "Recommended only",
+      "reset": "Reset filters",
+      "loading": "Fetching therapist directory…",
+      "empty_state": "No therapists match those filters. Try broadening your selection.",
+      "source_api": "Data source: live directory",
+      "source_fallback": "Data source: offline sample"
+    }
+  },
+  "locale": {
+    "zh": "简体中文",
+    "en": "English"
+  }
+}

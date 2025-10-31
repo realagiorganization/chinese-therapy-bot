@@ -7,6 +7,7 @@ MindWell is a Chinese-first digital therapy companion that pairs an empathetic c
 - **Async persistence layer** powered by SQLAlchemy models for users, therapists, chat sessions/messages, and generated summaries.
 - **Authentication service** featuring persisted SMS OTP challenges, JWT access/refresh token rotation, and Google OAuth code exchange stubs.
 - **Chat orchestration** wired to Azure OpenAI (with AWS Bedrock fallback) and automatic transcript archiving to S3.
+- **Embedding-based therapist recommendations** that surface contextual match details alongside each chat turn.
 - **Seed therapist directory** with database-backed lookups and graceful fallbacks.
 - **Conversation memory service** that distills keyword-triggered highlights and exposes them via `/api/memory/{userId}`.
 - **Terraform infrastructure stubs** (`infra/terraform`) targeting Azure AKS, Azure Postgres, and AWS S3/Bedrock integrations.
@@ -65,7 +66,7 @@ The API expects a Postgres database reachable via `DATABASE_URL` (e.g. `postgres
 - `POST /api/auth/sms` – initiate persisted SMS OTP login challenge.
 - `POST /api/auth/token` – exchange OTP or Google authorization code for a JWT/refresh token pair.
 - `POST /api/auth/token/refresh` – rotate refresh tokens and mint a fresh access token.
-- `POST /api/chat/message` – persist a chat turn, generate an Azure OpenAI (or Bedrock/heuristic) response, archive the transcript to S3, and surface therapist suggestions.
+- `POST /api/chat/message` – persist a chat turn, generate an Azure OpenAI (or Bedrock/heuristic) response, archive the transcript to S3, and surface therapist suggestions with scored recommendations + memory highlights.
 - `GET /api/features/` – inspect feature toggles (merged defaults + database overrides).
 - `PUT /api/features/{key}` – create or update a runtime feature switch with optional rollout percentage.
 - `POST /api/features/{key}/evaluate` – check if a subject should see an experimental capability.

@@ -1,0 +1,47 @@
+{
+  "app": {
+    "title": "MindWell 心理陪伴",
+    "welcome": "欢迎回来，{{name}}",
+    "tagline": "你的中文心理健康伙伴，连接智能疗愈与专业治疗师推荐。",
+    "cta_start": "开始新的对话",
+    "cta_resume": "继续旅程",
+    "journey_highlights": "近期亮点",
+    "daily_reflection": "今日回顾",
+    "therapist_recommendations": "为你推荐的治疗师",
+    "language_label": "界面语言",
+    "cta_invite": "邀请朋友体验 MindWell",
+    "voice_hint": "支持语音输入、情绪总结与每日陪伴"
+  },
+  "journey": {
+    "streak": "连续使用 {{days}} 天",
+    "mood_trend": "情绪趋势",
+    "weekly_report": "本周总结",
+    "insight_spotlight": "焦点洞察",
+    "next_steps": "建议下一步"
+  },
+  "therapists": {
+    "availability": "可约时间",
+    "book": "预约",
+    "languages": "沟通语言：{{languages}}",
+    "price": "单次 {{price}} 元",
+    "recommended": "推荐",
+    "filters": {
+      "title": "根据偏好筛选治疗师",
+      "specialty": "擅长领域",
+      "language": "沟通语言",
+      "any": "不限",
+      "max_price": "最高预算（{{currency}}）",
+      "up_to": "最高",
+      "recommended_only": "仅看推荐治疗师",
+      "reset": "重置筛选",
+      "loading": "正在拉取治疗师列表…",
+      "empty_state": "没有符合条件的治疗师，可放宽筛选条件再试试。",
+      "source_api": "数据源：实时目录",
+      "source_fallback": "数据源：内置样例（离线模式）"
+    }
+  },
+  "locale": {
+    "zh": "简体中文",
+    "en": "English"
+  }
+}
