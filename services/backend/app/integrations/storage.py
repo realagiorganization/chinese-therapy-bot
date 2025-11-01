@@ -20,6 +20,59 @@ class ChatTranscriptStorage:
     def __init__(self, settings: AppSettings):
         self._settings = settings
 
+    async def persist_message(
+        self,
+        *,
+        session_id: UUID,
+        user_id: UUID,
+        sequence_index: int,
+        role: str,
+        content: str,
+        created_at: datetime,
+    ) -> str | None:
+        bucket = self._settings.s3_conversation_logs_bucket
+        if not bucket:
+            logger.debug("S3 conversation logs bucket absent; skipping realtime message upload.")
+            return None
+
+        key_prefix = self._settings.s3_conversation_logs_prefix or "conversations/"
+        timestamp = created_at.astimezone(timezone.utc).strftime("%Y%m%dT%H%M%S%fZ")
+        key = (
+            f"{key_prefix.rstrip('/')}/{session_id}/stream/"
+            f"{sequence_index:06d}_{timestamp}.json"
+        )
+
+        payload = {
+            "session_id": str(session_id),
+            "user_id": str(user_id),
+            "sequence_index": sequence_index,
+            "role": role,
+            "content": content,
+            "created_at": created_at.astimezone(timezone.utc).isoformat(),
+        }
+        body = json.dumps(payload, ensure_ascii=False).encode("utf-8")
+
+        client_kwargs: dict[str, Any] = {}
+        if self._settings.aws_region:
+            client_kwargs["region_name"] = self._settings.aws_region
+        if self._settings.aws_access_key_id and self._settings.aws_secret_access_key:
+            client_kwargs["aws_access_key_id"] = self._settings.aws_access_key_id.get_secret_value()
+            client_kwargs["aws_secret_access_key"] = self._settings.aws_secret_access_key.get_secret_value()
+
+        try:
+            async with aioboto3.client("s3", **client_kwargs) as client:
+                await client.put_object(
+                    Bucket=bucket,
+                    Key=key,
+                    Body=body,
+                    ContentType="application/json",
+                )
+            logger.debug("Persisted chat message to s3://%s/%s", bucket, key)
+            return key
+        except Exception as exc:  # pragma: no cover - network path
+            logger.warning("Failed to persist realtime chat message to S3", exc_info=exc)
+            return None
+
     async def persist_transcript(
         self,
         *,

@@ -62,6 +62,7 @@ Application settings are defined in `app/core/config.py` using `pydantic-setting
 - `TherapistService` supports importing normalized therapist profiles from an S3-compatible bucket via the `/api/therapists/admin/import` endpoint.
 - Configure `S3_BUCKET_THERAPISTS` and (optionally) `THERAPIST_DATA_S3_PREFIX` so the Data Sync Agent can publish localized JSON payloads that the backend ingests.
 - Use the `dry_run` flag on the import endpoint to preview changes before committing updates to the Postgres store.
+- Run the Data Sync agent via `mindwell-data-sync --source path/to/therapists.json --dry-run` to normalize upstream sources and publish `profile_<locale>.json` payloads to the configured bucket.
 
 ## Summary Scheduler Agent
 

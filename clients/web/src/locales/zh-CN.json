@@ -43,8 +43,22 @@
     "availability": "可约时间",
     "book": "预约",
     "languages": "沟通语言：{{languages}}",
-    "price": "单次 {{price}} 元",
+    "price": "单次费用 {{price}}",
     "recommended": "推荐",
+    "badge_recommended": "精选推荐",
+    "view_profile": "查看详情",
+    "directory_title": "治疗师目录",
+    "directory_subtitle": "按照擅长主题、语言与预算筛选最适合的陪伴者。",
+    "detail_panel_title": "治疗师详情",
+    "detail_close": "关闭",
+    "detail_placeholder": "选择一位治疗师查看他们的详细资料。",
+    "detail_loading": "正在载入治疗师详情…",
+    "detail_error": "载入治疗师详情时遇到问题",
+    "detail_no_bio": "暂未提供详细简介。",
+    "availability_label": "可预约时段",
+    "no_availability": "暂未开放预约时间。",
+    "share_profile": "分享资料",
+    "recommendation_reason": "推荐理由：{{reason}}",
     "filters": {
       "title": "根据偏好筛选治疗师",
       "specialty": "擅长领域",
@@ -61,8 +75,9 @@
     }
   },
   "locale": {
-    "zh": "简体中文",
-    "en": "English"
+    "zh_cn": "简体中文",
+    "zh_tw": "繁體中文",
+    "en_us": "English"
   },
   "chat": {
     "title": "疗愈陪伴对话",

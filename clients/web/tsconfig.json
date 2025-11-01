@@ -16,6 +16,6 @@
     "jsx": "react-jsx",
     "types": ["vitest/globals", "vite/client"]
   },
-  "include": ["src"],
+  "include": ["src", "../shared/design-tokens"],
   "references": []
 }

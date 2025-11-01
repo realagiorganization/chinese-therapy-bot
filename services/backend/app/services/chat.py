@@ -171,6 +171,15 @@ class ChatService:
         )
         self._session.add(record)
         await self._session.flush()
+
+        await self._storage.persist_message(
+            session_id=chat_session.id,
+            user_id=chat_session.user_id,
+            sequence_index=record.sequence_index,
+            role=record.role,
+            content=record.content,
+            created_at=record.created_at,
+        )
         return ChatMessage(
             role=record.role,
             content=record.content,

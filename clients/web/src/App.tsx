@@ -1,10 +1,10 @@
 import { useTranslation } from "react-i18next";
 
 import { Button, Card, Typography } from "./design-system";
-import { LocaleSwitcher } from "./components/LocaleSwitcher";
 import { ChatPanel } from "./components/ChatPanel";
-import { useTherapistDirectory } from "./hooks/useTherapistDirectory";
 import { JourneyDashboard } from "./components/JourneyDashboard";
+import { LocaleSwitcher } from "./components/LocaleSwitcher";
+import { TherapistDirectory } from "./components/TherapistDirectory";
 
 type HighlightCard = {
   id: string;
@@ -15,17 +15,6 @@ type HighlightCard = {
 
 export default function App() {
   const { t, i18n } = useTranslation();
-  const {
-    filtered,
-    filters,
-    setFilters,
-    resetFilters,
-    specialties,
-    languages,
-    isLoading,
-    source,
-    maxPrice
-  } = useTherapistDirectory();
 
   const highlightCards: HighlightCard[] = [
     {
@@ -134,207 +123,7 @@ export default function App() {
           ))}
         </section>
 
-        <section style={{ display: "grid", gap: "var(--mw-spacing-sm)" }}>
-          <Typography variant="subtitle">{t("app.therapist_recommendations")}</Typography>
-          <Card padding="md" style={{ display: "grid", gap: "var(--mw-spacing-sm)" }}>
-            <Typography variant="caption" style={{ color: "var(--text-secondary)" }}>
-              {t("therapists.filters.title")}
-            </Typography>
-            <div
-              style={{
-                display: "flex",
-                flexWrap: "wrap",
-                gap: "var(--mw-spacing-md)"
-              }}
-            >
-              <label style={{ display: "grid", gap: "4px", fontSize: "0.85rem" }}>
-                <span style={{ color: "var(--text-secondary)" }}>
-                  {t("therapists.filters.specialty")}
-                </span>
-                <select
-                  value={filters.specialty ?? ""}
-                  onChange={(event) =>
-                    setFilters((prev) => ({
-                      ...prev,
-                      specialty: event.target.value || undefined
-                    }))
-                  }
-                  style={{ padding: "6px 10px", borderRadius: "8px", border: "1px solid var(--mw-border-subtle)" }}
-                >
-                  <option value="">{t("therapists.filters.any")}</option>
-                  {specialties.map((specialty) => (
-                    <option key={specialty} value={specialty}>
-                      {specialty}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label style={{ display: "grid", gap: "4px", fontSize: "0.85rem" }}>
-                <span style={{ color: "var(--text-secondary)" }}>
-                  {t("therapists.filters.language")}
-                </span>
-                <select
-                  value={filters.language ?? ""}
-                  onChange={(event) =>
-                    setFilters((prev) => ({
-                      ...prev,
-                      language: event.target.value || undefined
-                    }))
-                  }
-                  style={{ padding: "6px 10px", borderRadius: "8px", border: "1px solid var(--mw-border-subtle)" }}
-                >
-                  <option value="">{t("therapists.filters.any")}</option>
-                  {languages.map((language) => (
-                    <option key={language} value={language}>
-                      {language}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              {maxPrice && (
-                <label style={{ display: "grid", gap: "4px", fontSize: "0.85rem" }}>
-                  <span style={{ color: "var(--text-secondary)" }}>
-                    {t("therapists.filters.max_price", { currency: "CNY" })}
-                  </span>
-                  <input
-                    type="number"
-                    min={0}
-                    max={maxPrice}
-                    value={filters.maxPrice ?? ""}
-                    placeholder={`${t("therapists.filters.up_to")} ${maxPrice}`}
-                    onChange={(event) =>
-                      setFilters((prev) => ({
-                        ...prev,
-                        maxPrice: event.target.value ? Number.parseInt(event.target.value, 10) : undefined
-                      }))
-                    }
-                    style={{
-                      padding: "6px 10px",
-                      borderRadius: "8px",
-                      border: "1px solid var(--mw-border-subtle)"
-                    }}
-                  />
-                </label>
-              )}
-              <label
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "8px",
-                  fontSize: "0.85rem",
-                  color: "var(--text-secondary)"
-                }}
-              >
-                <input
-                  type="checkbox"
-                  checked={Boolean(filters.recommendedOnly)}
-                  onChange={(event) =>
-                    setFilters((prev) => ({
-                      ...prev,
-                      recommendedOnly: event.target.checked
-                    }))
-                  }
-                />
-                {t("therapists.filters.recommended_only")}
-              </label>
-              <Button variant="ghost" onClick={resetFilters}>
-                {t("therapists.filters.reset")}
-              </Button>
-            </div>
-            <Typography variant="caption" style={{ color: "rgba(71,85,105,0.7)" }}>
-              {source === "api"
-                ? t("therapists.filters.source_api")
-                : t("therapists.filters.source_fallback")}
-            </Typography>
-          </Card>
-          <div
-            style={{
-              display: "grid",
-              gap: "var(--mw-spacing-md)",
-              gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))"
-            }}
-          >
-            {isLoading ? (
-              <Card padding="lg" elevated>
-                <Typography variant="body">{t("therapists.filters.loading")}</Typography>
-              </Card>
-            ) : filtered.length === 0 ? (
-              <Card padding="lg" elevated>
-                <Typography variant="body" style={{ color: "var(--text-secondary)" }}>
-                  {t("therapists.filters.empty_state")}
-                </Typography>
-              </Card>
-            ) : (
-              filtered.map((therapist) => (
-                <Card key={therapist.id} padding="lg" elevated>
-                  <div
-                    style={{
-                      display: "flex",
-                      justifyContent: "space-between",
-                      alignItems: "center",
-                      marginBottom: "var(--mw-spacing-sm)"
-                    }}
-                  >
-                    <Typography variant="title" as="h3">
-                      {therapist.name}
-                    </Typography>
-                    {therapist.recommended && (
-                      <span
-                        style={{
-                          background: "rgba(59,130,246,0.12)",
-                          color: "var(--mw-color-primary)",
-                          borderRadius: "var(--mw-radius-pill)",
-                          padding: "2px 10px",
-                          fontSize: "0.75rem",
-                          fontWeight: 600
-                        }}
-                      >
-                        {t("therapists.recommended")}
-                      </span>
-                    )}
-                  </div>
-                  <Typography variant="body" style={{ color: "var(--text-secondary)" }}>
-                    {[therapist.title, therapist.specialties.join(" · ")].filter(Boolean).join(" ｜ ")}
-                  </Typography>
-                  <Typography variant="caption" style={{ color: "var(--text-secondary)" }}>
-                    {t("therapists.languages", { languages: therapist.languages.join(" / ") })}
-                  </Typography>
-                  <Typography variant="caption" style={{ color: "var(--text-secondary)" }}>
-                    {t("therapists.price", { price: therapist.price })}
-                  </Typography>
-                  {therapist.availability.length > 0 && (
-                    <div
-                      style={{
-                        marginTop: "var(--mw-spacing-sm)",
-                        display: "flex",
-                        gap: "var(--mw-spacing-xs)",
-                        flexWrap: "wrap"
-                      }}
-                    >
-                      {therapist.availability.map((slot) => (
-                        <span
-                          key={slot}
-                          style={{
-                            border: "1px solid var(--mw-border-subtle)",
-                            borderRadius: "var(--mw-radius-pill)",
-                            padding: "4px 10px",
-                            fontSize: "0.75rem",
-                            color: "var(--text-secondary)"
-                          }}
-                        >
-                          {slot}
-                        </span>
-                      ))}
-                    </div>
-                  )}
-                  <Button block style={{ marginTop: "var(--mw-spacing-md)" }}>
-                    {t("therapists.book")}
-                  </Button>
-                </Card>
-              ))
-            )}
-          </div>
-        </section>
+        <TherapistDirectory />
       </div>
     </div>
   );

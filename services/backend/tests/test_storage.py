@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import json
-from datetime import date
+from datetime import date, datetime, timezone
 from uuid import uuid4
 
 import pytest
@@ -72,6 +72,61 @@ async def test_persist_transcript_uploads_to_s3(monkeypatch: pytest.MonkeyPatch)
     call = client.calls[0]
     assert call["Bucket"] == "mindwell-logs"
     assert call["ContentType"] == "application/json"
+
+
+@pytest.mark.asyncio
+async def test_persist_message_no_bucket_returns_none() -> None:
+    settings = AppSettings()
+    storage = ChatTranscriptStorage(settings)
+
+    key = await storage.persist_message(
+        session_id=uuid4(),
+        user_id=uuid4(),
+        sequence_index=1,
+        role="user",
+        content="hello",
+        created_at=datetime.now(tz=timezone.utc),
+    )
+
+    assert key is None
+
+
+@pytest.mark.asyncio
+async def test_persist_message_uploads_to_s3(monkeypatch: pytest.MonkeyPatch) -> None:
+    client = StubS3Client()
+    monkeypatch.setattr(
+        "app.integrations.storage.aioboto3.client",
+        lambda *args, **kwargs: StubS3ContextManager(client),
+        raising=False,
+    )
+
+    settings = AppSettings(
+        S3_CONVERSATION_LOGS_BUCKET="mindwell-logs",
+        S3_CONVERSATION_LOGS_PREFIX="transcripts/",
+        AWS_REGION="ap-southeast-1",
+    )
+    storage = ChatTranscriptStorage(settings)
+
+    now = datetime(2025, 1, 15, 12, 0, 0, tzinfo=timezone.utc)
+    key = await storage.persist_message(
+        session_id=uuid4(),
+        user_id=uuid4(),
+        sequence_index=42,
+        role="assistant",
+        content="谢谢你的分享",
+        created_at=now,
+    )
+
+    assert key is not None
+    assert "stream" in key
+    assert client.calls
+    call = client.calls[0]
+    assert call["Bucket"] == "mindwell-logs"
+    assert call["ContentType"] == "application/json"
+    payload = json.loads(call["Body"].decode("utf-8"))
+    assert payload["role"] == "assistant"
+    assert payload["sequence_index"] == 42
+    assert payload["created_at"].startswith("2025-01-15T12:00:00")
 
 
 @pytest.mark.asyncio

@@ -43,8 +43,22 @@
     "availability": "Available slots",
     "book": "Book",
     "languages": "Languages: {{languages}}",
-    "price": "{{price}} CNY / session",
+    "price": "Session rate {{price}}",
     "recommended": "Recommended",
+    "badge_recommended": "Top pick",
+    "view_profile": "View profile",
+    "directory_title": "Therapist directory",
+    "directory_subtitle": "Filter by specialty, language, and budget to find the right match.",
+    "detail_panel_title": "Therapist details",
+    "detail_close": "Close",
+    "detail_placeholder": "Select a therapist to inspect their background.",
+    "detail_loading": "Loading therapist profile…",
+    "detail_error": "We couldn’t load the therapist profile",
+    "detail_no_bio": "Biography coming soon.",
+    "availability_label": "Upcoming availability",
+    "no_availability": "No open time slots listed.",
+    "share_profile": "Share profile",
+    "recommendation_reason": "Why we matched: {{reason}}",
     "filters": {
       "title": "Refine your therapist matches",
       "specialty": "Specialty",
@@ -61,8 +75,9 @@
     }
   },
   "locale": {
-    "zh": "简体中文",
-    "en": "English"
+    "zh_cn": "Simplified Chinese",
+    "zh_tw": "Traditional Chinese",
+    "en_us": "English"
   },
   "chat": {
     "title": "Therapy Companion",

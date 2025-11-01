@@ -1,101 +1,10 @@
-export type ColorTokens = {
-  primary: string;
-  primaryAccent: string;
-  surfaceBackground: string;
-  surfaceCard: string;
-  surfaceMuted: string;
-  textPrimary: string;
-  textSecondary: string;
-  borderSubtle: string;
-  focusOutline: string;
-  success: string;
-  warning: string;
-  danger: string;
-};
+import type { ThemeTokens } from "../../../../shared/design-tokens";
+import { availableThemes, lightThemeTokens } from "../../../../shared/design-tokens";
 
-export type TypographyTokens = {
-  fontFamilyBase: string;
-  fontFamilyHeading: string;
-  weightRegular: number;
-  weightMedium: number;
-  weightSemibold: number;
-  weightBold: number;
-};
+export type { ThemeTokens };
 
-export type RadiusTokens = {
-  sm: string;
-  md: string;
-  lg: string;
-  pill: string;
-};
-
-export type ShadowTokens = {
-  sm: string;
-  md: string;
-  lg: string;
-};
-
-export type SpacingTokens = {
-  xs: string;
-  sm: string;
-  md: string;
-  lg: string;
-  xl: string;
-};
-
-export type ThemeTokens = {
-  name: string;
-  colors: ColorTokens;
-  typography: TypographyTokens;
-  radius: RadiusTokens;
-  shadow: ShadowTokens;
-  spacing: SpacingTokens;
-};
-
-export const lightTheme: ThemeTokens = {
-  name: "light",
-  colors: {
-    primary: "#3B82F6",
-    primaryAccent: "#2563EB",
-    surfaceBackground: "#F8FAFC",
-    surfaceCard: "#FFFFFF",
-    surfaceMuted: "#E2E8F0",
-    textPrimary: "#0F172A",
-    textSecondary: "#475569",
-    borderSubtle: "rgba(15, 23, 42, 0.08)",
-    focusOutline: "#2563EB",
-    success: "#22C55E",
-    warning: "#F59E0B",
-    danger: "#EF4444"
-  },
-  typography: {
-    fontFamilyBase:
-      "\"Inter\", system-ui, -apple-system, \"BlinkMacSystemFont\", \"Segoe UI\", sans-serif",
-    fontFamilyHeading: "\"Noto Sans SC\", \"Inter\", system-ui, sans-serif",
-    weightRegular: 400,
-    weightMedium: 500,
-    weightSemibold: 600,
-    weightBold: 700
-  },
-  radius: {
-    sm: "6px",
-    md: "12px",
-    lg: "18px",
-    pill: "999px"
-  },
-  shadow: {
-    sm: "0 1px 3px rgba(15, 23, 42, 0.12)",
-    md: "0 6px 14px rgba(15, 23, 42, 0.10)",
-    lg: "0 18px 32px rgba(15, 23, 42, 0.12)"
-  },
-  spacing: {
-    xs: "4px",
-    sm: "8px",
-    md: "16px",
-    lg: "24px",
-    xl: "32px"
-  }
-};
+export const lightTheme: ThemeTokens = lightThemeTokens;
+export { availableThemes };
 
 const TOKEN_PREFIX = "--mw";
 

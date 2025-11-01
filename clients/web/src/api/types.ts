@@ -10,6 +10,11 @@ export type TherapistSummary = {
   availability: string[];
 };
 
+export type TherapistDetail = TherapistSummary & {
+  biography: string;
+  recommendationReason?: string;
+};
+
 export type TherapistFilters = {
   specialty?: string;
   language?: string;

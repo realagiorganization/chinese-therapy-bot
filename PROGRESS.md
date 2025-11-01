@@ -1,5 +1,10 @@
 # MindWell Implementation Progress
 
+### Verification Snapshot
+- Confirmed referenced Phase 0/1 design artifacts exist under `docs/` (e.g., `docs/phase0_foundations.md`, `docs/phase1_product_design.md`) and align with completed checkboxes.
+- Validated Terraform modules for remote state, AKS, observability, and secret management under `infra/terraform/`, matching Phase 2 completed tasks.
+- Spot-checked backend services (chat, summaries, feature flags) to ensure the implementations cited in Phase 3 are present and wired into FastAPI dependencies.
+
 ## Phase 0 – Foundations
 - [x] Review DEV_PLAN.md and existing documentation to align on scope and priorities.
 - [x] Define target architecture diagram covering frontend, backend, data, and AI services.
@@ -14,13 +19,13 @@
 
 ## Phase 2 – Platform & Infrastructure Setup
 - [ ] Provision Azure AKS cluster, configure node pools, and set up cluster networking. *(Terraform definitions in `infra/terraform/azure_*.tf`; apply pending.)*
-  - [ ] Configure remote Terraform state (Azure Storage/Key Vault) and document backend credentials.
+  - [x] Configure remote Terraform state (Azure Storage/Key Vault) and document backend credentials.
   - [ ] Run `terraform plan`/`apply` for the dev subscription and capture kubeconfig bootstrap steps for CI runners.
   - [ ] Validate workload identity/OIDC by deploying a sample pod that fetches a Key Vault secret.
 - [ ] Configure AWS S3 buckets for conversation logs, summaries, and media assets with appropriate IAM roles. *(Buckets + IAM role codified in `infra/terraform/aws_storage.tf`.)*
   - [ ] Execute Terraform against the target AWS account and capture bucket ARNs plus IAM outputs.
   - [ ] Script CI Runner Agent role assumption (federated login) and document temporary credential retrieval.
-  - [ ] Define lifecycle rules/prefix conventions for transcripts, summaries, and therapist media ingestion.
+  - [x] Define lifecycle rules/prefix conventions for transcripts, summaries, and therapist media ingestion.
 - [x] Set up managed database (Azure Postgres or AWS RDS) with schemas for users, therapists, sessions, and reports. *(Azure Flexible Server defined with private networking in `infra/terraform/azure_postgres.tf`; Alembic migrations under `services/backend/alembic/` bootstrap the schema.)*
 - [x] Implement secret management (Azure Key Vault + AWS Secrets Manager) and IaC templates (Terraform/Bicep). *(Terraform seeds connection secrets/role assignments in `infra/terraform/azure_keyvault.tf`, rotation SOP in `docs/phase2_secret_management.md`, and backend manifests under `infra/kubernetes/backend/` mount secrets via CSI driver.)*
   - [x] Finalize Terraform outputs/permissions for AKS CSI driver + GitHub OIDC identities.
@@ -37,27 +42,28 @@
 - [x] Integrate Google OAuth code verification stub and user identity linking.
 - [x] Build chat service for message ingestion, streaming responses, and persistence to database/S3. *(FastAPI endpoint now supports SSE streaming with transcript archival.)*
 - [x] Integrate AI model orchestrator (Azure OpenAI primary, AWS Bedrock fallback) with prompt templates.
-- [x] Persist chat transcripts and metadata to AWS S3 conversation logs bucket.
+- [x] Persist chat transcripts and metadata to AWS S3 conversation logs bucket. *(ChatTranscriptStorage now streams per-message JSON events alongside transcript snapshots.)*
 - [x] Implement therapist data management APIs (list/get, filtering, admin imports, i18n support). *(FastAPI service now supports locale-aware responses and S3-backed imports via `/api/therapists/admin/import`.)*
+- [x] Deliver Data Sync agent to normalize therapist sources and publish S3 payloads. *(CLI `mindwell-data-sync` under `services/backend/app/agents/data_sync.py` produces `profile_<locale>.json` artifacts for ingestion.)*
 - [x] Develop summary generation pipeline (daily & weekly) with scheduled workers and storage integration. *(see `services/backend/app/services/summaries.py` & `app/agents/summary_scheduler.py`)*
 - [x] Expose journey report APIs delivering recent summaries and chat history slices. *(Journey endpoint returns daily/weekly digests plus recent conversation slices via `ReportsService`.)*
 - [x] Add feature flags/configuration service to toggle experimental capabilities. *(FeatureFlagService with `/api/features` router enables runtime toggles + percentage rollouts backed by Postgres.)*
 
 ## Phase 4 – Frontend & Mobile Clients
-- [ ] Set up shared design system and localization framework (Chinese-first).
-  - [ ] Publish reusable component tokens (buttons, typography, colors) for web and mobile parity.
-  - [ ] Expand locale bundle management and fallback strategy (zh-CN primary, en-US secondary, zh-TW placeholder).
-  - [ ] Document theming usage guidelines for React web/Native clients.
+- [x] Set up shared design system and localization framework (Chinese-first). *(shared tokens under `clients/shared/design-tokens/`, new fallback-aware i18n config, and guidelines in `docs/design_system_guidelines.md`.)*
+  - [x] Publish reusable component tokens (buttons, typography, colors) for web and mobile parity.
+  - [x] Expand locale bundle management and fallback strategy (zh-CN primary, en-US secondary, zh-TW placeholder).
+  - [x] Document theming usage guidelines for React web/Native clients.
 - [ ] Implement chatbot screen with streaming UI, voice input (local + server ASR), and TTS playback controls.
-  - [ ] Build web chat hook handling SSE turn streaming with graceful JSON fallback.
-  - [ ] Surface therapist recommendations and memory highlights inline with the transcript.
-  - [ ] Wire Web Speech API voice capture and speech synthesis toggles with server ASR handoff hooks.
-- [ ] Build therapist overview/detail pages with filters and recommendation badges.
-  - [ ] Port therapist cards to shared design system tokens and integrate live API filters.
-  - [ ] Surface recommendation rationales/badges sourced from backend embeddings.
-- [ ] Create Journey page showing 10-day daily reports and 10-week weekly reports with drill-down tabs.
-  - [ ] Implement daily/weekly list components backed by reports API.
-  - [ ] Design detail view with tabbed transcript versus highlights presentation.
+  - [x] Build web chat hook handling SSE turn streaming with graceful JSON fallback. *(Implemented via `clients/web/src/hooks/useChatSession.ts` + `api/chat.ts` SSE parser.)*
+  - [x] Surface therapist recommendations and memory highlights inline with the transcript. *(Rendered in `clients/web/src/components/ChatPanel.tsx` alongside each turn.)*
+  - [ ] Wire Web Speech API voice capture and speech synthesis toggles with server ASR handoff hooks. *(Local voice capture + TTS shipped; server ASR upload still pending.)*
+- [x] Build therapist overview/detail pages with filters and recommendation badges. *(Delivered via `clients/web/src/components/TherapistDirectory.tsx`.)*
+  - [x] Port therapist cards to shared design system tokens and integrate live API filters. *(Directory now reuses design-system `Card`/`Button` while filtering through `useTherapistDirectory`.)*
+  - [x] Surface recommendation rationales/badges sourced from backend embeddings. *(Recommended therapists render badge styling and show embedding rationale when present.)*
+- [x] Create Journey page showing 10-day daily reports and 10-week weekly reports with drill-down tabs. *(Delivered as `JourneyDashboard` in `clients/web/src/components/JourneyDashboard.tsx`.)*
+  - [x] Implement daily/weekly list components backed by reports API.
+  - [x] Design detail view with tabbed transcript versus highlights presentation.
 - [ ] Prototype Explore page content modules and personalization hooks.
   - [ ] Define placeholder content blocks (breathing exercises, psychoeducation, trending topics).
   - [ ] Connect modules to feature flag service for staged rollouts.

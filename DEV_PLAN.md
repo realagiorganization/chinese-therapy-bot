@@ -69,7 +69,7 @@
 #### **Chat System**
 
 - Persistent conversation storage
-  - Real-time chat logging ⌛️
+  - Real-time chat logging ✅ *(message-level S3 persistence via ChatTranscriptStorage)*
   - Daily chat snapshot storage ✅ *(persisted to S3 via ChatTranscriptStorage)*
 - Summary generation
   - Daily summaries ✅ *(pipeline implemented via Summary Scheduler Agent)*
@@ -84,8 +84,8 @@
 #### **Therapist Data**
 
 - list/get API ✅
-- Script for scraping therapist data and injecting into database
-- Internationalization (i18n) of therapist information
+- Script for scraping therapist data and injecting into database ✅ *(Data Sync agent `mindwell-data-sync` publishes normalized profiles to `S3_BUCKET_THERAPISTS`.)*
+- Internationalization (i18n) of therapist information ✅
 
 #### **AWS Integration**
 

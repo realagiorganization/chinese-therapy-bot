@@ -28,6 +28,29 @@ class StubOrchestrator:
 class StubTranscriptStorage:
     def __init__(self) -> None:
         self.persist_calls: list[dict[str, object]] = []
+        self.message_calls: list[dict[str, object]] = []
+
+    async def persist_message(
+        self,
+        *,
+        session_id: UUID,
+        user_id: UUID,
+        sequence_index: int,
+        role: str,
+        content: str,
+        created_at,
+    ):
+        self.message_calls.append(
+            {
+                "session_id": session_id,
+                "user_id": user_id,
+                "sequence_index": sequence_index,
+                "role": role,
+                "content": content,
+                "created_at": created_at,
+            }
+        )
+        return f"conversations/{session_id}/stream/{sequence_index}.json"
 
     async def persist_transcript(self, *, session_id: UUID, user_id: UUID, messages):
         self.persist_calls.append(
@@ -130,6 +153,9 @@ async def test_stream_turn_emits_events_and_persists_transcript(chat_session: As
     assert len(persisted_messages) == 2
     assert persisted_messages[0]["role"] == "user"
     assert persisted_messages[1]["role"] == "assistant"
+    assert len(storage.message_calls) == 2
+    assert storage.message_calls[0]["role"] == "user"
+    assert storage.message_calls[1]["role"] == "assistant"
 
     assert memory.captured
 

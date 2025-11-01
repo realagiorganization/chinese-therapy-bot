@@ -4,9 +4,10 @@ import { useTranslation } from "react-i18next";
 import { Typography } from "../design-system";
 
 const supportedLocales = [
-  { code: "zh", labelKey: "locale.zh" },
-  { code: "en", labelKey: "locale.en" }
-];
+  { code: "zh-CN", labelKey: "locale.zh_cn" },
+  { code: "zh-TW", labelKey: "locale.zh_tw" },
+  { code: "en-US", labelKey: "locale.en_us" }
+] as const;
 
 type LocaleSwitcherProps = {
   compact?: boolean;
@@ -15,9 +16,18 @@ type LocaleSwitcherProps = {
 export function LocaleSwitcher({ compact = false }: LocaleSwitcherProps) {
   const { i18n, t } = useTranslation();
 
+  const resolveLocale = (code: string | undefined): string => {
+    if (!code) {
+      return supportedLocales[0].code;
+    }
+    const match = supportedLocales.find((locale) => locale.code.toLowerCase() === code.toLowerCase());
+    return match ? match.code : supportedLocales[0].code;
+  };
+
+  const currentLocale = resolveLocale(i18n.resolvedLanguage ?? i18n.language);
+
   const handleChange = (event: ChangeEvent<HTMLSelectElement>) => {
     i18n.changeLanguage(event.target.value);
-    document.documentElement.lang = event.target.value;
   };
 
   return (
@@ -34,7 +44,7 @@ export function LocaleSwitcher({ compact = false }: LocaleSwitcherProps) {
         </Typography>
       )}
       <select
-        value={i18n.language.startsWith("zh") ? "zh" : "en"}
+        value={currentLocale}
         onChange={handleChange}
         style={{
           minHeight: "38px",

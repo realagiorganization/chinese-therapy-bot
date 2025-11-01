@@ -15,7 +15,8 @@ This configuration captures the **Phase 2 – Platform & Infrastructure Setup** 
 
 ## Usage
 
-1. Create a `terraform.tfvars` (or environment-specific `*.tfvars`) file with required values:
+1. Copy `backend.hcl.example` to `backend.hcl` and populate the Azure Storage account details that will hold the state file. The Terraform service principal must have at least **Storage Blob Data Contributor** access to the storage account.
+2. Create a `terraform.tfvars` (or environment-specific `*.tfvars`) file with required values:
 
 ```hcl
 environment                  = "dev"
@@ -34,14 +35,14 @@ key_vault_admin_object_ids   = ["33333333-3333-3333-3333-333333333333"]
 oidc_github_workload_client_id = "00000000-0000-0000-0000-000000000000"
 ```
 
-2. Initialize and plan the deployment:
+3. Initialize and plan the deployment:
 
 ```bash
-terraform init
+terraform init -backend-config=backend.hcl
 terraform plan -var-file=dev.tfvars
 ```
 
-> 💡 **Remote State:** Configure the preferred backend (Azure Storage or Terraform Cloud) before running `apply`. A `backend.tf` stub can be added per environment as needed.
+> 💡 **Remote State:** Alternatively, pass `-backend-config` flags directly in CI/CD if injecting secrets through environment variables.
 
 ## Notes & Next Steps
 
@@ -49,3 +50,7 @@ terraform plan -var-file=dev.tfvars
 - Additional node pools (GPU/inference) and workbook visualizations can be layered as Phase 2 progresses.
 - Secrets Manager secrets are placeholders; populate key/value pairs via CI/CD once the real credentials exist.
 - Firewall/IP allowlists should be refined once corporate network ranges are finalized.
+- S3 lifecycle policies now:
+  - Transition conversation transcripts in `conversations/` to Standard-IA after 30 days, Glacier after 90 days, and purge after 1 year.
+  - Transition daily/weekly summaries in `summaries/` to Standard-IA after 60 days, Glacier after 180 days, with a 2 year retention window.
+  - Expire media uploads after 365 days and automatically clean up incomplete multipart uploads after 7 days.

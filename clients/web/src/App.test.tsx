@@ -116,8 +116,16 @@ describe("App", () => {
   it("switches to English locale", async () => {
     renderApp();
     const [localeSelect] = screen.getAllByRole("combobox");
-    fireEvent.change(localeSelect, { target: { value: "en" } });
+    fireEvent.change(localeSelect, { target: { value: "en-US" } });
     expect(await screen.findByText(/MindWell Companion/)).toBeInTheDocument();
     expect(await screen.findByText(/Therapy Companion/)).toBeInTheDocument();
+  });
+
+  it("falls back gracefully to Traditional Chinese locale", async () => {
+    renderApp();
+    const [localeSelect] = screen.getAllByRole("combobox");
+    fireEvent.change(localeSelect, { target: { value: "zh-TW" } });
+    expect(await screen.findByText(/建議下一步/)).toBeInTheDocument();
+    expect(await screen.findByText(/分享給治療師/)).toBeInTheDocument();
   });
 });
