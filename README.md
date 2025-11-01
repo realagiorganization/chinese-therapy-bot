@@ -78,8 +78,28 @@ the same virtual environment once credentials are configured.
    npm install
    npm run dev
    ```
-2. Set `VITE_API_BASE_URL` to the backend URL for production builds. During local development the
-   frontend proxies requests to `http://localhost:8000`.
+2. Copy `.env.example` (if present) or export `VITE_API_BASE_URL` to point at the backend (`http://localhost:8000/api` by default). During local development the
+   dev server proxies unauthenticated API requests.
+3. Run `npm run lint`, `npm run test`, and `npm run build` before submitting changes. Vitest runs in watch mode with `npm run test -- --watch`.
+
+### Mobile (Expo)
+1. Install dependencies and launch Metro:
+   ```bash
+   cd clients/mobile
+   npm install
+   npm run start
+   ```
+   Use the Expo Go app or a development build to load the project.
+2. Provide `EXPO_PUBLIC_API_BASE_URL`, `EXPO_PUBLIC_SPEECH_REGION`, and authentication secrets via
+   `.env` or your preferred secrets manager before running on a device. See `ENVS.md` for the complete list.
+3. Voice and gesture validation:
+   - The root view now uses `GestureHandlerRootView` so swipe/back gestures match Apple HIG guidance.
+   - Hold the microphone button in the chat composer to capture voice input; the app streams audio to
+     `/api/voice/transcribe`. Android prompts for microphone permission automatically.
+4. Performance tooling:
+   - `npm run profile:android` bundles a release build and reports bundle/asset sizes (outputs under `clients/mobile/dist/profile-android`).
+   - `npm run optimize:assets` compresses PNG/JPEG assets—run after adding media.
+   - `useStartupProfiler` logs startup milestones to device logs; review `docs/mobile_performance.md` for interpretation.
 
 ### Voice & Media Services
 - Server-side ASR and optional TTS require Azure Cognitive Services credentials:
@@ -103,6 +123,7 @@ the same virtual environment once credentials are configured.
 - Kubernetes manifests/overlays live under `infra/kubernetes/`.
 - CI/CD runs on GitHub Actions (self-hosted EC2 runners) executing lint, tests, and deployment stages.
 - Azure is the preferred runtime due to available credits; AWS is primarily used for S3 storage and Bedrock fallback.
+- Release workflows, semantic versioning, and store checklists are documented in `docs/release_management.md`.
 
 ## Observability & Operations
 - Application Insights + Azure Monitor dashboards track latency, error rates, and custom metrics.
@@ -118,4 +139,4 @@ the same virtual environment once credentials are configured.
 - Implement remaining infrastructure tasks (AKS apply, OIDC validation, AWS bucket provisioning).
 - Expand automated test coverage (integration, e2e) and complete compliance workflows.
 - Track budget modeling tasks in the new **Cost & Resource Planning** section within `PROGRESS.md`.
-
+- Follow `docs/mobile_performance.md` and `docs/release_management.md` as prerequisites for Phase 4/7 milestones.

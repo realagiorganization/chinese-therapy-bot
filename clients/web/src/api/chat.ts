@@ -82,7 +82,9 @@ function normalizeResponse(payload: unknown): ChatTurnResponse {
       return value ? value : null;
     }),
     recommendations: normalizeRecommendations(data.recommendations),
-    memoryHighlights: normalizeHighlights(data.memory_highlights)
+    memoryHighlights: normalizeHighlights(data.memory_highlights),
+    resolvedLocale:
+      asString(data.resolved_locale ?? data.locale ?? data.resolvedLocale, "zh-CN") || "zh-CN"
   };
 }
 
@@ -210,7 +212,12 @@ export async function* streamChatTurn(
                   const value = asString(id);
                   return value ? value : null;
                 }),
-                memoryHighlights: normalizeHighlights(payloadRecord.memory_highlights)
+                memoryHighlights: normalizeHighlights(payloadRecord.memory_highlights),
+                locale: asString(payloadRecord.locale),
+                resolvedLocale:
+                  asString(
+                    payloadRecord.resolved_locale ?? payloadRecord.locale ?? payloadRecord.resolvedLocale
+                  ) || undefined
               }
             };
             break;

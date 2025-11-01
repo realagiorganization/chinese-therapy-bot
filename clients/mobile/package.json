@@ -8,14 +8,18 @@
     "android": "expo run:android",
     "ios": "expo run:ios",
     "lint": "eslint . --ext .ts,.tsx",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "profile:android": "../../scripts/mobile-profile-android.sh",
+    "optimize:assets": "npx expo optimize --quality 70 --include \"**/*.{png,jpg,jpeg}\""
   },
   "dependencies": {
     "@react-native-async-storage/async-storage": "~1.23.1",
     "base-64": "^1.0.0",
     "expo": "~51.0.8",
+    "expo-av": "~14.0.7",
     "expo-constants": "~16.0.1",
     "expo-device": "~6.0.0",
+    "expo-file-system": "~17.0.1",
     "expo-linking": "~6.3.1",
     "expo-localization": "~15.0.3",
     "expo-notifications": "~0.28.5",

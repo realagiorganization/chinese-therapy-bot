@@ -139,6 +139,16 @@ resource "aws_s3_bucket" "media" {
   tags   = local.default_tags
 }
 
+resource "aws_s3_bucket_server_side_encryption_configuration" "media" {
+  bucket = aws_s3_bucket.media.bucket
+
+  rule {
+    apply_server_side_encryption_by_default {
+      sse_algorithm = "AES256"
+    }
+  }
+}
+
 resource "aws_s3_bucket_cors_configuration" "media" {
   bucket = aws_s3_bucket.media.id
 
@@ -182,6 +192,96 @@ resource "aws_s3_bucket_lifecycle_configuration" "media" {
       days_after_initiation = 7
     }
   }
+}
+
+data "aws_iam_policy_document" "conversation_logs_secure_transport" {
+  statement {
+    sid     = "DenyInsecureTransport"
+    effect  = "Deny"
+
+    principals {
+      type        = "*"
+      identifiers = ["*"]
+    }
+
+    actions = ["s3:*"]
+
+    resources = [
+      aws_s3_bucket.conversation_logs.arn,
+      "${aws_s3_bucket.conversation_logs.arn}/*",
+    ]
+
+    condition {
+      test     = "Bool"
+      variable = "aws:SecureTransport"
+      values   = ["false"]
+    }
+  }
+}
+
+resource "aws_s3_bucket_policy" "conversation_logs_secure_transport" {
+  bucket = aws_s3_bucket.conversation_logs.id
+  policy = data.aws_iam_policy_document.conversation_logs_secure_transport.json
+}
+
+data "aws_iam_policy_document" "summaries_secure_transport" {
+  statement {
+    sid     = "DenyInsecureTransport"
+    effect  = "Deny"
+
+    principals {
+      type        = "*"
+      identifiers = ["*"]
+    }
+
+    actions = ["s3:*"]
+
+    resources = [
+      aws_s3_bucket.summaries.arn,
+      "${aws_s3_bucket.summaries.arn}/*",
+    ]
+
+    condition {
+      test     = "Bool"
+      variable = "aws:SecureTransport"
+      values   = ["false"]
+    }
+  }
+}
+
+resource "aws_s3_bucket_policy" "summaries_secure_transport" {
+  bucket = aws_s3_bucket.summaries.id
+  policy = data.aws_iam_policy_document.summaries_secure_transport.json
+}
+
+data "aws_iam_policy_document" "media_secure_transport" {
+  statement {
+    sid     = "DenyInsecureTransport"
+    effect  = "Deny"
+
+    principals {
+      type        = "*"
+      identifiers = ["*"]
+    }
+
+    actions = ["s3:*"]
+
+    resources = [
+      aws_s3_bucket.media.arn,
+      "${aws_s3_bucket.media.arn}/*",
+    ]
+
+    condition {
+      test     = "Bool"
+      variable = "aws:SecureTransport"
+      values   = ["false"]
+    }
+  }
+}
+
+resource "aws_s3_bucket_policy" "media_secure_transport" {
+  bucket = aws_s3_bucket.media.id
+  policy = data.aws_iam_policy_document.media_secure_transport.json
 }
 
 data "aws_iam_policy_document" "ci_runner_assume_role" {

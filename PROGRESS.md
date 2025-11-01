@@ -4,6 +4,7 @@
 - Confirmed referenced Phase 0/1 design artifacts exist under `docs/` (e.g., `docs/phase0_foundations.md`, `docs/phase1_product_design.md`) and align with completed checkboxes.
 - Validated Terraform modules for remote state, AKS, observability, and secret management under `infra/terraform/`, matching Phase 2 completed tasks.
 - Spot-checked backend services (chat, summaries, feature flags) to ensure the implementations cited in Phase 3 are present and wired into FastAPI dependencies.
+- Verified automatic locale detection end-to-end (`services/backend/app/services/language_detection.py:1`, `services/backend/app/services/chat.py:28`, `clients/web/src/hooks/useChatSession.ts:134`, `clients/mobile/src/screens/ChatScreen.tsx:134`), including new unit coverage in `services/backend/tests/test_language_detection.py:1`.
 
 ## Phase 0 – Foundations
 - [x] Review DEV_PLAN.md and existing documentation to align on scope and priorities.
@@ -64,6 +65,7 @@
   - [x] Build web chat hook handling SSE turn streaming with graceful JSON fallback. *(Implemented via `clients/web/src/hooks/useChatSession.ts` + `api/chat.ts` SSE parser.)*
   - [x] Surface therapist recommendations and memory highlights inline with the transcript. *(Rendered in `clients/web/src/components/ChatPanel.tsx` alongside each turn.)*
   - [x] Wire Web Speech API voice capture and speech synthesis toggles with server ASR handoff hooks. *(Azure-backed `/api/voice/transcribe` endpoint + `useServerTranscriber` enable server recording fallback with shared error handling.)*
+  - [x] Auto-detect chat locale and surface resolved language across clients. *(LanguageDetector-driven inference in `app/services/chat.py`, SSE propagation parsed in `clients/web/src/api/chat.ts`, and mobile cache hydration in `clients/mobile/src/screens/ChatScreen.tsx`.)*
 - [x] Build therapist overview/detail pages with filters and recommendation badges. *(Delivered via `clients/web/src/components/TherapistDirectory.tsx`.)*
   - [x] Port therapist cards to shared design system tokens and integrate live API filters. *(Directory now reuses design-system `Card`/`Button` while filtering through `useTherapistDirectory`.)*
   - [x] Surface recommendation rationales/badges sourced from backend embeddings. *(Recommended therapists render badge styling and show embedding rationale when present.)*
@@ -77,11 +79,12 @@
   - [x] Build OTP request/verification UI tied into backend throttling.
   - [x] Add Google OAuth web flow and token exchange using the stub client.
 - [x] Scaffold React Native/Expo mobile client with SMS + Google authentication and chat shell. *(see `clients/mobile/` for initial app structure and theming tied to shared tokens.)*
+- [x] Ship mobile therapist directory with in-app filters and detail view. *(New Expo tab integrates `TherapistDirectoryScreen`, `useTherapistDirectory`, and API-backed detail loading with graceful fallbacks.)*
 - [ ] Ensure iOS optimization (gesture handling, offline caching, push notifications).
   - [ ] Validate React Native/Expo builds against Apple HIG-aligned interactions.
   - [x] Add offline transcript caching and push notification scaffolding. *(AsyncStorage-backed restoration + Expo Notifications registration in `clients/mobile/src/screens/ChatScreen.tsx`, `src/services/chatCache.ts`, and `src/hooks/usePushNotifications.ts`.)*
 - [ ] Ensure Android optimization (voice integration parity, performance, compatibility).
-  - [ ] Ensure voice input parity using Android speech APIs.
+  - [x] Ensure voice input parity using Android speech APIs. *(Added Expo AV-powered recorder + server transcription hook in `clients/mobile/src/hooks/useVoiceInput.ts` with chat composer integration in `clients/mobile/src/screens/ChatScreen.tsx` and REST bridge `clients/mobile/src/services/voice.ts`.)*
   - [ ] Profile startup/performance on mid-range devices and tune asset sizes.
 
 ## Phase 5 – Intelligent Agent Features
@@ -93,13 +96,13 @@
 
 ## Phase 6 – Quality Assurance & Compliance
 - [ ] Create automated testing suites (unit, integration, end-to-end) and load testing scenarios.
-  - [x] Expand backend coverage (auth edge cases, streaming chat, S3 persistence). *(new pytest suites under `services/backend/tests/` cover AuthService OTP limits, ChatService streaming flow, and S3 transcript/summary storage stubs.)*
+  - [x] Expand backend coverage (auth edge cases, streaming chat, S3 persistence). *(pytest suites under `services/backend/tests/` cover AuthService OTP limits, ChatService streaming flow, S3 transcript/summary storage stubs, and locale detection in `test_language_detection.py`.)*
   - [x] Add summary generation unit tests covering daily pipeline behavior, heuristic fallback, and mood scoring. *(see `services/backend/tests/test_summaries.py`.)*
 - [x] Add frontend unit/component tests for chat, therapist flows, and localization. *(Vitest suites in `clients/web/src/App.test.tsx`, `clients/web/src/hooks/__tests__/useTherapistDirectory.test.tsx`, and `clients/web/src/api/therapists.test.ts` validate locale switching, therapist filtering, and API fallback logic.)*
   - [x] Author k6 or Locust load suites for LLM-backed chat throughput. *(Locust scenario under `services/backend/loadtests/` drives chat turns, therapist discovery, and journey report fetches with configurable headless runs.)*
 - [ ] Conduct security review (OWASP ASVS, data encryption, privacy compliance).
   - [x] Perform threat modeling, dependency scanning, and secret scanning in CI. *(Threat model documented in `docs/threat_model.md` and security checks enforced via `.github/workflows/ci.yml` + `.gitleaks.toml`.)*
-  - [ ] Validate encryption in transit/at rest across Azure and AWS resources.
+  - [x] Validate encryption in transit/at rest across Azure and AWS resources. *(See `docs/security/encryption_validation.md`; S3 buckets enforce TLS + SSE per `infra/terraform/aws_storage.tf` updates.)*
 - [ ] Implement data governance workflows for PII management and retention.
   - [x] Define retention schedules, anonymization routines, and SAR handling. *(documented in `docs/data_governance.md`)*
   - [x] Automate cleanup of transcripts/summaries per compliance requirements. *(Automated via `mindwell-retention-cleanup` agent in `services/backend/app/agents/retention_cleanup.py` with retention coverage documented in `docs/data_governance.md`.)*

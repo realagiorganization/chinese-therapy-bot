@@ -1,4 +1,5 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
+
 import type { ChatMessage } from "../types/chat";
 import type { TherapistRecommendation } from "../types/therapists";
 
@@ -10,6 +11,7 @@ type CachedChatPayload = {
   recommendations: TherapistRecommendation[];
   memoryHighlights: { summary: string; keywords: string[] }[];
   updatedAt: number;
+  locale?: string;
 };
 
 function storageKey(userId: string): string {

@@ -54,6 +54,7 @@ app/services/chat.py
 app/services/evaluation.py
 app/services/explore.py
 app/services/feature_flags.py
+app/services/language_detection.py
 app/services/memory.py
 app/services/recommendations.py
 app/services/reports.py
@@ -73,8 +74,10 @@ tests/test_chat_service.py
 tests/test_data_sync_agent.py
 tests/test_evaluation.py
 tests/test_explore_service.py
+tests/test_language_detection.py
 tests/test_recommendations.py
 tests/test_retention_cleanup_agent.py
 tests/test_storage.py
+tests/test_summaries.py
 tests/test_template_service.py
 tests/test_voice_api.py

@@ -45,6 +45,7 @@ These notes capture evidence that the completed checklist items in `PROGRESS.md`
 - Backend unit tests for chat streaming and transcript persistence reside in `services/backend/tests/test_chat_service.py:1-165`, demonstrating coverage of the documented behaviors.
 - Summary generation pipeline coverage added via `services/backend/tests/test_summaries.py:1-200`, validating daily summary persistence, heuristic fallback, and mood scoring logic.
 - Load testing scaffolding is present in `services/backend/loadtests/locustfile.py:1-160`.
+- Encryption enforcement across Azure/AWS resources documented in `docs/security/encryption_validation.md:1-74`, covering TLS requirements and server-side encryption updates.
 - Data retention automation implemented via `services/backend/app/agents/retention_cleanup.py:1-260` with coverage in `tests/test_retention_cleanup_agent.py:1-150`, matching the compliance automation checklist.
 
 ## Outstanding Areas

@@ -140,6 +140,7 @@ async def test_stream_turn_emits_events_and_persists_transcript(chat_session: As
 
     assert events, "Expected at least one SSE event."
     assert events[0]["event"] == "session_established"
+    assert events[0]["data"]["resolved_locale"] == "zh-CN"
     token_events = [event for event in events if event["event"] == "token"]
     assert token_events, "Expected streaming token events."
     assert token_events[0]["data"]["delta"] == "感谢"
@@ -147,6 +148,7 @@ async def test_stream_turn_emits_events_and_persists_transcript(chat_session: As
     assert events[-1]["data"]["message"]["content"].startswith("感谢你的分享")
     assert events[-1]["data"]["recommendations"]
     assert events[-1]["data"]["memory_highlights"]
+    assert events[-1]["data"]["resolved_locale"] == "zh-CN"
 
     assert storage.persist_calls
     persisted_messages = storage.persist_calls[0]["messages"]

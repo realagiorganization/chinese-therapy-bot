@@ -20,6 +20,8 @@ type ApiChatResponse = {
     summary: string;
     keywords: string[];
   }[];
+  resolved_locale?: string;
+  locale?: string;
 };
 
 export type SendMessageParams = {
@@ -65,5 +67,6 @@ export async function sendMessage(
       avatarUrl: rec.avatar_url ?? undefined,
     })),
     memoryHighlights: response.memory_highlights,
+    resolvedLocale: response.resolved_locale ?? response.locale ?? "zh-CN",
   };
 }

@@ -1,10 +1,10 @@
 import { useAuth } from "@context/AuthContext";
+import { markStartupEvent } from "@hooks/useStartupProfiler";
+import { useVoiceInput } from "@hooks/useVoiceInput";
 import { sendMessage } from "@services/chat";
 import { loadChatState, persistChatState } from "@services/chatCache";
 import { useTheme } from "@theme/ThemeProvider";
-import type { ChatMessage } from "../types/chat";
-import type { TherapistRecommendation } from "../types/therapists";
-import { useState, useMemo, useCallback, useEffect } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   FlatList,
@@ -17,6 +17,8 @@ import {
   View,
 } from "react-native";
 
+import type { ChatMessage } from "../types/chat";
+import type { TherapistRecommendation } from "../types/therapists";
 type MessageWithId = ChatMessage & { id: string };
 
 function Bubble({ message }: { message: MessageWithId }) {
@@ -127,9 +129,36 @@ function RecommendationCard({
   );
 }
 
+function resolveVoiceStatusLabel(
+  isRecording: boolean,
+  isTranscribing: boolean,
+): string {
+  if (isTranscribing) {
+    return "语音识别中…";
+  }
+  if (isRecording) {
+    return "保持按住录音";
+  }
+  return "长按说话";
+}
+
 export function ChatScreen() {
   const theme = useTheme();
   const { tokens, userId, logout } = useAuth();
+  const cacheMarkedRef = useRef(false);
+  const screenVisibleRef = useRef(false);
+  const firstResponseRef = useRef(false);
+  const [activeLocale, setActiveLocale] = useState("zh-CN");
+  const {
+    supported: voiceSupported,
+    isRecording: isVoiceRecording,
+    isTranscribing: isVoiceTranscribing,
+    error: voiceError,
+    start: startVoiceInput,
+    stop: stopVoiceInput,
+    cancel: cancelVoiceInput,
+    clearError: clearVoiceError,
+  } = useVoiceInput(activeLocale, tokens?.accessToken ?? null);
   const [messages, setMessages] = useState<MessageWithId[]>([]);
   const [sessionId, setSessionId] = useState<string | undefined>();
   const [inputValue, setInputValue] = useState("");
@@ -240,9 +269,60 @@ export function ChatScreen() {
           alignItems: "center",
           padding: theme.spacing.lg,
         },
+        voiceButton: {
+          borderRadius: theme.radius.md,
+          borderWidth: 1,
+          borderColor: theme.colors.borderSubtle,
+          paddingHorizontal: theme.spacing.md,
+          paddingVertical: theme.spacing.sm,
+          backgroundColor: theme.colors.surfaceCard,
+        },
+        voiceContainer: {
+          alignItems: "center",
+          justifyContent: "center",
+          marginRight: theme.spacing.sm,
+        },
+        voiceButtonActive: {
+          backgroundColor: theme.colors.primary,
+          borderColor: theme.colors.primary,
+        },
+        voiceButtonDisabled: {
+          opacity: 0.4,
+        },
+        voiceButtonLabel: {
+          color: theme.colors.textPrimary,
+          fontWeight: "600",
+        },
+        voiceButtonLabelActive: {
+          color: "#fff",
+        },
+        voiceStatusText: {
+          color: theme.colors.textSecondary,
+          fontSize: 12,
+          marginTop: theme.spacing.xs * 0.5,
+        },
+        voiceErrorText: {
+          color: theme.colors.danger,
+          fontSize: 12,
+          paddingHorizontal: theme.spacing.md,
+          paddingBottom: theme.spacing.xs,
+        },
+        voiceStatusRow: {
+          flexDirection: "row",
+          alignItems: "center",
+          marginTop: theme.spacing.xs * 0.5,
+        },
       }),
     [theme],
   );
+
+  useEffect(() => {
+    return () => {
+      cancelVoiceInput().catch((error) => {
+        console.warn("Failed to cancel voice input during cleanup", error);
+      });
+    };
+  }, [cancelVoiceInput]);
 
   useEffect(() => {
     if (!userId) {
@@ -261,6 +341,9 @@ export function ChatScreen() {
         setSessionId(cached.sessionId);
         setRecommendations(cached.recommendations);
         setMemoryHighlights(cached.memoryHighlights);
+        if (cached.locale) {
+          setActiveLocale(cached.locale);
+        }
       }
       setRestoring(false);
     };
@@ -280,11 +363,16 @@ export function ChatScreen() {
     if (!userId || isRestoring) {
       return;
     }
+    if (!cacheMarkedRef.current) {
+      markStartupEvent("chat-cache-ready");
+      cacheMarkedRef.current = true;
+    }
     persistChatState(userId, {
       sessionId,
       messages,
       recommendations,
       memoryHighlights,
+      locale: activeLocale,
     }).catch((error) => {
       console.warn("Failed to persist chat state", error);
     });
@@ -295,7 +383,58 @@ export function ChatScreen() {
     recommendations,
     memoryHighlights,
     isRestoring,
+    activeLocale,
   ]);
+
+  useEffect(() => {
+    if (!isRestoring && !screenVisibleRef.current) {
+      markStartupEvent("chat-screen-visible");
+      screenVisibleRef.current = true;
+    }
+  }, [isRestoring]);
+
+  const handleInputChange = useCallback(
+    (value: string) => {
+      clearVoiceError();
+      setInputValue(value);
+    },
+    [clearVoiceError],
+  );
+
+  const handleVoiceTranscript = useCallback(
+    (transcript: string) => {
+      clearVoiceError();
+      setInputValue((prev) => {
+        const normalized = prev.trimEnd();
+        if (normalized.length === 0) {
+          return transcript;
+        }
+        const spacer =
+          normalized.endsWith("，") || normalized.endsWith("。") ? "" : " ";
+        return `${normalized}${spacer}${transcript}`;
+      });
+    },
+    [clearVoiceError],
+  );
+
+  const handleVoiceStart = useCallback(() => {
+    clearVoiceError();
+    startVoiceInput(handleVoiceTranscript).catch((error) => {
+      console.warn("Failed to start voice input", error);
+    });
+  }, [clearVoiceError, startVoiceInput, handleVoiceTranscript]);
+
+  const handleVoiceStop = useCallback(() => {
+    stopVoiceInput().catch((error) => {
+      console.warn("Failed to stop voice input", error);
+    });
+  }, [stopVoiceInput]);
+
+  const handleVoiceCancel = useCallback(() => {
+    cancelVoiceInput().catch((error) => {
+      console.warn("Failed to cancel voice input", error);
+    });
+  }, [cancelVoiceInput]);
 
   const handleSend = useCallback(async () => {
     if (!tokens || !userId || inputValue.trim().length === 0) {
@@ -317,7 +456,7 @@ export function ChatScreen() {
         userId,
         sessionId,
         message: userMessage.content,
-        locale: "zh-CN",
+        locale: activeLocale,
       });
       setSessionId(response.sessionId);
       const assistantMessage: MessageWithId = {
@@ -329,6 +468,13 @@ export function ChatScreen() {
       setMessages((prev) => [...prev, assistantMessage]);
       setRecommendations(response.recommendations);
       setMemoryHighlights(response.memoryHighlights);
+      if (response.resolvedLocale) {
+        setActiveLocale(response.resolvedLocale);
+      }
+      if (!firstResponseRef.current) {
+        markStartupEvent("chat-first-response");
+        firstResponseRef.current = true;
+      }
     } catch (err) {
       console.warn("Failed to send chat message", err);
       setError(
@@ -337,7 +483,7 @@ export function ChatScreen() {
     } finally {
       setSending(false);
     }
-  }, [tokens, userId, inputValue, sessionId]);
+  }, [tokens, userId, inputValue, sessionId, activeLocale]);
 
   return (
     <KeyboardAvoidingView
@@ -404,12 +550,53 @@ export function ChatScreen() {
       </View>
 
       <View style={styles.composer}>
+        {voiceSupported && (
+          <View style={styles.voiceContainer}>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="按住进行语音输入"
+              onPressIn={handleVoiceStart}
+              onPressOut={handleVoiceStop}
+              onTouchCancel={handleVoiceCancel}
+              disabled={isSending || isVoiceTranscribing}
+              style={[
+                styles.voiceButton,
+                isVoiceRecording && styles.voiceButtonActive,
+                (isSending || isVoiceTranscribing) &&
+                  styles.voiceButtonDisabled,
+              ]}
+            >
+              <Text
+                style={[
+                  styles.voiceButtonLabel,
+                  isVoiceRecording && styles.voiceButtonLabelActive,
+                ]}
+              >
+                {isVoiceRecording ? "松开结束" : "按住语音"}
+              </Text>
+            </Pressable>
+            <View style={styles.voiceStatusRow}>
+              {isVoiceTranscribing && (
+                <ActivityIndicator size="small" color={theme.colors.primary} />
+              )}
+              <Text
+                style={[
+                  styles.voiceStatusText,
+                  isVoiceTranscribing && { marginLeft: theme.spacing.xs * 0.5 },
+                ]}
+              >
+                {resolveVoiceStatusLabel(isVoiceRecording, isVoiceTranscribing)}
+              </Text>
+            </View>
+          </View>
+        )}
+
         <TextInput
           placeholder="说点什么..."
           value={inputValue}
-          onChangeText={setInputValue}
+          onChangeText={handleInputChange}
           style={styles.input}
-          editable={!isSending}
+          editable={!isSending && !isVoiceRecording && !isVoiceTranscribing}
         />
         <Pressable
           onPress={handleSend}
@@ -419,6 +606,7 @@ export function ChatScreen() {
           <Text style={styles.sendLabel}>{isSending ? "发送中…" : "发送"}</Text>
         </Pressable>
       </View>
+      {voiceError && <Text style={styles.voiceErrorText}>{voiceError}</Text>}
     </KeyboardAvoidingView>
   );
 }

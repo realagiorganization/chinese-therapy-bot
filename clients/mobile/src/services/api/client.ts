@@ -15,7 +15,7 @@ export class ApiError extends Error {
   }
 }
 
-function getBaseUrl(): string {
+export function getBaseUrl(): string {
   const envUrl = process.env.EXPO_PUBLIC_API_BASE_URL;
   if (envUrl && envUrl.length > 0) {
     return envUrl.endsWith("/") ? envUrl.slice(0, -1) : envUrl;

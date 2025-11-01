@@ -55,6 +55,7 @@ export type ChatTurnResponse = {
   recommendedTherapistIds: string[];
   recommendations: TherapistRecommendationDetail[];
   memoryHighlights: MemoryHighlight[];
+  resolvedLocale: string;
 };
 
 export type ChatTurnRequest = {
@@ -72,6 +73,8 @@ export type ChatStreamEvent =
         recommendations: TherapistRecommendationDetail[];
         recommendedTherapistIds: string[];
         memoryHighlights: MemoryHighlight[];
+        locale?: string;
+        resolvedLocale?: string;
       };
     }
   | {

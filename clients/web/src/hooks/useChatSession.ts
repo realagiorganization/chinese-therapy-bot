@@ -45,6 +45,7 @@ type ChatSessionState = {
   sessionId?: string;
   isStreaming: boolean;
   error: string | null;
+  resolvedLocale?: string;
 };
 
 const INITIAL_STATE: ChatSessionState = {
@@ -53,7 +54,8 @@ const INITIAL_STATE: ChatSessionState = {
   memoryHighlights: [],
   sessionId: undefined,
   isStreaming: false,
-  error: null
+  error: null,
+  resolvedLocale: undefined
 };
 
 export type UseChatSessionResult = {
@@ -68,6 +70,7 @@ export type UseChatSessionResult = {
   memoryHighlights: MemoryHighlight[];
   sessionId?: string;
   userId: string;
+  resolvedLocale: string;
 };
 
 export function useChatSession(locale: string): UseChatSessionResult {
@@ -128,6 +131,8 @@ export function useChatSession(locale: string): UseChatSessionResult {
         streaming: true
       };
 
+      const requestLocale = state.resolvedLocale ?? locale;
+
       setState((prev) => ({
         ...prev,
         messages: [...prev.messages, userMessage, assistantPlaceholder],
@@ -139,7 +144,7 @@ export function useChatSession(locale: string): UseChatSessionResult {
         userId,
         sessionId: state.sessionId,
         message: trimmed,
-        locale
+        locale: requestLocale
       };
 
       let streamCompleted = false;
@@ -153,6 +158,7 @@ export function useChatSession(locale: string): UseChatSessionResult {
           sessionId: response.sessionId || prev.sessionId,
           recommendations: response.recommendations,
           memoryHighlights: response.memoryHighlights,
+          resolvedLocale: response.resolvedLocale || prev.resolvedLocale || locale,
           messages: mergeAssistantMessage(prev.messages, assistantMessageId, () => ({
             id: assistantMessageId,
             ...response.reply,
@@ -178,7 +184,12 @@ export function useChatSession(locale: string): UseChatSessionResult {
               ...prev,
               sessionId: event.data.sessionId || prev.sessionId,
               recommendations: event.data.recommendations,
-              memoryHighlights: event.data.memoryHighlights
+              memoryHighlights: event.data.memoryHighlights,
+              resolvedLocale:
+                event.data.resolvedLocale ||
+                event.data.locale ||
+                prev.resolvedLocale ||
+                locale
             }));
           } else if (event.type === "token") {
             aggregated += event.data.delta;
@@ -246,7 +257,7 @@ export function useChatSession(locale: string): UseChatSessionResult {
         abortControllerRef.current = null;
       }
     },
-    [locale, state.sessionId, userId]
+    [locale, state.sessionId, state.resolvedLocale, userId]
   );
 
   return {
@@ -260,6 +271,7 @@ export function useChatSession(locale: string): UseChatSessionResult {
     recommendations: state.recommendations,
     memoryHighlights: state.memoryHighlights,
     sessionId: state.sessionId,
-    userId
+    userId,
+    resolvedLocale: state.resolvedLocale ?? locale
   };
 }

@@ -49,3 +49,7 @@ class ChatResponse(BaseModel):
         default_factory=list,
         description="Existing conversation memories relevant to this turn.",
     )
+    resolved_locale: str = Field(
+        default="zh-CN",
+        description="Locale resolved via automatic language detection for this turn.",
+    )

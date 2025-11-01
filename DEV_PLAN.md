@@ -135,7 +135,7 @@
   - Text input
   - Voice input via local system model (iOS ✅ / Android pending)
   - WeChat-style “hold to speak” voice input ✅
-  - Auto language detection
+  - Auto language detection ✅ *(LanguageDetector service auto-resolves locale -> shared across web/mobile states.)*
   - Server-side ASR (speech recognition)
 - **Output (Voice Playback):**
   - RN-TTS integration ✅

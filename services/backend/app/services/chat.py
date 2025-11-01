@@ -14,6 +14,7 @@ from app.models import ChatMessage as ChatMessageModel
 from app.models import ChatSession, User
 from app.schemas.chat import ChatMessage, ChatRequest, ChatResponse, MemoryHighlight
 from app.schemas.therapists import TherapistRecommendation
+from app.services.language_detection import LanguageDetector
 from app.services.memory import ConversationMemoryService
 from app.services.recommendations import TherapistRecommendationService
 
@@ -31,18 +32,20 @@ class ChatService:
         storage: ChatTranscriptStorage,
         memory_service: ConversationMemoryService | None = None,
         recommendation_service: TherapistRecommendationService | None = None,
+        language_detector: LanguageDetector | None = None,
     ):
         self._session = session
         self._orchestrator = orchestrator
         self._storage = storage
         self._memory = memory_service
         self._recommendations = recommendation_service
+        self._language_detector = language_detector or LanguageDetector()
 
     async def process_turn(self, payload: ChatRequest) -> ChatResponse:
         context = await self._prepare_turn(payload)
         reply_text = await self._orchestrator.generate_reply(
             context["history"],
-            language=payload.locale,
+            language=context["resolved_locale"],
             context_prompt=context["context_prompt"],
         )
 
@@ -65,6 +68,7 @@ class ChatService:
             recommended_therapist_ids=context["recommended_ids"],
             recommendations=context["recommendations"],
             memory_highlights=context["memories"],
+            resolved_locale=context["resolved_locale"],
         )
 
     async def stream_turn(self, payload: ChatRequest) -> AsyncIterator[dict[str, Any]]:
@@ -74,6 +78,8 @@ class ChatService:
             "event": "session_established",
             "data": {
                 "session_id": str(context["chat_session"].id),
+                "locale": context["resolved_locale"],
+                "resolved_locale": context["resolved_locale"],
                 "recommended_therapist_ids": context["recommended_ids"],
                 "recommendations": [
                     recommendation.model_dump()
@@ -88,7 +94,7 @@ class ChatService:
         reply_fragments: list[str] = []
         async for delta in self._orchestrator.stream_reply(
             context["history"],
-            language=payload.locale,
+            language=context["resolved_locale"],
             context_prompt=context["context_prompt"],
         ):
             if not delta:
@@ -102,7 +108,8 @@ class ChatService:
         reply_text = "".join(reply_fragments).strip()
         if not reply_text:
             reply_text = await self._orchestrator.generate_reply(
-                context["history"], language=payload.locale
+                context["history"],
+                language=context["resolved_locale"],
             )
 
         assistant_message = await self._append_message(
@@ -123,6 +130,7 @@ class ChatService:
             "data": {
                 "session_id": str(context["chat_session"].id),
                 "message": ChatMessage.model_validate(assistant_message).model_dump(),
+                "resolved_locale": context["resolved_locale"],
                 "recommended_therapist_ids": context["recommended_ids"],
                 "recommendations": [
                     recommendation.model_dump()
@@ -191,14 +199,26 @@ class ChatService:
         chat_session = await self._get_or_create_session(user, payload.session_id)
         await self._append_message(chat_session, role="user", content=payload.message)
 
+        hint_locale = payload.locale or getattr(user, "locale", None) or "zh-CN"
+        resolved_locale = self._language_detector.detect_locale(
+            payload.message,
+            hinted_locale=hint_locale,
+        )
+        if resolved_locale and resolved_locale != getattr(user, "locale", None):
+            user.locale = resolved_locale
+            await self._session.flush()
+
         history = await self._load_history(chat_session.id)
-        therapist_recs = await self._recommend_therapists(payload.message, locale=payload.locale)
-        memories = await self._load_memories(user.id, locale=payload.locale)
+        therapist_recs = await self._recommend_therapists(
+            payload.message,
+            locale=resolved_locale,
+        )
+        memories = await self._load_memories(user.id, locale=resolved_locale)
         recommended_ids = [recommendation.therapist_id for recommendation in therapist_recs]
         context_prompt = self._build_context_prompt(
             recommendations=therapist_recs,
             memories=memories,
-            locale=payload.locale,
+            locale=resolved_locale,
         )
 
         return {
@@ -210,6 +230,7 @@ class ChatService:
             "recommendations": therapist_recs,
             "memories": memories,
             "context_prompt": context_prompt,
+            "resolved_locale": resolved_locale,
         }
 
     async def _persist_transcript(self, chat_session: ChatSession, user_id: UUID) -> list[dict[str, str]]:

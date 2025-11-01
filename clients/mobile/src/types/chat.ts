@@ -15,4 +15,5 @@ export type ChatTurnResponse = {
     summary: string;
     keywords: string[];
   }[];
+  resolvedLocale: string;
 };
