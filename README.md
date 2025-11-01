@@ -68,8 +68,9 @@ web client, infrastructure-as-code, and the supporting automation services descr
    ```
    The server runs on `http://127.0.0.1:8000` by default; override host/port via `API_HOST` / `API_PORT`.
 
-Agent entry points are exposed as `mindwell-summary-scheduler` and `mindwell-data-sync`. Run them within
-the same virtual environment once credentials are configured.
+Agent entry points are exposed as `mindwell-summary-scheduler`, `mindwell-data-sync`, and
+`mindwell-monitoring-agent`. Run them within the same virtual environment once credentials are configured.
+Use `mindwell-monitoring-agent --dry-run` to verify telemetry access without dispatching alerts.
 
 ### Frontend (Vite/React)
 1. Install dependencies:
@@ -148,10 +149,19 @@ the same virtual environment once credentials are configured.
 ## Observability & Operations
 - Application Insights + Azure Monitor dashboards track latency, error rates, and custom metrics.
 - Monitoring Agent raises alerts when thresholds or budget guardrails (defined in Terraform) are breached.
+- Configure `APP_INSIGHTS_APP_ID`, `APP_INSIGHTS_API_KEY`, and spend thresholds before scheduling
+  `mindwell-monitoring-agent` in production.
 - S3 versioning and lifecycle policies guard conversation transcripts, summaries, and therapist media.
+
+### Product Analytics
+- Backend persists canonical events to `analytics_events` via `POST /api/analytics/events`; clients can supply
+  `event_type`, `funnel_stage`, and arbitrary JSON `properties`.
+- Aggregate engagement + conversion metrics with `GET /api/analytics/summary?window_hours=24`.
+- Automate reporting using `mindwell-analytics-agent --window-hours 168 --output growth/analytics/latest.json`.
 
 ## Documentation & Roadmap
 - `docs/` contains detailed business, design, and security documentation.
+- See `docs/product_analytics.md` for event taxonomy, aggregation workflows, and CLI usage examples.
 - `PROGRESS.md` is the canonical source for milestone status; update it as features ship.
 - `DEV_PLAN.md` outlines the end-to-end roadmap and should remain authoritative for scope.
 

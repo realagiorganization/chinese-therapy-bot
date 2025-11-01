@@ -18,6 +18,11 @@ type VoiceInputController = {
   clearError: () => void;
 };
 
+const RECORDING_PRESET =
+  Platform.OS === "android"
+    ? Audio.RecordingOptionsPresets.LOW_QUALITY
+    : Audio.RecordingOptionsPresets.HIGH_QUALITY;
+
 async function ensureAudioPermission(): Promise<boolean> {
   const current = await Audio.getPermissionsAsync();
   if (current.granted) {
@@ -108,9 +113,7 @@ export function useVoiceInput(
       try {
         await configureAudioForRecording();
         const recording = new Audio.Recording();
-        await recording.prepareToRecordAsync(
-          Audio.RecordingOptionsPresets.HIGH_QUALITY,
-        );
+        await recording.prepareToRecordAsync(RECORDING_PRESET);
         await recording.startAsync();
 
         recordingRef.current = recording;

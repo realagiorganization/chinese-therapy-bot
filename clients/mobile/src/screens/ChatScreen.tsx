@@ -16,6 +16,7 @@ import {
   TextInput,
   View,
 } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import type { ChatMessage } from "../types/chat";
 import type { TherapistRecommendation } from "../types/therapists";
@@ -148,6 +149,8 @@ export function ChatScreen() {
   const cacheMarkedRef = useRef(false);
   const screenVisibleRef = useRef(false);
   const firstResponseRef = useRef(false);
+  const listRef = useRef<FlatList<MessageWithId>>(null);
+  const insets = useSafeAreaInsets();
   const [activeLocale, setActiveLocale] = useState("zh-CN");
   const {
     supported: voiceSupported,
@@ -171,6 +174,12 @@ export function ChatScreen() {
     { summary: string; keywords: string[] }[]
   >([]);
   const [isRestoring, setRestoring] = useState<boolean>(true);
+  const composerPadding = useMemo(
+    () => Math.max(insets.bottom, theme.spacing.sm),
+    [insets.bottom, theme.spacing.sm],
+  );
+  const keyboardVerticalOffset =
+    Platform.OS === "ios" ? insets.top + theme.spacing.lg : 0;
 
   const styles = useMemo(
     () =>
@@ -316,6 +325,23 @@ export function ChatScreen() {
     [theme],
   );
 
+  const scrollToLatestMessage = useCallback((animated: boolean) => {
+    requestAnimationFrame(() => {
+      listRef.current?.scrollToEnd({ animated });
+    });
+  }, []);
+
+  const appendMessage = useCallback(
+    (message: MessageWithId) => {
+      setMessages((prev) => {
+        const next = [...prev, message];
+        scrollToLatestMessage(true);
+        return next;
+      });
+    },
+    [scrollToLatestMessage],
+  );
+
   useEffect(() => {
     return () => {
       cancelVoiceInput().catch((error) => {
@@ -341,6 +367,7 @@ export function ChatScreen() {
         setSessionId(cached.sessionId);
         setRecommendations(cached.recommendations);
         setMemoryHighlights(cached.memoryHighlights);
+        scrollToLatestMessage(false);
         if (cached.locale) {
           setActiveLocale(cached.locale);
         }
@@ -446,7 +473,7 @@ export function ChatScreen() {
       content: inputValue.trim(),
       createdAt: new Date().toISOString(),
     };
-    setMessages((prev) => [...prev, userMessage]);
+    appendMessage(userMessage);
     setInputValue("");
     setSending(true);
     setError(null);
@@ -465,7 +492,7 @@ export function ChatScreen() {
         content: response.reply.content,
         createdAt: response.reply.createdAt,
       };
-      setMessages((prev) => [...prev, assistantMessage]);
+      appendMessage(assistantMessage);
       setRecommendations(response.recommendations);
       setMemoryHighlights(response.memoryHighlights);
       if (response.resolvedLocale) {
@@ -488,8 +515,8 @@ export function ChatScreen() {
   return (
     <KeyboardAvoidingView
       style={styles.container}
-      behavior={Platform.OS === "ios" ? "padding" : undefined}
-      keyboardVerticalOffset={80}
+      behavior={Platform.OS === "ios" ? "padding" : "height"}
+      keyboardVerticalOffset={keyboardVerticalOffset}
     >
       <View style={styles.header}>
         <Text style={styles.headerTitle}>MindWell 对话</Text>
@@ -514,10 +541,19 @@ export function ChatScreen() {
         </View>
       ) : (
         <FlatList
+          ref={listRef}
           data={messages}
           keyExtractor={(item) => item.id}
           renderItem={({ item }) => <Bubble message={item} />}
-          contentContainerStyle={styles.content}
+          contentContainerStyle={[
+            styles.content,
+            { paddingBottom: composerPadding + theme.spacing.lg },
+          ]}
+          keyboardShouldPersistTaps="handled"
+          contentInset={{ bottom: composerPadding }}
+          scrollIndicatorInsets={{ bottom: composerPadding }}
+          initialNumToRender={12}
+          onContentSizeChange={() => scrollToLatestMessage(false)}
         />
       )}
 
@@ -549,7 +585,12 @@ export function ChatScreen() {
         )}
       </View>
 
-      <View style={styles.composer}>
+      <View
+        style={[
+          styles.composer,
+          { paddingBottom: composerPadding, paddingTop: theme.spacing.sm },
+        ]}
+      >
         {voiceSupported && (
           <View style={styles.voiceContainer}>
             <Pressable
@@ -606,7 +647,16 @@ export function ChatScreen() {
           <Text style={styles.sendLabel}>{isSending ? "发送中…" : "发送"}</Text>
         </Pressable>
       </View>
-      {voiceError && <Text style={styles.voiceErrorText}>{voiceError}</Text>}
+      {voiceError && (
+        <Text
+          style={[
+            styles.voiceErrorText,
+            { paddingBottom: composerPadding, paddingTop: theme.spacing.xs },
+          ]}
+        >
+          {voiceError}
+        </Text>
+      )}
     </KeyboardAvoidingView>
   );
 }

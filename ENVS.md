@@ -48,6 +48,8 @@ The backend reads configuration from environment variables via `AppSettings` (`s
 - `AZURE_SPEECH_ENDPOINT`: Optional override for the Speech-to-Text endpoint when using a private link or custom domain.
 - `TTS_SERVICE_API_KEY`: Credential for the text-to-speech provider powering voice playback.
 - `ASR_SERVICE_API_KEY`: Credential for server-side automatic speech recognition.
+- `APP_INSIGHTS_APP_ID`: Azure Application Insights application identifier used by the Monitoring Agent to query metrics.
+- `APP_INSIGHTS_API_KEY`: API key granting query access to Application Insights for observability checks.
 - `WECHAT_APP_ID`: Application identifier enabling WeChat voice input integration.
 - `FEATURE_FLAGS`: JSON or comma-separated string defining default feature toggles at startup.
 - `JWT_ALGORITHM`: Signing algorithm for JWT tokens (default `HS256`).
@@ -56,6 +58,12 @@ The backend reads configuration from environment variables via `AppSettings` (`s
 - `TOKEN_REFRESH_TTL`: Optional override for refresh token grace period on rotation.
 - `OTP_EXPIRY_SECONDS`: OTP validity window in seconds (default `300`).
 - `OTP_ATTEMPT_LIMIT`: Maximum OTP verification attempts before lockout (default `5`).
+- `MONITORING_LATENCY_THRESHOLD_MS`: 95th percentile latency guardrail in milliseconds before the Monitoring Agent raises an alert (default `1200`).
+- `MONITORING_ERROR_RATE_THRESHOLD`: Maximum acceptable application error rate expressed as a decimal (default `0.05` for 5%).
+- `MONITORING_COST_THRESHOLD_USD`: Daily cloud spend threshold in USD that triggers alerts when exceeded (default `500`).
+- `MONITORING_COST_LOOKBACK_DAYS`: Number of trailing days the Monitoring Agent evaluates when computing spend (default `1`).
+- `ALERT_WEBHOOK_URL`: Optional HTTPS webhook endpoint (e.g. Slack, Teams) that receives Monitoring Agent alert payloads.
+- `ALERT_CHANNEL`: Optional channel or room override supplied with alert webhook payloads.
 
 ### Notes
 - When Azure OpenAI variables are omitted, the orchestrator falls back to OpenAI (if configured) and deterministic heuristics for development environments.
@@ -80,6 +88,8 @@ The table below captures the authoritative location, owning team, and rotation c
 | `AZURE_SPEECH_KEY` | staging / prod | Azure Key Vault secret `azure-speech-key` | Voice Experience | 90 days | Monitoring Agent alarms if key age > 100 days |
 | `BEDROCK_MODEL_ID` | dev / staging / prod | Terraform variable `bedrock_model_id` | Platform Engineering | On fallback provider change | Terraform apply triggered by infra release pipeline |
 | `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` | dev (local only) | `.env.local` generated via `scripts/bootstrap-local-env.sh` | Platform Engineering | As needed when sandbox IAM user rotated | Local bootstrap script pulls credentials using `aws sts assume-role` |
+| `APP_INSIGHTS_API_KEY` | staging / prod | Azure Key Vault `kv-mindwell-<env>` secret `app-insights-api-key` | SRE | 90 days | Monitoring Agent verifies key expiry and raises an alert 7 days prior |
+| `ALERT_WEBHOOK_URL` | staging / prod | Azure Key Vault secret `alerting-webhook-url` | SRE | On channel rotation / quarterly review | GitHub Actions deployment injects value into AKS secret consumed by Monitoring Agent |
 
 ### Classification Cheat Sheet
 - **Mandatory:** Required for service startup; missing variables cause boot failure.

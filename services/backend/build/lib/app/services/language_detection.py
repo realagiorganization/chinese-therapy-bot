@@ -87,7 +87,9 @@ class LanguageDetector:
         hits = sum(1 for char in text if char in self._TRADITIONAL_MARKERS)
         if hits == 0:
             return False
+        if hits >= 2:
+            return True
 
         cjk_total = len(self._CJK_PATTERN.findall(text)) or 1
         ratio = hits / cjk_total
-        return math.isclose(ratio, 0.0) is False and ratio >= 0.15
+        return math.isclose(ratio, 0.0) is False and ratio >= 0.1

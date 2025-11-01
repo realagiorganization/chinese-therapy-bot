@@ -36,3 +36,8 @@ This directory contains the Expo-based React Native client that mirrors the web 
 
 - Ship Android voice input parity and performance profiling automation.
 - Wire Google/Apple OAuth SDKs for device-native authorization codes.
+
+## Release Bundles
+
+- `npm run build:release` executes `expo export` (see `metro.config.js` for shared workspace resolution) and writes artefacts to `build/release/`.
+- The GitHub Actions workflow `release.yml` packages the export output (`mobile-release` artefact) alongside backend/web bundles for staging or production promotion.

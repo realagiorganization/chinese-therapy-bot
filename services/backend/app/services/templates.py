@@ -4,6 +4,7 @@ import json
 import logging
 from dataclasses import dataclass
 from importlib import resources
+from pathlib import Path
 from typing import Iterable, Sequence
 
 
@@ -151,17 +152,25 @@ class ChatTemplateService:
         return self._normalize_locale(locale)
 
     def _load_templates(self) -> tuple[ChatTemplate, ...]:
+        raw_text = None
+        last_error: Exception | None = None
         try:
             dataset_path = resources.files("app.data").joinpath(self._DATASET_FILENAME)
+            raw_text = dataset_path.read_text(encoding="utf-8")
         except (FileNotFoundError, ModuleNotFoundError) as exc:  # pragma: no cover
             logger.error("Template dataset is unavailable: %s", exc)
-            return tuple()
-
-        try:
-            raw_text = dataset_path.read_text(encoding="utf-8")
-        except OSError as exc:  # pragma: no cover - defensive guardrail
+        except OSError as exc:
+            last_error = exc
             logger.error("Failed to read template dataset: %s", exc)
-            return tuple()
+
+        if raw_text is None:
+            fallback_path = Path(__file__).resolve().parent.parent / "data" / self._DATASET_FILENAME
+            try:
+                raw_text = fallback_path.read_text(encoding="utf-8")
+            except OSError as exc:
+                last_error = exc
+                logger.error("Failed to read template dataset fallback: %s", exc)
+                return tuple()
 
         try:
             payload = json.loads(raw_text)

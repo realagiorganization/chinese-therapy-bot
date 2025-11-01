@@ -14,6 +14,7 @@ from app.models import ChatMessage as ChatMessageModel
 from app.models import ChatSession, User
 from app.schemas.chat import ChatMessage, ChatRequest, ChatResponse, MemoryHighlight
 from app.schemas.therapists import TherapistRecommendation
+from app.services.analytics import ProductAnalyticsService
 from app.services.language_detection import LanguageDetector
 from app.services.memory import ConversationMemoryService
 from app.services.recommendations import TherapistRecommendationService
@@ -33,6 +34,7 @@ class ChatService:
         memory_service: ConversationMemoryService | None = None,
         recommendation_service: TherapistRecommendationService | None = None,
         language_detector: LanguageDetector | None = None,
+        analytics_service: ProductAnalyticsService | None = None,
     ):
         self._session = session
         self._orchestrator = orchestrator
@@ -40,6 +42,7 @@ class ChatService:
         self._memory = memory_service
         self._recommendations = recommendation_service
         self._language_detector = language_detector or LanguageDetector()
+        self._analytics = analytics_service
 
     async def process_turn(self, payload: ChatRequest) -> ChatResponse:
         context = await self._prepare_turn(payload)
@@ -207,6 +210,17 @@ class ChatService:
         if resolved_locale and resolved_locale != getattr(user, "locale", None):
             user.locale = resolved_locale
             await self._session.flush()
+
+        if self._analytics:
+            try:
+                await self._analytics.track_chat_turn(
+                    user_id=user.id,
+                    session_id=chat_session.id,
+                    locale=resolved_locale,
+                    message_length=len(payload.message),
+                )
+            except Exception as exc:  # pragma: no cover - analytics failures shouldn't break chat
+                logger.debug("Failed to record chat analytics event: %s", exc, exc_info=exc)
 
         history = await self._load_history(chat_session.id)
         therapist_recs = await self._recommend_therapists(

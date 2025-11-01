@@ -20,7 +20,7 @@ Attack surfaces include public APIs (FastAPI, SSE streaming), webhook/event cons
 
 ## 3. Data Flow Overview
 1. Clients authenticate (SMS OTP or Google OAuth) through `AuthService` and receive JWT tokens (`services/backend/app/services/auth.py`).
-2. Chat messages stream to FastAPI (`/chat/stream`), orchestrated by `ChatService` (`services/backend/app/services/chat.py`) which persists transcripts to Postgres and S3.
+2. Chat messages stream to FastAPI (`/api/chat/stream`, legacy alias `/therapy/chat/stream`), orchestrated by `ChatService` (`services/backend/app/services/chat.py`) which persists transcripts to Postgres and S3.
 3. Summary Scheduler Agent (`services/backend/app/agents/summary_scheduler.py`) reads chat history, generates summaries via LLM orchestrator, and stores results in S3 through `SummaryStorage`.
 4. Data Sync Agent ingests therapist data into S3, then ETLs into Postgres.
 5. CI Runner applies Terraform (`infra/terraform/*.tf`) and deploys containers; outputs handled by GitHub Actions workflow `ci.yml`.

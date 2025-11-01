@@ -12,6 +12,7 @@ from app.services.chat import ChatService
 from app.services.templates import ChatTemplateService
 
 router = APIRouter()
+legacy_router = APIRouter(prefix="/therapy", tags=["legacy"])
 
 
 @router.post(
@@ -23,23 +24,39 @@ async def process_chat_turn(
     payload: ChatRequest, service: ChatService = Depends(get_chat_service)
 ) -> ChatResponse | StreamingResponse:
     if payload.enable_streaming:
-        async def event_stream() -> AsyncIterator[str]:
-            try:
-                async for event in service.stream_turn(payload):
-                    yield _encode_sse(event)
-            except ValueError as exc:
-                yield _encode_sse({"event": "error", "data": {"detail": str(exc)}})
-
-        return StreamingResponse(
-            event_stream(),
-            media_type="text/event-stream",
-            headers={"Cache-Control": "no-cache"},
-        )
+        return _stream_chat_response(payload, service)
 
     try:
         return await service.process_turn(payload)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.post(
+    "/stream",
+    summary="Stream chat responses via server-sent events.",
+    response_class=StreamingResponse,
+    include_in_schema=False,
+)
+async def stream_chat_turn(
+    payload: ChatRequest, service: ChatService = Depends(get_chat_service)
+) -> StreamingResponse:
+    payload.enable_streaming = True
+    return _stream_chat_response(payload, service)
+
+
+@legacy_router.post(
+    "/chat/stream",
+    summary="Legacy streaming endpoint (use /api/chat/message).",
+    response_class=StreamingResponse,
+    include_in_schema=False,
+    deprecated=True,
+)
+async def legacy_stream_chat_turn(
+    payload: ChatRequest, service: ChatService = Depends(get_chat_service)
+) -> StreamingResponse:
+    payload.enable_streaming = True
+    return _stream_chat_response(payload, service)
 
 
 def _encode_sse(event: dict[str, Any]) -> str:
@@ -91,4 +108,19 @@ async def list_chat_templates(
         locale=service.resolve_locale(locale),
         topics=service.topics(locale=locale),
         templates=[ChatTemplateItem.from_domain(template) for template in templates],
+    )
+
+
+def _stream_chat_response(payload: ChatRequest, service: ChatService) -> StreamingResponse:
+    async def event_stream() -> AsyncIterator[str]:
+        try:
+            async for event in service.stream_turn(payload):
+                yield _encode_sse(event)
+        except ValueError as exc:
+            yield _encode_sse({"event": "error", "data": {"detail": str(exc)}})
+
+    return StreamingResponse(
+        event_stream(),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache"},
     )

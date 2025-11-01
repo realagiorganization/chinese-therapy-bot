@@ -88,6 +88,12 @@
 - Script for scraping therapist data and injecting into database ✅ *(Data Sync agent `mindwell-data-sync` publishes normalized profiles to `S3_BUCKET_THERAPISTS`.)*
 - Internationalization (i18n) of therapist information ✅
 
+#### **Data Governance & Privacy**
+
+- Retention automation ✅ *(Summary Scheduler + `mindwell-retention-cleanup` enforce S3/database purge windows.)*
+- Subject access/export tooling ✅ *(SAR scripts in `services/backend/scripts/` backed by `DataSubjectService` and tests.)*
+- PII deletion/redaction flow ✅ *(`delete_user_data.py` scrubs chat content, revokes tokens, and anonymises analytics/summary artefacts.)*
+
 #### **AWS Integration**
 
 - RDS
@@ -180,13 +186,14 @@
 
 | **Issue** | **Description** | **Status** |
 | --- | --- | --- |
-| /therapy/chat/stream triggers “access denied” | Does not affect pre-request validation but returns error post-request | Unresolved |
+| /therapy/chat/stream triggers “access denied” | Does not affect pre-request validation but returns error post-request | Resolved – added `/api/chat/stream` endpoint + legacy `/therapy/chat/stream` alias with SSE error handling |
 
 ---
 
 ## **8. Additional Notes**
 
 - Integration with Google and other third-party account management platforms in progress.
+- Release artefact pipeline `.github/workflows/release.yml` produces backend wheels plus web/mobile bundles for tag builds and manual dispatch.
 
 ---
 

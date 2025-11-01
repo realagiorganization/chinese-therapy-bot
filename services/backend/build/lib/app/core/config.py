@@ -2,7 +2,7 @@ from functools import lru_cache
 from typing import Optional
 
 from pydantic import Field, SecretStr
-from pydantic_settings import BaseSettings
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class AppSettings(BaseSettings):
@@ -89,11 +89,28 @@ class AppSettings(BaseSettings):
     token_refresh_ttl: Optional[int] = Field(default=None, alias="TOKEN_REFRESH_TTL")
     feature_flags: Optional[str] = Field(default=None, alias="FEATURE_FLAGS")
     openai_embedding_model: Optional[str] = Field(default=None, alias="OPENAI_EMBEDDING_MODEL")
+    app_insights_app_id: Optional[str] = Field(default=None, alias="APP_INSIGHTS_APP_ID")
+    app_insights_api_key: Optional[SecretStr] = Field(default=None, alias="APP_INSIGHTS_API_KEY")
+    monitoring_latency_threshold_ms: float = Field(
+        default=1200.0, alias="MONITORING_LATENCY_THRESHOLD_MS"
+    )
+    monitoring_error_rate_threshold: float = Field(
+        default=0.05, alias="MONITORING_ERROR_RATE_THRESHOLD"
+    )
+    monitoring_cost_threshold_usd: float = Field(
+        default=500.0, alias="MONITORING_COST_THRESHOLD_USD"
+    )
+    monitoring_cost_lookback_days: int = Field(
+        default=1, alias="MONITORING_COST_LOOKBACK_DAYS"
+    )
+    alert_webhook_url: Optional[SecretStr] = Field(default=None, alias="ALERT_WEBHOOK_URL")
+    alert_channel: Optional[str] = Field(default=None, alias="ALERT_CHANNEL")
 
-    class Config:
-        env_file = ".env"
-        env_file_encoding = "utf-8"
-        case_sensitive = False
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        env_file_encoding="utf-8",
+        case_sensitive=False,
+    )
 
 
 @lru_cache

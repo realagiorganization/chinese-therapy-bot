@@ -12,6 +12,7 @@ from app.integrations.llm import ChatOrchestrator
 from app.integrations.sms import ConsoleSMSProvider
 from app.integrations.storage import ChatTranscriptStorage
 from app.integrations.therapists import TherapistDataStorage
+from app.services.analytics import ProductAnalyticsService
 from app.services.asr import AutomaticSpeechRecognitionService
 from app.services.auth import AuthService
 from app.services.chat import ChatService
@@ -70,35 +71,41 @@ async def get_auth_service(
 async def get_chat_service(
     session: AsyncSession = Depends(get_db_session),
     ) -> ChatService:
-        """Provide ChatService instance."""
-        settings = get_settings()
-        global _orchestrator, _storage, _embedding_client, _therapist_storage, _language_detector
-        if _orchestrator is None:
-            _orchestrator = ChatOrchestrator(settings)
-        if _storage is None:
-            _storage = ChatTranscriptStorage(settings)
-        if _embedding_client is None:
-            _embedding_client = EmbeddingClient(settings)
-        if _therapist_storage is None:
-            _therapist_storage = TherapistDataStorage(settings)
-        if _language_detector is None:
-            _language_detector = LanguageDetector()
+    """Provide ChatService instance."""
+    settings = get_settings()
+    global _orchestrator, _storage, _embedding_client, _therapist_storage, _language_detector
+    if _orchestrator is None:
+        _orchestrator = ChatOrchestrator(settings)
+    if _storage is None:
+        _storage = ChatTranscriptStorage(settings)
+    if _embedding_client is None:
+        _embedding_client = EmbeddingClient(settings)
+    if _therapist_storage is None:
+        _therapist_storage = TherapistDataStorage(settings)
+    if _language_detector is None:
+        _language_detector = LanguageDetector()
 
-        memory_service = ConversationMemoryService(session, _orchestrator)
-        therapist_service = TherapistService(session, storage=_therapist_storage)
-        recommendation_service = TherapistRecommendationService(
-            session,
-            _embedding_client,
-            therapist_service=therapist_service,
-        )
-        return ChatService(
-            session,
-            _orchestrator,
-            _storage,
-            memory_service=memory_service,
-            recommendation_service=recommendation_service,
-            language_detector=_language_detector,
-        )
+    analytics_service = ProductAnalyticsService(session)
+    memory_service = ConversationMemoryService(session, _orchestrator)
+    therapist_service = TherapistService(
+        session,
+        storage=_therapist_storage,
+        analytics_service=analytics_service,
+    )
+    recommendation_service = TherapistRecommendationService(
+        session,
+        _embedding_client,
+        therapist_service=therapist_service,
+    )
+    return ChatService(
+        session,
+        _orchestrator,
+        _storage,
+        memory_service=memory_service,
+        recommendation_service=recommendation_service,
+        language_detector=_language_detector,
+        analytics_service=analytics_service,
+    )
 
 
 async def get_therapist_service(
@@ -109,14 +116,20 @@ async def get_therapist_service(
     global _therapist_storage
     if _therapist_storage is None:
         _therapist_storage = TherapistDataStorage(settings)
-    return TherapistService(session, storage=_therapist_storage)
+    analytics_service = ProductAnalyticsService(session)
+    return TherapistService(
+        session,
+        storage=_therapist_storage,
+        analytics_service=analytics_service,
+    )
 
 
 async def get_reports_service(
     session: AsyncSession = Depends(get_db_session),
 ) -> ReportsService:
     """Provide ReportsService instance."""
-    return ReportsService(session)
+    analytics_service = ProductAnalyticsService(session)
+    return ReportsService(session, analytics_service=analytics_service)
 
 
 async def get_feature_flag_service(

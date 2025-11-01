@@ -1,3 +1,4 @@
+import logging
 from datetime import date, datetime, timedelta
 from uuid import UUID
 
@@ -13,13 +14,22 @@ from app.schemas.reports import (
     JourneyReportsResponse,
     WeeklyReport,
 )
+from app.services.analytics import ProductAnalyticsService
+
+
+logger = logging.getLogger(__name__)
 
 
 class ReportsService:
     """Summary retrieval backed by database with illustrative fallback data."""
 
-    def __init__(self, session: AsyncSession):
+    def __init__(
+        self,
+        session: AsyncSession,
+        analytics_service: ProductAnalyticsService | None = None,
+    ):
         self._session = session
+        self._analytics = analytics_service
 
     async def get_reports(self, user_id: str) -> JourneyReportsResponse:
         user_uuid = UUID(user_id)
@@ -30,6 +40,13 @@ class ReportsService:
 
         if not daily_reports and not weekly_reports and not conversations:
             return self._fallback_payload()
+
+        await self._record_views(
+            user_uuid,
+            has_daily=bool(daily_reports),
+            has_weekly=bool(weekly_reports),
+            has_conversations=bool(conversations),
+        )
 
         return JourneyReportsResponse(
             daily=daily_reports,
@@ -127,6 +144,30 @@ class ReportsService:
             )
 
         return slices
+
+    async def _record_views(
+        self,
+        user_id: UUID,
+        *,
+        has_daily: bool,
+        has_weekly: bool,
+        has_conversations: bool,
+    ) -> None:
+        if not self._analytics:
+            return
+
+        try:
+            if has_daily:
+                await self._analytics.track_summary_view(user_id=user_id, summary_type="daily")
+            if has_weekly:
+                await self._analytics.track_summary_view(user_id=user_id, summary_type="weekly")
+            if has_conversations:
+                await self._analytics.track_journey_report_view(
+                    user_id=user_id,
+                    report_kind="conversation_history",
+                )
+        except Exception as exc:  # pragma: no cover - analytics failures should not impact reports
+            logger.debug("Failed to record journey analytics event: %s", exc, exc_info=exc)
 
     def _fallback_payload(self) -> JourneyReportsResponse:
         today = date.today()

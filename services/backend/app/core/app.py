@@ -4,6 +4,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.router import api_router
+from app.api.routes.chat import legacy_router as chat_legacy_router
 from app.core.config import get_settings
 from app.core.database import init_database
 
@@ -33,6 +34,7 @@ def create_app() -> FastAPI:
     )
 
     app.include_router(api_router, prefix="/api")
+    app.include_router(chat_legacy_router)
 
     @app.get("/", tags=["health"])
     async def root() -> dict[str, str]:

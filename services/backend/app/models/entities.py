@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import uuid
 from datetime import date, datetime
-
 from typing import Any
 
 from sqlalchemy import (
@@ -336,5 +335,43 @@ class TherapistLocalization(Base):
     therapist: Mapped[Therapist] = relationship(back_populates="localizations")
 
     __table_args__ = (
-        Index("ix_therapist_localizations_locale", "locale"),
+    Index("ix_therapist_localizations_locale", "locale"),
+    )
+
+
+class AnalyticsEvent(Base):
+    """Product analytics events captured from user interactions."""
+
+    __tablename__ = "analytics_events"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
+    user_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("users.id", ondelete="set null"),
+        nullable=True,
+    )
+    session_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("chat_sessions.id", ondelete="set null"),
+        nullable=True,
+    )
+    event_type: Mapped[str] = mapped_column(String(64))
+    funnel_stage: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    properties: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
+    occurred_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=datetime.utcnow
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=datetime.utcnow
+    )
+
+    user: Mapped[User | None] = relationship("User")
+    session: Mapped[ChatSession | None] = relationship("ChatSession")
+
+    __table_args__ = (
+        Index("ix_analytics_events_type_time", "event_type", "occurred_at"),
+        Index("ix_analytics_events_user_time", "user_id", "occurred_at"),
+        Index("ix_analytics_events_stage_time", "funnel_stage", "occurred_at"),
     )

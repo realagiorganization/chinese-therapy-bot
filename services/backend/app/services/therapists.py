@@ -20,6 +20,7 @@ from app.schemas.therapists import (
     TherapistLocalePayload,
     TherapistSummary,
 )
+from app.services.analytics import ProductAnalyticsService
 
 
 logger = logging.getLogger(__name__)
@@ -32,9 +33,11 @@ class TherapistService:
         self,
         session: AsyncSession,
         storage: TherapistDataStorage | None = None,
+        analytics_service: ProductAnalyticsService | None = None,
     ):
         self._session = session
         self._storage = storage
+        self._analytics = analytics_service
 
     _SEED_THERAPISTS = [
         TherapistDetailResponse(
@@ -77,10 +80,12 @@ class TherapistService:
     ) -> TherapistDetailResponse:
         therapist = await self._fetch_single(therapist_id, locale=locale)
         if therapist:
+            await self._record_profile_view(therapist, locale=locale)
             return therapist
 
         for seed in self._SEED_THERAPISTS:
             if seed.therapist_id == therapist_id:
+                await self._record_profile_view(seed, locale=locale)
                 return seed
         raise ValueError(f"Therapist {therapist_id} not found")
 
@@ -155,6 +160,25 @@ class TherapistService:
             return [self._serialize_detail(record, locale) for record in records]
 
         return [self._serialize_summary(record, locale) for record in records]
+
+    async def _record_profile_view(
+        self,
+        therapist: TherapistDetailResponse,
+        *,
+        locale: str,
+    ) -> None:
+        if not self._analytics:
+            return
+
+        try:
+            therapist_uuid = self._parse_uuid(therapist.therapist_id)
+            await self._analytics.track_therapist_profile_view(
+                user_id=None,
+                therapist_id=therapist_uuid,
+                locale=locale,
+            )
+        except Exception as exc:  # pragma: no cover - analytics should not block therapist flows
+            logger.debug("Failed to record therapist analytics event: %s", exc, exc_info=exc)
 
     def _serialize_summary(
         self,

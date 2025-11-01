@@ -3,13 +3,16 @@ pyproject.toml
 app/__init__.py
 app/main.py
 app/agents/__init__.py
+app/agents/analytics.py
 app/agents/data_sync.py
+app/agents/monitoring.py
 app/agents/retention_cleanup.py
 app/agents/summary_scheduler.py
 app/api/__init__.py
 app/api/deps.py
 app/api/router.py
 app/api/routes/__init__.py
+app/api/routes/analytics.py
 app/api/routes/auth.py
 app/api/routes/chat.py
 app/api/routes/evaluations.py
@@ -37,6 +40,7 @@ app/models/__init__.py
 app/models/base.py
 app/models/entities.py
 app/schemas/__init__.py
+app/schemas/analytics.py
 app/schemas/auth.py
 app/schemas/chat.py
 app/schemas/evaluation.py
@@ -48,6 +52,7 @@ app/schemas/templates.py
 app/schemas/therapists.py
 app/schemas/voice.py
 app/services/__init__.py
+app/services/analytics.py
 app/services/asr.py
 app/services/auth.py
 app/services/chat.py
@@ -56,6 +61,7 @@ app/services/explore.py
 app/services/feature_flags.py
 app/services/language_detection.py
 app/services/memory.py
+app/services/monitoring.py
 app/services/recommendations.py
 app/services/reports.py
 app/services/summaries.py
@@ -67,6 +73,7 @@ mindwell_backend.egg-info/dependency_links.txt
 mindwell_backend.egg-info/entry_points.txt
 mindwell_backend.egg-info/requires.txt
 mindwell_backend.egg-info/top_level.txt
+tests/test_analytics_service.py
 tests/test_app.py
 tests/test_asr_service.py
 tests/test_auth_service.py
@@ -75,6 +82,7 @@ tests/test_data_sync_agent.py
 tests/test_evaluation.py
 tests/test_explore_service.py
 tests/test_language_detection.py
+tests/test_monitoring_service.py
 tests/test_recommendations.py
 tests/test_retention_cleanup_agent.py
 tests/test_storage.py

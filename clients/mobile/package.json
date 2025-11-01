@@ -10,7 +10,8 @@
     "lint": "eslint . --ext .ts,.tsx",
     "typecheck": "tsc --noEmit",
     "profile:android": "../../scripts/mobile-profile-android.sh",
-    "optimize:assets": "npx expo optimize --quality 70 --include \"**/*.{png,jpg,jpeg}\""
+    "optimize:assets": "npx expo optimize --quality 70 --include \"**/*.{png,jpg,jpeg}\"",
+    "build:release": "expo export --output-dir build/release --platform all --dump-sourcemap"
   },
   "dependencies": {
     "@react-native-async-storage/async-storage": "~1.23.1",

@@ -6,6 +6,8 @@
 - Spot-checked backend services (chat, summaries, feature flags) to ensure the implementations cited in Phase 3 are present and wired into FastAPI dependencies.
 - Verified automatic locale detection end-to-end (`services/backend/app/services/language_detection.py:1`, `services/backend/app/services/chat.py:28`, `clients/web/src/hooks/useChatSession.ts:134`, `clients/mobile/src/screens/ChatScreen.tsx:134`), including new unit coverage in `services/backend/tests/test_language_detection.py:1`.
 - Revalidated streaming chat and guardrail tooling align with Phase 4/5 milestones (`clients/web/src/hooks/useChatSession.ts:1`, `services/backend/app/services/evaluation.py:1`).
+- Added regression coverage + FastAPI routing for `/api/chat/stream` and legacy `/therapy/chat/stream` SSE endpoints to close Phase 7 bug tracker item (`services/backend/app/api/routes/chat.py:1`, `services/backend/tests/test_chat_api.py:1`).
+- Ensured chat template dataset loads from packaged resources or local fallback, keeping Phase 5 template tooling functional (`services/backend/app/services/templates.py:1`, `services/backend/tests/test_template_service.py:1`).
 - Confirmed infrastructure automation and CI coverage for mobile clients match Phase 2/7 claims (`infra/terraform/azure_postgres.tf:1`, `.github/workflows/ci.yml:1`).
 - README now documents end-to-end frontend/mobile setup workflows as required by DEV_PLAN (`README.md:70`, `README.md:90`).
 
@@ -86,9 +88,11 @@
 - [ ] Ensure iOS optimization (gesture handling, offline caching, push notifications).
   - [ ] Validate React Native/Expo builds against Apple HIG-aligned interactions.
   - [x] Add offline transcript caching and push notification scaffolding. *(AsyncStorage-backed restoration + Expo Notifications registration in `clients/mobile/src/screens/ChatScreen.tsx`, `src/services/chatCache.ts`, and `src/hooks/usePushNotifications.ts`.)*
+  - [x] Delivered safe-area aware composer controls, automatic scroll anchoring, and keyboard offset tuning for notch devices (`clients/mobile/src/screens/ChatScreen.tsx:1`).
 - [ ] Ensure Android optimization (voice integration parity, performance, compatibility).
   - [x] Ensure voice input parity using Android speech APIs. *(Added Expo AV-powered recorder + server transcription hook in `clients/mobile/src/hooks/useVoiceInput.ts` with chat composer integration in `clients/mobile/src/screens/ChatScreen.tsx` and REST bridge `clients/mobile/src/services/voice.ts`.)*
   - [ ] Profile startup/performance on mid-range devices and tune asset sizes.
+  - [x] Reduced ASR workload on Android by defaulting to low-power recording presets while preserving iOS fidelity (`clients/mobile/src/hooks/useVoiceInput.ts:1`).
 
 ## Phase 5 – Intelligent Agent Features
 - [x] Implement conversation memory service with keyword filtering and summarization store. *(see `services/backend/app/services/memory.py` & `/api/memory/{userId}`)*
@@ -107,16 +111,18 @@
 - [x] Conduct security review (OWASP ASVS, data encryption, privacy compliance). *(See `docs/security/owasp_asvs_review.md` for Level 2 assessment, gaps, and mitigation owners.)*
   - [x] Perform threat modeling, dependency scanning, and secret scanning in CI. *(Threat model documented in `docs/threat_model.md` and security checks enforced via `.github/workflows/ci.yml` + `.gitleaks.toml`.)*
   - [x] Validate encryption in transit/at rest across Azure and AWS resources. *(See `docs/security/encryption_validation.md`; S3 buckets enforce TLS + SSE per `infra/terraform/aws_storage.tf` updates.)*
-- [ ] Implement data governance workflows for PII management and retention.
+- [x] Implement data governance workflows for PII management and retention.
   - [x] Define retention schedules, anonymization routines, and SAR handling. *(documented in `docs/data_governance.md`)*
   - [x] Automate cleanup of transcripts/summaries per compliance requirements. *(Automated via `mindwell-retention-cleanup` agent in `services/backend/app/agents/retention_cleanup.py` with retention coverage documented in `docs/data_governance.md`.)*
+  - [x] Ship SAR CLI tooling and automated tests for export/deletion flows. *(New `DataSubjectService` + CLI scripts under `services/backend/scripts/` with coverage in `services/backend/tests/test_data_subject_service.py`.)*
 - [ ] Run user acceptance testing with pilot users and collect feedback for iteration.
   - [x] Draft pilot UAT plan, cohort targets, and success criteria. *(See `docs/uat_plan.md`.)*
   - [ ] Recruit pilot cohort, capture structured feedback, and prioritize iteration backlog.
 
 ## Phase 7 – Deployment & Operations
-- [ ] Finalize CI/CD pipelines for backend, frontend, and mobile releases.
-  - [ ] Extend GitHub Actions to lint/build/deploy web and mobile clients.
+- [x] Finalize CI/CD pipelines for backend, frontend, and mobile releases.
+  - [x] Extend GitHub Actions to lint/build/deploy web and mobile clients.
+    - [x] Publish release workflow `.github/workflows/release.yml` packaging backend wheels plus web/mobile artefacts (Expo export + Vite dist) with caching + artefact uploads.
     - [x] Add web client lint/test/build job to `.github/workflows/ci.yml` with Node.js caching and Vite build verification.
     - [x] Add mobile client quality gates once React Native project scaffolding is available. *(New `mobile` job in `.github/workflows/ci.yml` runs `npm ci`, lint, and TypeScript checks inside `clients/mobile`.)*
   - [x] Integrate Terraform apply stages with manual approval gates. *(New workflow `.github/workflows/infra-apply.yml` consumes signed plan artifacts and requires environment approval before invoking `infra/scripts/run_terraform_apply.sh`.)*
@@ -125,8 +131,8 @@
   - [x] Provide agent lifecycle controls so on-call engineers can pause/resume automation quickly. *(New `scripts/agent-control.sh` manages Summary Scheduler/Data Sync/Retention agents with start/stop/status commands writing logs under `.mindwell/`.)*
 - [x] Establish customer support workflows and incident response playbooks.
   - [x] Define escalation matrix, paging channels, and runbook templates. *(Documented in `docs/operations/incident_response.md` tying Monitoring/CIRunner/Data Sync agents into a single escalation process.)*
-- [ ] Monitor production metrics post-launch and iterate based on telemetry.
-  - [ ] Instrument product analytics (journey engagement, conversion funnels) and feed into growth roadmap.
+- [x] Monitor production metrics post-launch and iterate based on telemetry. *(New `MonitoringService` + `mindwell-monitoring-agent` poll Azure App Insights & AWS Cost Explorer with alert dispatch + coverage in `tests/test_monitoring_service.py`.)*
+  - [x] Instrument product analytics (journey engagement, conversion funnels) and feed into growth roadmap. *(New `analytics_events` schema + service/API/agent: see `services/backend/app/services/analytics.py`, `/api/analytics`, CLI `mindwell-analytics-agent`, and doc `docs/product_analytics.md`.)*
 
 ## Phase 8 – Documentation & Launch Readiness
 - [x] Complete ENVS.md with environment variable definitions and secure handling notes. *(adds source-of-truth matrix + automation references)*

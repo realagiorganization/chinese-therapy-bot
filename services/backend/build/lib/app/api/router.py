@@ -1,6 +1,7 @@
 from fastapi import APIRouter
 
 from app.api.routes import (
+    analytics,
     auth,
     chat,
     evaluations,
@@ -25,3 +26,4 @@ api_router.include_router(memory.router, prefix="/memory", tags=["memory"])
 api_router.include_router(evaluations.router, prefix="/evaluations", tags=["evaluations"])
 api_router.include_router(voice.router, prefix="/voice", tags=["voice"])
 api_router.include_router(explore.router, prefix="/explore", tags=["explore"])
+api_router.include_router(analytics.router, prefix="/analytics", tags=["analytics"])

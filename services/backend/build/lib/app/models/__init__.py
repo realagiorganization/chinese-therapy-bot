@@ -2,6 +2,7 @@
 
 from app.models.base import Base  # noqa: F401
 from app.models.entities import (  # noqa: F401
+    AnalyticsEvent,
     ChatMessage,
     ChatSession,
     ConversationMemory,
@@ -29,4 +30,5 @@ __all__ = [
     "RefreshToken",
     "FeatureFlag",
     "TherapistLocalization",
+    "AnalyticsEvent",
 ]
