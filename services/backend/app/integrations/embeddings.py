@@ -92,7 +92,7 @@ class EmbeddingClient:
 
         tokens = self._tokenize(text)
         for token in tokens:
-            digest = hashlib.sha1(token.encode("utf-8")).digest()
+            digest = hashlib.sha256(token.encode("utf-8")).digest()
             for index in range(self._FALLBACK_DIMENSIONS):
                 byte_value = digest[index % len(digest)]
                 # Map byte (0-255) to [-1, 1]

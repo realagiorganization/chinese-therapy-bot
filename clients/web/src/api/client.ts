@@ -1,3 +1,5 @@
+import { getAccessToken } from "../auth/tokenStore";
+
 const DEFAULT_BASE_URL = "http://localhost:8000";
 
 export function getApiBaseUrl(): string {
@@ -6,4 +8,17 @@ export function getApiBaseUrl(): string {
     return DEFAULT_BASE_URL;
   }
   return envValue.replace(/\/$/, "");
+}
+
+export function withAuthHeaders(
+  headers: Record<string, string> = {}
+): Record<string, string> {
+  const token = getAccessToken();
+  if (!token) {
+    return headers;
+  }
+  return {
+    ...headers,
+    Authorization: `Bearer ${token}`
+  };
 }

@@ -36,3 +36,38 @@ jobs:
 
       - name: Lint (ruff)
         run: ruff check app
+
+  security:
+    name: Security Scans
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+          cache-dependency-path: services/backend/pyproject.toml
+
+      - name: Install security tooling
+        working-directory: services/backend
+        run: |
+          python -m pip install --upgrade pip
+          pip install .[dev]
+          pip install pip-audit bandit
+
+      - name: Dependency audit (pip-audit)
+        working-directory: services/backend
+        run: pip-audit --skip-editable --progress-spinner off
+
+      - name: Static security scan (bandit)
+        working-directory: services/backend
+        run: bandit -q -r app
+
+      - name: Secret scan (gitleaks)
+        run: |
+          curl -sSL https://github.com/gitleaks/gitleaks/releases/download/v8.18.2/gitleaks_8.18.2_linux_x64.tar.gz | tar -xz
+          ./gitleaks detect --source . --no-git --redact --config .gitleaks.toml

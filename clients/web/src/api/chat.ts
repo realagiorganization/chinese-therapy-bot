@@ -1,4 +1,4 @@
-import { getApiBaseUrl } from "./client";
+import { getApiBaseUrl, withAuthHeaders } from "./client";
 import type {
   ChatMessage,
   ChatStreamEvent,
@@ -130,10 +130,10 @@ export async function* streamChatTurn(
   const endpoint = `${getApiBaseUrl()}/api/chat/message`;
   const response = await fetch(endpoint, {
     method: "POST",
-    headers: {
+    headers: withAuthHeaders({
       "Content-Type": "application/json",
       Accept: "text/event-stream"
-    },
+    }),
     body: JSON.stringify({
       user_id: request.userId,
       session_id: request.sessionId ?? null,

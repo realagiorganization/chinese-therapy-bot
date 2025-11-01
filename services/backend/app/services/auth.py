@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import hashlib
-import random
 import secrets
 from datetime import datetime, timedelta, timezone
 from typing import Any
@@ -222,10 +221,11 @@ class AuthService:
         self._session.add(refresh_record)
         await self._session.flush()
 
+        # Standard OAuth2 bearer token type.
         return TokenResponse(
             access_token=access_token,
             refresh_token=refresh_token,
-            token_type="bearer",
+            token_type="bearer",  # nosec B106
             expires_in=self._settings.access_token_ttl,
         )
 
@@ -248,7 +248,8 @@ class AuthService:
         return hashlib.sha256(value.encode("utf-8")).hexdigest()
 
     def _generate_otp(self) -> str:
-        return "".join(random.choices("0123456789", k=6))
+        digits = "0123456789"
+        return "".join(secrets.choice(digits) for _ in range(6))
 
     def _normalize_phone(self, phone_number: str, country_code: str | None) -> str:
         digits = "".join(ch for ch in phone_number if ch.isdigit())

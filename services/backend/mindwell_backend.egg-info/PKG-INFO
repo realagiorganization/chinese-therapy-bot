@@ -14,10 +14,12 @@ Requires-Dist: aioboto3<13.0,>=12.4
 Requires-Dist: httpx<1.0,>=0.27
 Requires-Dist: pyjwt[crypto]<3.0,>=2.8
 Requires-Dist: openai<2.0,>=1.12
+Requires-Dist: python-multipart<0.1,>=0.0.6
 Requires-Dist: alembic<2.0,>=1.13
 Provides-Extra: dev
 Requires-Dist: pytest<9.0,>=8.2; extra == "dev"
 Requires-Dist: pytest-asyncio<0.24,>=0.23; extra == "dev"
+Requires-Dist: aiosqlite<0.20,>=0.19; extra == "dev"
 Requires-Dist: ruff<0.7,>=0.6; extra == "dev"
 Requires-Dist: mypy<2.0,>=1.9; extra == "dev"
 Requires-Dist: types-requests; extra == "dev"
@@ -86,6 +88,7 @@ Application settings are defined in `app/core/config.py` using `pydantic-setting
 - `TherapistService` supports importing normalized therapist profiles from an S3-compatible bucket via the `/api/therapists/admin/import` endpoint.
 - Configure `S3_BUCKET_THERAPISTS` and (optionally) `THERAPIST_DATA_S3_PREFIX` so the Data Sync Agent can publish localized JSON payloads that the backend ingests.
 - Use the `dry_run` flag on the import endpoint to preview changes before committing updates to the Postgres store.
+- Run the Data Sync agent via `mindwell-data-sync --source path/to/therapists.json --dry-run` to normalize upstream sources and publish `profile_<locale>.json` payloads to the configured bucket.
 
 ## Summary Scheduler Agent
 
@@ -97,3 +100,8 @@ Application settings are defined in `app/core/config.py` using `pydantic-setting
 - `ResponseEvaluator` (see `app/services/evaluation.py`) applies heuristic checks for empathy, actionable guidance, disclaimers, and high-risk language to score assistant replies.
 - `POST /api/evaluations/response` exposes the guardrail check so the Monitoring Agent or CI Runner can gate new prompt templates and regression suites.
 - The evaluation response includes normalized metric scores, detected issues with severities, and recommended remediation steps.
+
+## Load Testing
+
+- Locust scenarios live under `loadtests/`. Install Locust (`pip install locust`) and run `locust -f loadtests/locustfile.py --host http://localhost:8000` to exercise chat turns, therapist discovery, and journey report flows.
+- Use the headless mode (`--headless -u 50 -r 10 -t 10m`) to integrate throughput checks into CI Runner or Golden Path automation.

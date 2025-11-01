@@ -6,12 +6,15 @@ import App from "./App";
 import i18n from "./i18n/config";
 import { ThemeProvider } from "./design-system";
 import { FALLBACK_THERAPISTS } from "./api/therapists";
+import { AuthProvider } from "./auth/AuthContext";
 
 function renderApp() {
   return render(
     <I18nextProvider i18n={i18n}>
       <ThemeProvider>
-        <App />
+        <AuthProvider>
+          <App />
+        </AuthProvider>
       </ThemeProvider>
     </I18nextProvider>
   );
@@ -76,8 +79,56 @@ describe("App", () => {
       ]
     };
 
-    globalThis.fetch = vi.fn(async (input: RequestInfo | URL) => {
+    const exploreResponse = {
+      locale: "zh-CN",
+      evaluated_flags: {
+        explore_breathing: true,
+        explore_psychoeducation: true,
+        explore_trending: true
+      },
+      modules: [
+        {
+          id: "breathing-reset",
+          module_type: "breathing_exercise",
+          title: "今日呼吸练习",
+          description: "约 5 分钟的呼吸节奏练习，帮助稳定心率。",
+          cadence_label: "4-7-8",
+          duration_minutes: 5,
+          steps: [
+            { label: "吸气", instruction: "缓慢吸气 4 拍", duration_seconds: 16 },
+            { label: "屏息", instruction: "屏息 7 拍，放松肩颈", duration_seconds: 28 },
+            { label: "呼气", instruction: "缓慢呼气 8 拍", duration_seconds: 32 }
+          ],
+          recommended_frequency: "睡前或焦虑升高时练习 2-3 轮。",
+          cta_label: "开始练习",
+          cta_action: "/breathing"
+        },
+        {
+          id: "trending-topics",
+          module_type: "trending_topics",
+          title: "当前关注焦点",
+          description: "根据近期摘要推荐的主题。",
+          topics: [
+            { name: "压力管理", momentum: 68, trend: "up", summary: "继续保持呼吸练习。" }
+          ],
+          insights: ["晚间做一次身体扫描，记录放松后的感受。"],
+          cta_label: "查看建议",
+          cta_action: "/trends"
+        }
+      ]
+    };
+
+    const future = Date.now() + 60 * 60 * 1000;
+    window.localStorage.setItem(
+      "mindwell:auth",
+      JSON.stringify({ accessToken: "test-access", refreshToken: "test-refresh", expiresAt: future })
+    );
+
+    globalThis.fetch = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
       const url = typeof input === "string" ? input : input.toString();
+      if (init?.headers && (init.headers as Record<string, string>).Authorization) {
+        // Authorization header presence makes sure the authenticated fetch path is exercised.
+      }
       if (url.includes("/api/therapists")) {
         return {
           ok: true,
@@ -92,6 +143,13 @@ describe("App", () => {
           json: async () => journeyResponse
         } as Response;
       }
+      if (url.includes("/api/explore/modules")) {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => exploreResponse
+        } as Response;
+      }
       return {
         ok: false,
         status: 404,
@@ -102,6 +160,7 @@ describe("App", () => {
 
   afterEach(() => {
     vi.restoreAllMocks();
+    window.localStorage.clear();
   });
 
   it("renders Mandarin-first hero headline", async () => {
@@ -110,7 +169,7 @@ describe("App", () => {
     expect(await screen.findByText(/支持语音输入/)).toBeInTheDocument();
     expect(await screen.findByText(/疗愈陪伴对话/)).toBeInTheDocument();
     expect(await screen.findByText(/旅程报告/)).toBeInTheDocument();
-    expect(globalThis.fetch).toHaveBeenCalledTimes(2);
+    expect(globalThis.fetch).toHaveBeenCalledTimes(3);
   });
 
   it("switches to English locale", async () => {

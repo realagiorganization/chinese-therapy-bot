@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 
 import { Button, Card, Typography } from "../design-system";
 import { useChatSession, type ChatTranscriptMessage } from "../hooks/useChatSession";
+import { useServerTranscriber } from "../hooks/useServerTranscriber";
 
 function useSpeechRecognition(locale: string) {
   const [isListening, setIsListening] = useState(false);
@@ -159,6 +160,15 @@ export function ChatPanel({ className }: ChatPanelProps) {
     recommendations,
     memoryHighlights
   } = useChatSession(locale);
+  const {
+    supported: serverVoiceSupported,
+    isRecording: serverIsRecording,
+    isTranscribing: serverIsTranscribing,
+    error: serverVoiceError,
+    start: startServerRecording,
+    stop: stopServerRecording,
+    clearError: clearServerError
+  } = useServerTranscriber(locale);
 
   const [input, setInput] = useState("");
   const [autoSpeak, setAutoSpeak] = useState(false);
@@ -166,6 +176,12 @@ export function ChatPanel({ className }: ChatPanelProps) {
   const { supported: speechSupported, speak, cancel } = useSpeechSynthesis(locale);
   const lastSpokenIdRef = useRef<string | null>(null);
   const transcriptContainerRef = useRef<HTMLDivElement | null>(null);
+  const voiceError = useMemo(() => {
+    if (error && serverVoiceError) {
+      return `${error} • ${serverVoiceError}`;
+    }
+    return error ?? serverVoiceError;
+  }, [error, serverVoiceError]);
 
   useEffect(() => {
     const container = transcriptContainerRef.current;
@@ -202,8 +218,11 @@ export function ChatPanel({ className }: ChatPanelProps) {
       if (isListening) {
         stop();
       }
+      if (serverIsRecording) {
+        stopServerRecording();
+      }
     },
-    [input, sendMessage, isListening, stop]
+    [input, sendMessage, isListening, stop, serverIsRecording, stopServerRecording]
   );
 
   const handleKeyDown = useCallback(
@@ -217,22 +236,45 @@ export function ChatPanel({ className }: ChatPanelProps) {
   );
 
   const handleVoiceToggle = useCallback(() => {
-    if (!voiceSupported) {
+    if (voiceSupported) {
+      if (isListening) {
+        stop();
+      } else {
+        start((transcript) => {
+          setInput((prev) => {
+            if (!prev) {
+              return transcript;
+            }
+            return `${prev.trim()} ${transcript}`.trim();
+          });
+        });
+      }
       return;
     }
-    if (isListening) {
-      stop();
-      return;
+    if (serverVoiceSupported) {
+      if (serverIsRecording) {
+        stopServerRecording();
+      } else {
+        void startServerRecording((transcript) => {
+          setInput((prev) => {
+            if (!prev) {
+              return transcript;
+            }
+            return `${prev.trim()} ${transcript}`.trim();
+          });
+        });
+      }
     }
-    start((transcript) => {
-      setInput((prev) => {
-        if (!prev) {
-          return transcript;
-        }
-        return `${prev.trim()} ${transcript}`.trim();
-      });
-    });
-  }, [voiceSupported, isListening, start, stop]);
+  }, [
+    voiceSupported,
+    isListening,
+    start,
+    stop,
+    serverVoiceSupported,
+    serverIsRecording,
+    stopServerRecording,
+    startServerRecording
+  ]);
 
   const handleAutoSpeakToggle = useCallback(() => {
     if (!speechSupported) {
@@ -299,6 +341,15 @@ export function ChatPanel({ className }: ChatPanelProps) {
     [t]
   );
 
+  const handleDismissError = useCallback(() => {
+    if (error) {
+      clearError();
+    }
+    if (serverVoiceError) {
+      clearServerError();
+    }
+  }, [error, clearError, serverVoiceError, clearServerError]);
+
   return (
     <Card
       padding="lg"
@@ -359,7 +410,7 @@ export function ChatPanel({ className }: ChatPanelProps) {
         )}
       </div>
 
-      {error && (
+      {voiceError && (
         <div
           style={{
             background: "rgba(239,68,68,0.12)",
@@ -372,9 +423,9 @@ export function ChatPanel({ className }: ChatPanelProps) {
           }}
         >
           <Typography variant="body" style={{ color: "var(--mw-color-danger)" }}>
-            {t("chat.error_prefix")} {error}
+            {t("chat.error_prefix")} {voiceError}
           </Typography>
-          <Button variant="ghost" size="sm" onClick={clearError}>
+          <Button variant="ghost" size="sm" onClick={handleDismissError}>
             {t("chat.dismiss")}
           </Button>
         </div>
@@ -413,12 +464,28 @@ export function ChatPanel({ className }: ChatPanelProps) {
             alignItems: "center"
           }}
         >
-          <Button type="submit" disabled={!input.trim() && !isListening}>
+          <Button
+            type="submit"
+            disabled={!input.trim() && !isListening && !serverIsRecording && !serverIsTranscribing}
+          >
             {isStreaming ? t("chat.sending") : t("chat.send")}
           </Button>
-          {voiceSupported && (
-            <Button type="button" variant="secondary" onClick={handleVoiceToggle}>
-              {isListening ? t("chat.stop_voice") : t("chat.start_voice")}
+          {(voiceSupported || serverVoiceSupported) && (
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={handleVoiceToggle}
+              disabled={serverIsTranscribing}
+            >
+              {voiceSupported
+                ? isListening
+                  ? t("chat.stop_voice")
+                  : t("chat.start_voice")
+                : serverIsRecording
+                  ? t("chat.stop_recording")
+                  : serverIsTranscribing
+                    ? t("chat.transcribing")
+                    : t("chat.start_recording")}
             </Button>
           )}
           {speechSupported && (

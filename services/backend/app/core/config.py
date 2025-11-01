@@ -11,7 +11,7 @@ class AppSettings(BaseSettings):
     app_name: str = Field(default="MindWell API Platform")
     app_env: str = Field(default="dev", alias="APP_ENV")
     debug: bool = Field(default=False, alias="APP_DEBUG")
-    api_host: str = Field(default="0.0.0.0", alias="API_HOST")
+    api_host: str = Field(default="127.0.0.1", alias="API_HOST")
     api_port: int = Field(default=8000, alias="API_PORT")
     cors_allow_origins: list[str] = Field(
         default_factory=lambda: ["*"], alias="CORS_ALLOW_ORIGINS"
@@ -32,6 +32,9 @@ class AppSettings(BaseSettings):
     azure_openai_embeddings_deployment: Optional[str] = Field(
         default=None, alias="AZURE_OPENAI_EMBEDDINGS_DEPLOYMENT"
     )
+    azure_speech_key: Optional[SecretStr] = Field(default=None, alias="AZURE_SPEECH_KEY")
+    azure_speech_region: Optional[str] = Field(default=None, alias="AZURE_SPEECH_REGION")
+    azure_speech_endpoint: Optional[str] = Field(default=None, alias="AZURE_SPEECH_ENDPOINT")
     database_url: Optional[str] = Field(default=None, alias="DATABASE_URL")
     aws_region: Optional[str] = Field(default=None, alias="AWS_REGION")
     aws_access_key_id: Optional[SecretStr] = Field(default=None, alias="AWS_ACCESS_KEY_ID")

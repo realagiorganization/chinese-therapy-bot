@@ -74,3 +74,8 @@ Application settings are defined in `app/core/config.py` using `pydantic-setting
 - `ResponseEvaluator` (see `app/services/evaluation.py`) applies heuristic checks for empathy, actionable guidance, disclaimers, and high-risk language to score assistant replies.
 - `POST /api/evaluations/response` exposes the guardrail check so the Monitoring Agent or CI Runner can gate new prompt templates and regression suites.
 - The evaluation response includes normalized metric scores, detected issues with severities, and recommended remediation steps.
+
+## Load Testing
+
+- Locust scenarios live under `loadtests/`. Install Locust (`pip install locust`) and run `locust -f loadtests/locustfile.py --host http://localhost:8000` to exercise chat turns, therapist discovery, and journey report flows.
+- Use the headless mode (`--headless -u 50 -r 10 -t 10m`) to integrate throughput checks into CI Runner or Golden Path automation.

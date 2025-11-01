@@ -123,3 +123,73 @@ export type JourneyReportsResponse = {
   weekly: WeeklyJourneyReport[];
   conversations: JourneyConversationSlice[];
 };
+
+export type ExploreModuleType = "breathing_exercise" | "psychoeducation" | "trending_topics";
+
+export type BreathingStep = {
+  label: string;
+  instruction: string;
+  durationSeconds: number;
+};
+
+export type BreathingModule = {
+  id: string;
+  moduleType: "breathing_exercise";
+  title: string;
+  description: string;
+  featureFlag?: string;
+  ctaLabel?: string;
+  ctaAction?: string;
+  durationMinutes: number;
+  cadenceLabel: string;
+  steps: BreathingStep[];
+  recommendedFrequency: string;
+};
+
+export type PsychoeducationResource = {
+  id: string;
+  title: string;
+  summary: string;
+  readTimeMinutes: number;
+  tags: string[];
+  resourceType: string;
+  url?: string | null;
+};
+
+export type PsychoeducationModule = {
+  id: string;
+  moduleType: "psychoeducation";
+  title: string;
+  description: string;
+  featureFlag?: string;
+  ctaLabel?: string;
+  ctaAction?: string;
+  resources: PsychoeducationResource[];
+};
+
+export type TrendingTopic = {
+  name: string;
+  momentum: number;
+  trend: "up" | "steady" | "down";
+  summary: string;
+};
+
+export type TrendingTopicsModule = {
+  id: string;
+  moduleType: "trending_topics";
+  title: string;
+  description: string;
+  featureFlag?: string;
+  ctaLabel?: string;
+  ctaAction?: string;
+  topics: TrendingTopic[];
+  insights: string[];
+};
+
+export type ExploreModule = BreathingModule | PsychoeducationModule | TrendingTopicsModule;
+
+export type ExploreModulesResponse = {
+  locale: string;
+  modules: ExploreModule[];
+  evaluatedFlags: Record<string, boolean>;
+};

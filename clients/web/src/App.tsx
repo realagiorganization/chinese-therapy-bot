@@ -1,7 +1,10 @@
 import { useTranslation } from "react-i18next";
 
+import { useAuth } from "./auth/AuthContext";
 import { Button, Card, Typography } from "./design-system";
 import { ChatPanel } from "./components/ChatPanel";
+import { ExploreModules } from "./components/ExploreModules";
+import { LoginPanel } from "./components/LoginPanel";
 import { JourneyDashboard } from "./components/JourneyDashboard";
 import { LocaleSwitcher } from "./components/LocaleSwitcher";
 import { TherapistDirectory } from "./components/TherapistDirectory";
@@ -15,6 +18,7 @@ type HighlightCard = {
 
 export default function App() {
   const { t, i18n } = useTranslation();
+  const { isAuthenticated, clearTokens } = useAuth();
 
   const highlightCards: HighlightCard[] = [
     {
@@ -30,6 +34,22 @@ export default function App() {
       action: t("journey.next_steps")
     }
   ];
+
+  if (!isAuthenticated) {
+    return (
+      <div
+        style={{
+          minHeight: "100vh",
+          display: "grid",
+          placeItems: "center",
+          padding: "clamp(24px, 4vw, 64px)",
+          background: "linear-gradient(180deg, rgba(59,130,246,0.12) 0%, rgba(248,250,252,1) 45%)"
+        }}
+      >
+        <LoginPanel />
+      </div>
+    );
+  }
 
   return (
     <div
@@ -56,7 +76,18 @@ export default function App() {
           }}
         >
           <Typography variant="title">{t("app.title")}</Typography>
-          <LocaleSwitcher />
+          <div
+            style={{
+              display: "flex",
+              gap: "var(--mw-spacing-xs)",
+              alignItems: "center"
+            }}
+          >
+            <LocaleSwitcher />
+            <Button variant="ghost" size="sm" onClick={clearTokens}>
+              {t("auth.logout")}
+            </Button>
+          </div>
         </header>
 
         <Card
@@ -102,6 +133,7 @@ export default function App() {
         <ChatPanel />
 
         <JourneyDashboard locale={i18n.language} />
+        <ExploreModules locale={i18n.language} />
 
         <section
           style={{

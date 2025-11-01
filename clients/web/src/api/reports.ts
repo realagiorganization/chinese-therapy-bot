@@ -1,4 +1,4 @@
-import { getApiBaseUrl } from "./client";
+import { getApiBaseUrl, withAuthHeaders } from "./client";
 import type {
   JourneyConversationMessage,
   JourneyConversationSlice,
@@ -161,9 +161,9 @@ async function requestJourneyReports(userId: string, locale: string): Promise<Jo
   }
   const endpoint = `${baseUrl}/api/reports/${userId}?${params.toString()}`;
   const response = await fetch(endpoint, {
-    headers: {
+    headers: withAuthHeaders({
       Accept: "application/json"
-    }
+    })
   });
 
   if (!response.ok) {

@@ -1,5 +1,5 @@
 import type { TherapistDetail, TherapistSummary } from "./types";
-import { getApiBaseUrl } from "./client";
+import { getApiBaseUrl, withAuthHeaders } from "./client";
 
 export type TherapistListSource = "api" | "fallback";
 
@@ -93,9 +93,9 @@ async function requestTherapists(locale = "zh-CN"): Promise<TherapistSummary[]> 
   const baseUrl = getApiBaseUrl();
   const endpoint = `${baseUrl}/api/therapists?locale=${encodeURIComponent(locale)}`;
   const response = await fetch(endpoint, {
-    headers: {
+    headers: withAuthHeaders({
       Accept: "application/json"
-    }
+    })
   });
 
   if (!response.ok) {
@@ -116,9 +116,9 @@ async function requestTherapistDetail(therapistId: string, locale = "zh-CN"): Pr
     therapistId
   )}?locale=${encodeURIComponent(locale)}`;
   const response = await fetch(endpoint, {
-    headers: {
+    headers: withAuthHeaders({
       Accept: "application/json"
-    }
+    })
   });
 
   if (!response.ok) {

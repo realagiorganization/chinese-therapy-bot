@@ -54,19 +54,19 @@
   - [x] Publish reusable component tokens (buttons, typography, colors) for web and mobile parity.
   - [x] Expand locale bundle management and fallback strategy (zh-CN primary, en-US secondary, zh-TW placeholder).
   - [x] Document theming usage guidelines for React web/Native clients.
-- [ ] Implement chatbot screen with streaming UI, voice input (local + server ASR), and TTS playback controls.
+- [x] Implement chatbot screen with streaming UI, voice input (local + server ASR), and TTS playback controls. *(Web client now streams via `useChatSession`, supports Web Speech + server ASR fallback, and retains auto TTS toggles.)*
   - [x] Build web chat hook handling SSE turn streaming with graceful JSON fallback. *(Implemented via `clients/web/src/hooks/useChatSession.ts` + `api/chat.ts` SSE parser.)*
   - [x] Surface therapist recommendations and memory highlights inline with the transcript. *(Rendered in `clients/web/src/components/ChatPanel.tsx` alongside each turn.)*
-  - [ ] Wire Web Speech API voice capture and speech synthesis toggles with server ASR handoff hooks. *(Local voice capture + TTS shipped; server ASR upload still pending.)*
+  - [x] Wire Web Speech API voice capture and speech synthesis toggles with server ASR handoff hooks. *(Azure-backed `/api/voice/transcribe` endpoint + `useServerTranscriber` enable server recording fallback with shared error handling.)*
 - [x] Build therapist overview/detail pages with filters and recommendation badges. *(Delivered via `clients/web/src/components/TherapistDirectory.tsx`.)*
   - [x] Port therapist cards to shared design system tokens and integrate live API filters. *(Directory now reuses design-system `Card`/`Button` while filtering through `useTherapistDirectory`.)*
   - [x] Surface recommendation rationales/badges sourced from backend embeddings. *(Recommended therapists render badge styling and show embedding rationale when present.)*
 - [x] Create Journey page showing 10-day daily reports and 10-week weekly reports with drill-down tabs. *(Delivered as `JourneyDashboard` in `clients/web/src/components/JourneyDashboard.tsx`.)*
   - [x] Implement daily/weekly list components backed by reports API.
   - [x] Design detail view with tabbed transcript versus highlights presentation.
-- [ ] Prototype Explore page content modules and personalization hooks.
-  - [ ] Define placeholder content blocks (breathing exercises, psychoeducation, trending topics).
-  - [ ] Connect modules to feature flag service for staged rollouts.
+- [x] Prototype Explore page content modules and personalization hooks.
+  - [x] Define placeholder content blocks (breathing exercises, psychoeducation, trending topics).
+  - [x] Connect modules to feature flag service for staged rollouts.
 - [ ] Implement account onboarding/login flows (SMS, Google).
   - [ ] Build OTP request/verification UI tied into backend throttling.
   - [ ] Add Google OAuth web flow and token exchange using the stub client.
@@ -87,9 +87,9 @@
 - [ ] Create automated testing suites (unit, integration, end-to-end) and load testing scenarios.
   - [x] Expand backend coverage (auth edge cases, streaming chat, S3 persistence). *(new pytest suites under `services/backend/tests/` cover AuthService OTP limits, ChatService streaming flow, and S3 transcript/summary storage stubs.)*
 - [x] Add frontend unit/component tests for chat, therapist flows, and localization. *(Vitest suites in `clients/web/src/App.test.tsx`, `clients/web/src/hooks/__tests__/useTherapistDirectory.test.tsx`, and `clients/web/src/api/therapists.test.ts` validate locale switching, therapist filtering, and API fallback logic.)*
-  - [ ] Author k6 or Locust load suites for LLM-backed chat throughput.
+  - [x] Author k6 or Locust load suites for LLM-backed chat throughput. *(Locust scenario under `services/backend/loadtests/` drives chat turns, therapist discovery, and journey report fetches with configurable headless runs.)*
 - [ ] Conduct security review (OWASP ASVS, data encryption, privacy compliance).
-  - [ ] Perform threat modeling, dependency scanning, and secret scanning in CI.
+  - [x] Perform threat modeling, dependency scanning, and secret scanning in CI. *(Threat model documented in `docs/threat_model.md` and security checks enforced via `.github/workflows/ci.yml` + `.gitleaks.toml`.)*
   - [ ] Validate encryption in transit/at rest across Azure and AWS resources.
 - [ ] Implement data governance workflows for PII management and retention.
   - [ ] Define retention schedules, anonymization routines, and SAR handling.

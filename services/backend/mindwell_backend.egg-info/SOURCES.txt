@@ -3,6 +3,7 @@ pyproject.toml
 app/__init__.py
 app/main.py
 app/agents/__init__.py
+app/agents/data_sync.py
 app/agents/summary_scheduler.py
 app/api/__init__.py
 app/api/deps.py
@@ -16,11 +17,13 @@ app/api/routes/health.py
 app/api/routes/memory.py
 app/api/routes/reports.py
 app/api/routes/therapists.py
+app/api/routes/voice.py
 app/core/app.py
 app/core/config.py
 app/core/database.py
 app/core/migrations.py
 app/integrations/__init__.py
+app/integrations/asr.py
 app/integrations/embeddings.py
 app/integrations/google.py
 app/integrations/llm.py
@@ -38,7 +41,9 @@ app/schemas/features.py
 app/schemas/memory.py
 app/schemas/reports.py
 app/schemas/therapists.py
+app/schemas/voice.py
 app/services/__init__.py
+app/services/asr.py
 app/services/auth.py
 app/services/chat.py
 app/services/evaluation.py
@@ -55,5 +60,11 @@ mindwell_backend.egg-info/entry_points.txt
 mindwell_backend.egg-info/requires.txt
 mindwell_backend.egg-info/top_level.txt
 tests/test_app.py
+tests/test_asr_service.py
+tests/test_auth_service.py
+tests/test_chat_service.py
+tests/test_data_sync_agent.py
 tests/test_evaluation.py
 tests/test_recommendations.py
+tests/test_storage.py
+tests/test_voice_api.py

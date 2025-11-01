@@ -5,12 +5,14 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import get_settings
 from app.core.database import get_session_factory
+from app.integrations.asr import AzureSpeechTranscriber
 from app.integrations.embeddings import EmbeddingClient
 from app.integrations.google import GoogleOAuthClient
 from app.integrations.llm import ChatOrchestrator
 from app.integrations.sms import ConsoleSMSProvider
 from app.integrations.storage import ChatTranscriptStorage
 from app.integrations.therapists import TherapistDataStorage
+from app.services.asr import AutomaticSpeechRecognitionService
 from app.services.auth import AuthService
 from app.services.chat import ChatService
 from app.services.evaluation import ResponseEvaluator
@@ -27,6 +29,7 @@ _storage: ChatTranscriptStorage | None = None
 _therapist_storage: TherapistDataStorage | None = None
 _embedding_client: EmbeddingClient | None = None
 _response_evaluator: ResponseEvaluator | None = None
+_asr_service: AutomaticSpeechRecognitionService | None = None
 
 
 async def get_db_session() -> AsyncGenerator[AsyncSession, None]:
@@ -134,3 +137,16 @@ async def get_response_evaluator() -> ResponseEvaluator:
     if _response_evaluator is None:
         _response_evaluator = ResponseEvaluator()
     return _response_evaluator
+
+
+async def get_asr_service() -> AutomaticSpeechRecognitionService:
+    """Provide the AutomaticSpeechRecognitionService singleton."""
+    global _asr_service
+    if _asr_service is None:
+        settings = get_settings()
+        try:
+            transcriber = AzureSpeechTranscriber(settings)
+        except ValueError:
+            transcriber = None
+        _asr_service = AutomaticSpeechRecognitionService(transcriber)
+    return _asr_service

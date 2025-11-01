@@ -34,6 +34,9 @@ The backend reads configuration from environment variables via `AppSettings` (`s
 - `BEDROCK_MODEL_ID`: Model identifier used when invoking AWS Bedrock as an LLM fallback.
 - `SMS_SENDER_ID`: Sender identifier registered with the SMS provider (defaults to provider-specific value when omitted).
 - `GOOGLE_OAUTH_REDIRECT_URI`: Redirect URI registered for web/mobile Google OAuth flows.
+- `AZURE_SPEECH_KEY`: Subscription key for Azure Cognitive Services Speech, enabling server-side audio transcription.
+- `AZURE_SPEECH_REGION`: Azure region hosting the Speech resource (e.g. `eastasia`) used by the ASR integration.
+- `AZURE_SPEECH_ENDPOINT`: Optional override for the Speech-to-Text endpoint when using a private link or custom domain.
 - `TTS_SERVICE_API_KEY`: Credential for the text-to-speech provider powering voice playback.
 - `ASR_SERVICE_API_KEY`: Credential for server-side automatic speech recognition.
 - `WECHAT_APP_ID`: Application identifier enabling WeChat voice input integration.

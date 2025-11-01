@@ -149,7 +149,7 @@
 
 ### **Explore Page**
 
-- To be defined
+- Explore modules for breathing exercises, psychoeducation resources, and trending themes delivered via feature flags and personalized data pipelines. (✅ prototype shipped)
 
 ### **Journey Page**
 
