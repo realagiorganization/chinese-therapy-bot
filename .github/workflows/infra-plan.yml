@@ -1,0 +1,232 @@
+name: Terraform Plan
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "Terraform environment (e.g. dev, staging, prod)"
+        required: true
+        default: "dev"
+  pull_request:
+    paths:
+      - "infra/terraform/**"
+      - "infra/scripts/run_terraform_plan.sh"
+      - ".github/workflows/infra-plan.yml"
+
+jobs:
+  plan:
+    name: Terraform Plan (${{ github.event.inputs.environment || 'dev' }})
+    runs-on: ubuntu-latest
+    env:
+      TF_ENV: ${{ github.event.inputs.environment || 'dev' }}
+      TF_IN_AUTOMATION: "true"
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "1.6.6"
+          terraform_wrapper: false
+
+      - name: Check credential prerequisites
+        id: prereqs
+        env:
+          AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+          AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+          AZURE_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+          AWS_TERRAFORM_ROLE_ARN: ${{ secrets.AWS_TERRAFORM_ROLE_ARN }}
+        run: |
+          missing=()
+          if [[ -z "${AZURE_CLIENT_ID}" ]]; then missing+=("AZURE_CLIENT_ID"); fi
+          if [[ -z "${AZURE_TENANT_ID}" ]]; then missing+=("AZURE_TENANT_ID"); fi
+          if [[ -z "${AZURE_SUBSCRIPTION_ID}" ]]; then missing+=("AZURE_SUBSCRIPTION_ID"); fi
+          if [[ -z "${AWS_TERRAFORM_ROLE_ARN}" ]]; then missing+=("AWS_TERRAFORM_ROLE_ARN"); fi
+
+          if [[ ${#missing[@]} -gt 0 ]]; then
+            {
+              echo "Terraform plan skipped. Configure the following secrets to enable this workflow:"
+              for secret in "${missing[@]}"; do
+                echo "- ${secret}"
+              done
+            } >> "${GITHUB_STEP_SUMMARY}"
+            echo "skip=true" >> "${GITHUB_OUTPUT}"
+          else
+            echo "skip=false" >> "${GITHUB_OUTPUT}"
+          fi
+
+      - name: Skip plan (missing secrets)
+        if: steps.prereqs.outputs.skip == 'true'
+        run: echo "Skipping Terraform plan because required secrets are not configured."
+
+      - name: Azure login
+        if: steps.prereqs.outputs.skip != 'true'
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Configure AWS credentials
+        if: steps.prereqs.outputs.skip != 'true'
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_TERRAFORM_ROLE_ARN }}
+          role-session-name: mindwell-terraform-plan
+          aws-region: ${{ secrets.AWS_REGION || 'ap-northeast-1' }}
+
+      - name: Generate tfvars file
+        id: generate_tfvars
+        if: steps.prereqs.outputs.skip != 'true'
+        env:
+          TF_ENV: ${{ env.TF_ENV }}
+          TFVARS_PATH: ${{ format('infra/terraform/environments/{0}/generated.auto.tfvars', env.TF_ENV) }}
+          PROJECT_NAME: ${{ vars.TERRAFORM_PROJECT_NAME || 'MindWell Platform' }}
+          AZURE_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+          AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+          AZURE_LOCATION: ${{ secrets.AZURE_LOCATION || 'eastasia' }}
+          AWS_REGION: ${{ secrets.AWS_REGION || 'ap-northeast-1' }}
+          VNET_ADDRESS_SPACE: ${{ secrets.VNET_ADDRESS_SPACE || '["10.20.0.0/16"]' }}
+          SUBNET_AKS_SYSTEM: ${{ secrets.SUBNET_AKS_SYSTEM || "10.20.0.0/24" }}
+          SUBNET_AKS_WORKLOAD: ${{ secrets.SUBNET_AKS_WORKLOAD || "10.20.1.0/24" }}
+          SUBNET_POSTGRES: ${{ secrets.SUBNET_POSTGRES || "10.20.2.0/24" }}
+          LOG_RETENTION_DAYS: ${{ secrets.LOG_RETENTION_DAYS || '30' }}
+          ONCALL_EMAIL: ${{ secrets.ONCALL_EMAIL || 'oncall@mindwell.dev' }}
+          ONCALL_COUNTRY_CODE: ${{ secrets.ONCALL_COUNTRY_CODE || '86' }}
+          ONCALL_PHONE: ${{ secrets.ONCALL_PHONE || '13800138000' }}
+          AKS_CPU_ALERT_THRESHOLD: ${{ secrets.AKS_CPU_ALERT_THRESHOLD || '80' }}
+          AKS_VERSION: ${{ secrets.AKS_VERSION || '1.29.4' }}
+          AKS_SYSTEM_VM_SIZE: ${{ secrets.AKS_SYSTEM_VM_SIZE || 'Standard_D4s_v3' }}
+          AKS_SYSTEM_NODE_COUNT: ${{ secrets.AKS_SYSTEM_NODE_COUNT || '2' }}
+          AKS_NODE_MAX_SURGE: ${{ secrets.AKS_NODE_MAX_SURGE || '33%' }}
+          API_SERVER_ALLOWED_IPS: ${{ secrets.API_SERVER_ALLOWED_IPS || '[]' }}
+          AKS_SERVICE_CIDR: ${{ secrets.AKS_SERVICE_CIDR || '10.31.0.0/16' }}
+          AKS_DNS_SERVICE_IP: ${{ secrets.AKS_DNS_SERVICE_IP || '10.31.0.10' }}
+          AKS_DOCKER_BRIDGE_CIDR: ${{ secrets.AKS_DOCKER_BRIDGE_CIDR || '172.17.0.1/16' }}
+          AKS_ADMIN_GROUP_IDS: ${{ secrets.AKS_ADMIN_GROUP_IDS || '[]' }}
+          AKS_WORKLOAD_VM_SIZE: ${{ secrets.AKS_WORKLOAD_VM_SIZE || 'Standard_D8s_v5' }}
+          AKS_WORKLOAD_NODE_COUNT: ${{ secrets.AKS_WORKLOAD_NODE_COUNT || '2' }}
+          AKS_WORKLOAD_MIN_COUNT: ${{ secrets.AKS_WORKLOAD_MIN_COUNT || '1' }}
+          AKS_WORKLOAD_MAX_COUNT: ${{ secrets.AKS_WORKLOAD_MAX_COUNT || '5' }}
+          POSTGRES_VERSION: ${{ secrets.POSTGRES_VERSION || '14' }}
+          POSTGRES_SKU_NAME: ${{ secrets.POSTGRES_SKU_NAME || 'GP_Standard_D4s_v3' }}
+          POSTGRES_STORAGE_MB: ${{ secrets.POSTGRES_STORAGE_MB || '131072' }}
+          POSTGRES_BACKUP_RETENTION_DAYS: ${{ secrets.POSTGRES_BACKUP_RETENTION_DAYS || '14' }}
+          POSTGRES_GEO_REDUNDANT_BACKUPS: ${{ secrets.POSTGRES_GEO_REDUNDANT_BACKUPS || 'true' }}
+          POSTGRES_ADMIN_USERNAME: ${{ secrets.POSTGRES_ADMIN_USERNAME || 'mindwelladmin' }}
+          POSTGRES_HA_MODE: ${{ secrets.POSTGRES_HA_MODE || 'ZoneRedundant' }}
+          POSTGRES_MAINTENANCE_DAY: ${{ secrets.POSTGRES_MAINTENANCE_DAY || '6' }}
+          POSTGRES_MAINTENANCE_HOUR: ${{ secrets.POSTGRES_MAINTENANCE_HOUR || '22' }}
+          KEY_VAULT_ADMIN_OBJECT_ID: ${{ secrets.KEY_VAULT_ADMIN_OBJECT_ID }}
+          KEY_VAULT_ALLOWED_IPS: ${{ secrets.KEY_VAULT_ALLOWED_IPS || '[]' }}
+          PLACEHOLDER_OPENAI_API_KEY: ${{ secrets.PLACEHOLDER_OPENAI_API_KEY || 'replace-me' }}
+          COST_BUDGET_CONTACT_EMAILS: ${{ secrets.COST_BUDGET_CONTACT_EMAILS || '["finance@mindwell.dev"]' }}
+        run: |
+          python - <<'PY'
+import json
+import os
+from pathlib import Path
+
+def parse_json(name, default):
+    raw = os.environ.get(name)
+    if not raw:
+        return default
+    try:
+        return json.loads(raw)
+    except json.JSONDecodeError as exc:
+        raise SystemExit(f"Expected {name} to contain valid JSON: {exc}") from exc
+
+def parse_bool(name, default):
+    raw = os.environ.get(name)
+    if raw is None:
+        return default
+    return str(raw).lower() in {"1", "true", "yes", "on"}
+
+required_env = ["AZURE_SUBSCRIPTION_ID", "AZURE_TENANT_ID", "KEY_VAULT_ADMIN_OBJECT_ID"]
+for var in required_env:
+    if not os.environ.get(var):
+        raise SystemExit(f"Environment variable {var} must be provided for tfvars generation.")
+
+tfvars_path = Path(os.environ["TFVARS_PATH"])
+tfvars_path.parent.mkdir(parents=True, exist_ok=True)
+
+data = {
+    "project_name": os.environ.get("PROJECT_NAME", "MindWell Platform"),
+    "environment": os.environ["TF_ENV"],
+    "azure_subscription_id": os.environ["AZURE_SUBSCRIPTION_ID"],
+    "azure_tenant_id": os.environ["AZURE_TENANT_ID"],
+    "azure_location": os.environ["AZURE_LOCATION"],
+    "aws_region": os.environ["AWS_REGION"],
+    "default_tags": {"owner": "platform"},
+    "vnet_address_space": parse_json("VNET_ADDRESS_SPACE", ["10.20.0.0/16"]),
+    "subnet_aks_system": os.environ["SUBNET_AKS_SYSTEM"],
+    "subnet_aks_workload": os.environ["SUBNET_AKS_WORKLOAD"],
+    "subnet_postgres": os.environ["SUBNET_POSTGRES"],
+    "log_retention_days": int(os.environ["LOG_RETENTION_DAYS"]),
+    "oncall_email": os.environ["ONCALL_EMAIL"],
+    "oncall_country_code": os.environ["ONCALL_COUNTRY_CODE"],
+    "oncall_phone": os.environ["ONCALL_PHONE"],
+    "aks_cpu_alert_threshold": int(os.environ["AKS_CPU_ALERT_THRESHOLD"]),
+    "aks_version": os.environ["AKS_VERSION"],
+    "aks_system_vm_size": os.environ["AKS_SYSTEM_VM_SIZE"],
+    "aks_system_node_count": int(os.environ["AKS_SYSTEM_NODE_COUNT"]),
+    "aks_node_max_surge": os.environ["AKS_NODE_MAX_SURGE"],
+    "api_server_allowed_ips": parse_json("API_SERVER_ALLOWED_IPS", []),
+    "aks_service_cidr": os.environ["AKS_SERVICE_CIDR"],
+    "aks_dns_service_ip": os.environ["AKS_DNS_SERVICE_IP"],
+    "aks_docker_bridge_cidr": os.environ["AKS_DOCKER_BRIDGE_CIDR"],
+    "aks_admin_group_object_ids": parse_json("AKS_ADMIN_GROUP_IDS", []),
+    "aks_workload_vm_size": os.environ["AKS_WORKLOAD_VM_SIZE"],
+    "aks_workload_node_count": int(os.environ["AKS_WORKLOAD_NODE_COUNT"]),
+    "aks_workload_min_count": int(os.environ["AKS_WORKLOAD_MIN_COUNT"]),
+    "aks_workload_max_count": int(os.environ["AKS_WORKLOAD_MAX_COUNT"]),
+    "postgres_version": os.environ["POSTGRES_VERSION"],
+    "postgres_sku_name": os.environ["POSTGRES_SKU_NAME"],
+    "postgres_storage_mb": int(os.environ["POSTGRES_STORAGE_MB"]),
+    "postgres_backup_retention_days": int(os.environ["POSTGRES_BACKUP_RETENTION_DAYS"]),
+    "postgres_geo_redundant_backup_enabled": parse_bool("POSTGRES_GEO_REDUNDANT_BACKUPS", True),
+    "postgres_admin_username": os.environ["POSTGRES_ADMIN_USERNAME"],
+    "postgres_ha_mode": os.environ["POSTGRES_HA_MODE"],
+    "postgres_maintenance_day": int(os.environ["POSTGRES_MAINTENANCE_DAY"]),
+    "postgres_maintenance_hour": int(os.environ["POSTGRES_MAINTENANCE_HOUR"]),
+    "key_vault_admin_object_id": os.environ["KEY_VAULT_ADMIN_OBJECT_ID"],
+    "key_vault_allowed_ips": parse_json("KEY_VAULT_ALLOWED_IPS", []),
+    "placeholder_openai_api_key": os.environ["PLACEHOLDER_OPENAI_API_KEY"],
+    "cost_budget_contact_emails": parse_json("COST_BUDGET_CONTACT_EMAILS", ["finance@mindwell.dev"]),
+  }
+
+with tfvars_path.open("w", encoding="utf-8") as handle:
+    for key, value in data.items():
+        if isinstance(value, str):
+            handle.write(f'{key} = "{value}"\n')
+        elif isinstance(value, bool):
+            handle.write(f"{key} = {'true' if value else 'false'}\n")
+        elif isinstance(value, (int, float)):
+            handle.write(f"{key} = {value}\n")
+        else:
+            handle.write(f"{key} = {json.dumps(value)}\n")
+PY
+
+          echo "tfvars_path=${TFVARS_PATH}" >> "${GITHUB_OUTPUT}"
+
+      - name: Terraform fmt
+        if: steps.prereqs.outputs.skip != 'true'
+        run: terraform fmt -check -recursive
+
+      - name: Terraform plan
+        if: steps.prereqs.outputs.skip != 'true'
+        env:
+          TF_VARS_FILE: ${{ steps.generate_tfvars.outputs.tfvars_path }}
+        run: |
+          ./infra/scripts/run_terraform_plan.sh "${TF_ENV}" -input=false
+
+      - name: Upload plan artifact
+        if: steps.prereqs.outputs.skip != 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: terraform-plan-${{ env.TF_ENV }}
+          path: |
+            infra/terraform/environments/${{ env.TF_ENV }}/plan-${{ env.TF_ENV }}.tfplan
+            infra/terraform/environments/${{ env.TF_ENV }}/plan-${{ env.TF_ENV }}.txt

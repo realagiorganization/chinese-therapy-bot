@@ -1,0 +1,7 @@
+# MindWell gitleaks configuration
+
+[allowlist]
+description = "Ignore documentation snippets that intentionally include sample secrets."
+paths = [
+  "README.md"
+]

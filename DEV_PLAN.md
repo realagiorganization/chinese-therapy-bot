@@ -69,11 +69,12 @@
 #### **Chat System**
 
 - Persistent conversation storage
-  - Real-time chat logging ⌛️
-  - Daily chat snapshot storage ⌛️
+  - Real-time chat logging ✅ *(message-level S3 persistence via ChatTranscriptStorage)*
+  - Daily chat snapshot storage ✅ *(persisted to S3 via ChatTranscriptStorage)*
 - Summary generation
-  - Daily summaries
-  - Weekly summaries
+  - Daily summaries ✅ *(pipeline implemented via Summary Scheduler Agent)*
+  - Weekly summaries ✅ *(weekly aggregation + storage complete)*
+- Guided chat templates for common scenes ✅ *(curated dataset `chat_templates.json`, `/api/chat/templates`, and web quick-start chips).*
 
 #### **Model Integration**
 
@@ -84,8 +85,14 @@
 #### **Therapist Data**
 
 - list/get API ✅
-- Script for scraping therapist data and injecting into database
-- Internationalization (i18n) of therapist information
+- Script for scraping therapist data and injecting into database ✅ *(Data Sync agent `mindwell-data-sync` publishes normalized profiles to `S3_BUCKET_THERAPISTS`.)*
+- Internationalization (i18n) of therapist information ✅
+
+#### **Data Governance & Privacy**
+
+- Retention automation ✅ *(Summary Scheduler + `mindwell-retention-cleanup` enforce S3/database purge windows.)*
+- Subject access/export tooling ✅ *(SAR scripts in `services/backend/scripts/` backed by `DataSubjectService` and tests.)*
+- PII deletion/redaction flow ✅ *(`delete_user_data.py` scrubs chat content, revokes tokens, and anonymises analytics/summary artefacts.)*
 
 #### **AWS Integration**
 
@@ -128,11 +135,13 @@
 ### **Chat Functionality**
 
 - Streamed response integration ✅
+- Offline transcript caching ✅ *(AsyncStorage-backed restore in the Expo client.)*
+- Push notification scaffolding ✅ *(Expo Notifications registration with device token caching.)*
 - **Input Methods:**
   - Text input
   - Voice input via local system model (iOS ✅ / Android pending)
   - WeChat-style “hold to speak” voice input ✅
-  - Auto language detection
+  - Auto language detection ✅ *(LanguageDetector service auto-resolves locale -> shared across web/mobile states.)*
   - Server-side ASR (speech recognition)
 - **Output (Voice Playback):**
   - RN-TTS integration ✅
@@ -145,11 +154,11 @@
 
 - Therapist overview ✅
 - Therapist detail page ✅
-- Therapist filtering functionality (planned)
+- Therapist filtering functionality ✅ *(Web/mobile directories expose specialty, language, price, and recommendation filters.)*
 
 ### **Explore Page**
 
-- To be defined
+- Explore modules for breathing exercises, psychoeducation resources, and trending themes delivered via feature flags and personalized data pipelines. (✅ prototype shipped)
 
 ### **Journey Page**
 
@@ -159,6 +168,7 @@
   - Detail View:
     - **Tab 1:** Date, Title, Spotlight, Summary
     - **Tab 2:** Chat Records
+- ✅ Expo Journey dashboard implements the flows above with locale-aware summaries, transcript toggles, and manual refresh (`JourneyScreen`, `useJourneyReports`, `services/reports`).
 
 ### **Localization**
 
@@ -177,13 +187,15 @@
 
 | **Issue** | **Description** | **Status** |
 | --- | --- | --- |
-| /therapy/chat/stream triggers “access denied” | Does not affect pre-request validation but returns error post-request | Unresolved |
+| /therapy/chat/stream triggers “access denied” | Does not affect pre-request validation but returns error post-request | Resolved – added `/api/chat/stream` endpoint + legacy `/therapy/chat/stream` alias with SSE error handling |
 
 ---
 
 ## **8. Additional Notes**
 
 - Integration with Google and other third-party account management platforms in progress.
+- Release artefact pipeline `.github/workflows/release.yml` produces backend wheels plus web/mobile bundles for tag builds and manual dispatch.
+- Investor/partner summary brief lives in `docs/investor_partner_brief.md` for fundraising and partnership outreach.
 
 ---
 

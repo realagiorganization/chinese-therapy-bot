@@ -1,0 +1,95 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-01-01/dashboard.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {},
+  "dashboardMetadata": {
+    "model": {
+      "timeRange": {
+        "value": {
+          "relative": {
+            "duration": 24,
+            "timeUnit": 1
+          }
+        }
+      },
+      "filterLocale": "en-us",
+      "dashboardScopedResources": [
+        "${workspace_id}"
+      ]
+    }
+  },
+  "lenses": [
+    {
+      "order": 0,
+      "parts": [
+        {
+          "position": {
+            "x": 0,
+            "y": 0,
+            "rowSpan": 3,
+            "colSpan": 3
+          },
+          "metadata": {
+            "inputs": [
+              {
+                "name": "ComponentId",
+                "value": "${workspace_guid}"
+              },
+              {
+                "name": "BladeParameter",
+                "value": {
+                  "resourceType": "microsoft.operationalinsights/workspaces",
+                  "resourceId": "${workspace_id}"
+                }
+              },
+              {
+                "name": "Query",
+                "value": "AzureDiagnostics | where Category == 'kube-apiserver' | summarize count() by bin(TimeGenerated, 5m)"
+              }
+            ],
+            "type": "Extension/HubsExtension/PartType/KustoFramePart",
+            "settings": {
+              "kustoGridSettings": {
+                "title": "AKS API Server Requests (${environment})"
+              }
+            }
+          }
+        },
+        {
+          "position": {
+            "x": 3,
+            "y": 0,
+            "rowSpan": 3,
+            "colSpan": 3
+          },
+          "metadata": {
+            "inputs": [
+              {
+                "name": "resourceType",
+                "value": "Microsoft.ContainerService/managedClusters"
+              },
+              {
+                "name": "resourceId",
+                "value": "${aks_resource_id}"
+              }
+            ],
+            "type": "Extension/Microsoft_Azure_Monitoring/InsightsMetricsPart",
+            "settings": {
+              "content": {
+                "Version": "1.0.0",
+                "IsContextBlade": true,
+                "Parts": [
+                  {
+                    "MetricNamespace": "insights.container/nodes",
+                    "Metric": "cpuUsagePercentage",
+                    "Aggregation": "avg"
+                  }
+                ]
+              }
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

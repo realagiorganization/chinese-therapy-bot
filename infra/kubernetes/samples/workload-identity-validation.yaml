@@ -1,0 +1,61 @@
+# Namespace scoped resources for validating AKS workload identity against Azure Key Vault.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: workload-identity-validation
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: keyvault-reader
+  namespace: workload-identity-validation
+  annotations:
+    azure.workload.identity/client-id: "<WORKLOAD_IDENTITY_CLIENT_ID>"
+    azure.workload.identity/service-account-token-expiration: "3600"
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: keyvault-secret-validation
+  namespace: workload-identity-validation
+spec:
+  template:
+    metadata:
+      annotations:
+        azure.workload.identity/use: "true"
+    spec:
+      serviceAccountName: keyvault-reader
+      restartPolicy: Never
+      containers:
+        - name: validator
+          image: mcr.microsoft.com/azure-cli:2.62.0
+          imagePullPolicy: IfNotPresent
+          command:
+            - /bin/bash
+            - -c
+            - |
+              set -euo pipefail
+              if [[ -z "${AZURE_FEDERATED_TOKEN_FILE:-}" ]]; then
+                echo "AZURE_FEDERATED_TOKEN_FILE not set; workload identity mutation missing?" >&2
+                exit 1
+              fi
+              az login \
+                --service-principal \
+                --tenant "${AZURE_TENANT_ID}" \
+                --username "${AZURE_CLIENT_ID}" \
+                --federated-token "$(cat "${AZURE_FEDERATED_TOKEN_FILE}")" \
+                --allow-no-subscriptions >/tmp/az-login.log
+              az keyvault secret show \
+                --vault-name "${KEY_VAULT_NAME}" \
+                --name "${SECRET_NAME}" \
+                --query "value" \
+                -o tsv
+          env:
+            - name: AZURE_CLIENT_ID
+              value: "<WORKLOAD_IDENTITY_CLIENT_ID>"
+            - name: AZURE_TENANT_ID
+              value: "<AZURE_TENANT_ID>"
+            - name: KEY_VAULT_NAME
+              value: "<KEY_VAULT_NAME>"
+            - name: SECRET_NAME
+              value: "<SECRET_NAME>"

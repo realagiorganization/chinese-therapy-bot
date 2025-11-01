@@ -1,0 +1,236 @@
+[
+  {
+    "id": "anxiety_grounding",
+    "topic": "anxiety",
+    "priority": 10,
+    "keywords": ["anxiety", "panic", "breath", "焦虑", "恐慌"],
+    "tags": ["breathing", "grounding"],
+    "locales": {
+      "zh-CN": {
+        "title": "突发焦虑的呼吸锚定",
+        "user_prompt": "最近有几次突然心跳加速、胸口发紧的焦虑，甚至晚上都难以入睡，我想学一些稳定自己的方法。",
+        "assistant_example": "听起来这些突如其来的身体感觉让你很不安。我们可以先练习一个 4-7-8 呼吸法，帮助身体慢慢恢复到比较安心的状态，也能让你在情绪来临时多一个可以依靠的工具。",
+        "follow_up_questions": [
+          "这些突发焦虑通常会在什么样的情境或想法出现时发生？",
+          "在焦虑来临的前一两分钟，你有没有注意到任何身体信号或想法？",
+          "过去有没有试过什么方式，能让焦虑稍微缓和一点点？"
+        ],
+        "self_care_tips": [
+          "练习 4-7-8 呼吸：吸气 4 秒、屏住 7 秒、缓慢呼出 8 秒，重复 4 轮。",
+          "写下一句话安抚自己，例如“我正在经历焦虑的波动，但我仍然安全”，放在手机备忘录里随时可读。",
+          "在不焦虑的时候也练习短暂的身体扫描，让大脑更熟悉放松的感觉。"
+        ]
+      },
+      "en-US": {
+        "title": "Grounding when panic spikes",
+        "user_prompt": "Lately my heart races out of nowhere and my chest feels tight. The anxiety keeps me up at night, so I'd like tools to steady myself.",
+        "assistant_example": "Those sudden body sensations can feel overwhelming. Let's start with a 4-7-8 breathing pattern to let your nervous system know it can settle, giving you something concrete to hold onto when anxiety surges.",
+        "follow_up_questions": [
+          "When do you usually notice the anxious rush beginning? Any common triggers or thoughts?",
+          "In the minutes before anxiety rises, do you catch any early body cues or tension?",
+          "Have you found anything that softens the anxiety even a little in the past?"
+        ],
+        "self_care_tips": [
+          "Practice 4-7-8 breathing: inhale for 4, hold for 7, exhale for 8 seconds—repeat four rounds.",
+          "Save a grounding sentence such as “This is a wave of anxiety, and I can ride it” in your phone to read aloud.",
+          "Do a quick body scan during calmer moments so relaxation feels more familiar when you need it."
+        ]
+      }
+    }
+  },
+  {
+    "id": "stress_microbreaks",
+    "topic": "stress",
+    "priority": 9,
+    "keywords": ["stress", "deadline", "疲惫", "压力", "忙碌"],
+    "tags": ["workload", "focus"],
+    "locales": {
+      "zh-CN": {
+        "title": "高压工作下的微休息计划",
+        "user_prompt": "最近工作堆积得很多，我每天都在赶进度，脑袋很紧绷，晚上回家也放松不下来。",
+        "assistant_example": "你已经在巨大的压力下坚持很久了。我们可以一起规划几个 5-10 分钟的“能量补给”间隔，让大脑有机会换档，同时也看一下哪些任务可以暂时放缓或寻求协助。",
+        "follow_up_questions": [
+          "一天当中，压力最重的几个时间点通常是什么时候？",
+          "有没有某些任务可以用更短的番茄钟来拆分处理？",
+          "在紧绷的当下，有没有想过请谁帮忙或调整优先级？"
+        ],
+        "self_care_tips": [
+          "每 60-90 分钟设置一个提醒，做 5 分钟的伸展、走动或喝水。",
+          "把本周任务分成“必须完成”“可以协商”“可以延后”三类，标记颜色放进日程。",
+          "结束一天前写下 3 件已经完成的小事情，让大脑知道今天有完成收尾。"
+        ]
+      },
+      "en-US": {
+        "title": "Micro-break plan for heavy workload",
+        "user_prompt": "Work has been piling up and I’m hustling every day. My mind stays tight even after I get home.",
+        "assistant_example": "You’ve been carrying a lot for quite a while. Let’s design a few 5–10 minute energy resets so your brain can shift gears, and explore tasks that might be paused or shared.",
+        "follow_up_questions": [
+          "What times of day feel most intense or draining?",
+          "Could any projects be broken into shorter focus blocks, like 25-minute sprints?",
+          "Who or what could help you renegotiate priorities when everything feels urgent?"
+        ],
+        "self_care_tips": [
+          "Set a reminder every 60–90 minutes to stretch, walk, or hydrate for five minutes.",
+          "Sort weekly tasks into “must do,” “can negotiate,” and “could defer,” then color code them in your calendar.",
+          "Before ending the day, note three things you completed to signal closure to your brain."
+        ]
+      }
+    }
+  },
+  {
+    "id": "sleep_hygiene",
+    "topic": "sleep",
+    "priority": 8,
+    "keywords": ["sleep", "insomnia", "routine", "失眠", "作息"],
+    "tags": ["night", "wind-down"],
+    "locales": {
+      "zh-CN": {
+        "title": "重建睡前放松仪式",
+        "user_prompt": "最近入睡总是拖到凌晨两三点，躺着的时候脑子停不下来，第二天非常疲惫。",
+        "assistant_example": "长期睡不好确实很辛苦。我们可以一起设计一个 30 分钟的睡前缓冲时间，让身心从工作模式慢慢转换，试着用固定的信号告诉大脑“可以休息了”。",
+        "follow_up_questions": [
+          "通常几点钟开始准备睡觉？睡前都会做些什么？",
+          "有没有特别容易让你思绪翻涌的主题？我们能否安排一个“担心时间”？",
+          "卧室的环境（灯光、温度、电子产品）有没有可以调整的地方？"
+        ],
+        "self_care_tips": [
+          "睡前 30 分钟改成柔和灯光，安排三个步骤：热水泡脚或洗澡、写下一天的担忧、做 10 分钟深呼吸或冥想。",
+          "如果 20 分钟还没有睡意，起身到另一个位置做放松的事情，避免在床上反复焦虑。",
+          "固定起床时间，即使睡得晚也尽量保持，帮助生理时钟重新校准。"
+        ]
+      },
+      "en-US": {
+        "title": "Refresh your wind-down routine",
+        "user_prompt": "I keep staying up past 2 or 3 a.m. My thoughts race when I lie down, and I’m exhausted the next day.",
+        "assistant_example": "Sleep struggles can wear you down. Let’s co-create a 30-minute wind-down that slowly shifts you out of work mode and signals your brain that rest is coming.",
+        "follow_up_questions": [
+          "Around what time do you usually get ready for bed, and what do you do beforehand?",
+          "Do certain worries or topics keep your mind spinning? Could we schedule a “worry time” earlier in the evening?",
+          "Is there anything about your bedroom—lighting, temperature, devices—that could be tweaked?"
+        ],
+        "self_care_tips": [
+          "Switch to softer lighting 30 minutes before bed and follow three cues: warm shower, jot down worries, then breathe or meditate for 10 minutes.",
+          "If you’re awake after 20 minutes, move to another room and do something calming rather than staying anxious in bed.",
+          "Keep wake-up times consistent even after late nights to help your body clock reset."
+        ]
+      }
+    }
+  },
+  {
+    "id": "relationship_boundaries",
+    "topic": "relationships",
+    "priority": 7,
+    "keywords": ["relationship", "family", "boundary", "关系", "沟通"],
+    "tags": ["communication", "needs"],
+    "locales": {
+      "zh-CN": {
+        "title": "练习温柔但坚定的界限",
+        "user_prompt": "和伴侣沟通时总是害怕表达真实需求，担心对方会难过或者生气，最后只能憋着。",
+        "assistant_example": "你很重视这段关系，所以更想好好表达。我们可以先梳理哪些需求最想让对方知道，并练习用“我感受到…所以我需要…”的结构，帮你在对话里保持温柔但清晰。",
+        "follow_up_questions": [
+          "最近一次想表达却忍住的需求是什么？当时心里出现了哪些顾虑？",
+          "如果把对方的反应暂时放在一边，你最希望对话后的感觉是什么？",
+          "有没有比较安全的时刻，适合练习更坦诚的表达？"
+        ],
+        "self_care_tips": [
+          "写下 2-3 个核心需求，用第一人称句式表达，例如：“当我们临时改计划时，我会不安，所以我需要提前聊聊。”",
+          "在对话前先做两分钟的腹式呼吸，让身体知道你在准备一个重要但可以掌控的互动。",
+          "对方回应后，不急于解释，先重复对方听到的重点，再补充自己的感受。"
+        ]
+      },
+      "en-US": {
+        "title": "Practicing compassionate boundaries",
+        "user_prompt": "I often hesitate to share my real needs with my partner because I’m afraid of upsetting them, so I keep everything inside.",
+        "assistant_example": "Your care for this relationship is clear—you want to speak up thoughtfully. We can outline the needs you most want heard and rehearse an “I feel… so I need…” structure that stays warm yet firm.",
+        "follow_up_questions": [
+          "What was the last need you held back, and what concerns came up right then?",
+          "If your partner’s reaction weren’t an issue, how would you hope the conversation to feel afterward?",
+          "Are there calmer moments that might be safer to practice sharing a little more openly?"
+        ],
+        "self_care_tips": [
+          "Write down two or three core needs using I-statements such as “When plans change suddenly I feel unsettled, so I need a quick check-in.”",
+          "Before a conversation, take two minutes of belly breathing to remind your body you can handle a meaningful exchange.",
+          "After your partner responds, reflect back what you heard before adding more feelings or requests."
+        ]
+      }
+    }
+  },
+  {
+    "id": "burnout_checkin",
+    "topic": "burnout",
+    "priority": 6,
+    "keywords": ["burnout", "exhausted", "meaning", "倦怠", "失去动力"],
+    "tags": ["career", "values"],
+    "locales": {
+      "zh-CN": {
+        "title": "倦怠期的价值盘点",
+        "user_prompt": "最近做事情都提不起劲，好像怎么休息都很累，也有点怀疑自己是不是不适合现在的工作。",
+        "assistant_example": "当热情被磨耗时会很怀疑自己，你能留意到这一点已经很重要。我们可以先一起盘点哪些事情还让你感到有意义，同时看看有哪些能量流失的源头可以稍微关小一点。",
+        "follow_up_questions": [
+          "在工作或生活里，哪一类任务让你最有满足感，虽然不多但仍旧存在？",
+          "最近有哪些事情在持续耗尽你的能量？这些事情有没有可调整的范围？",
+          "如果允许自己放慢 10%，你最想把时间用在什么上？"
+        ],
+        "self_care_tips": [
+          "列出让你感到“必须做”和“愿意做”的事项，每周确保至少完成两件愿意做的事。",
+          "和信任的人安排一次 30 分钟的开放式聊天，只需要描述近期的疲惫感受。",
+          "记录一周内在 1-10 分值中能量的波动，找出相对亮一点的时段去安排补给活动。"
+        ]
+      },
+      "en-US": {
+        "title": "Values check-in during burnout",
+        "user_prompt": "I feel drained no matter how much I rest and I’m starting to wonder if I even belong in my current role.",
+        "assistant_example": "When passion wears thin it can shake your identity. Noticing it is already a big step. Let’s map what still holds meaning for you and look for small ways to ease the biggest energy leaks.",
+        "follow_up_questions": [
+          "Which tasks—even if rare—still give you a spark of satisfaction?",
+          "What keeps draining your energy lately, and is there room to scale any of it down?",
+          "If you could ease off by 10%, where would you want that reclaimed time to go?"
+        ],
+        "self_care_tips": [
+          "List what feels “required” versus “life-giving” and schedule at least two life-giving items each week.",
+          "Plan a 30-minute check-in with someone you trust just to name how this exhaustion feels.",
+          "Track your energy from 1–10 across a week to spot brighter windows for restorative activities."
+        ]
+      }
+    }
+  },
+  {
+    "id": "self_compassion_break",
+    "topic": "self_compassion",
+    "priority": 5,
+    "keywords": ["self-compassion", "criticism", "自责", "内疚", "自我关怀"],
+    "tags": ["inner_critic", "kindness"],
+    "locales": {
+      "zh-CN": {
+        "title": "暂停自责的慈悲练习",
+        "user_prompt": "最近总是对自己不满意，一旦犯一点错就会内疚很久，很难原谅自己。",
+        "assistant_example": "长期背着自责真的很累。我们可以试一个“慈悲三步法”：先承认此刻的痛苦，再提醒自己并不孤单，最后给自己一句真心支持的话，让自我批评有机会暂停。",
+        "follow_up_questions": [
+          "当自责出现时，脑中最常出现的评语或声音是什么？",
+          "有没有某个时刻，你对朋友说过的安慰话也适用于自己？",
+          "什么样的支持或提醒，可以帮助你记起自己也值得被温柔对待？"
+        ],
+        "self_care_tips": [
+          "每天抽 3 分钟应用“慈悲三步法”：觉察痛苦 → 共同人性 → 给自己一句善意的话。",
+          "写下过去一周完成的三件小事，即使只是按时吃饭或按时睡觉。",
+          "当批评声出现时，把手放在心口，深呼吸，默念“我正在努力，我值得善待自己”。"
+        ]
+      },
+      "en-US": {
+        "title": "A self-compassion pause",
+        "user_prompt": "I’ve been so hard on myself. One mistake and I spiral into guilt for days, like I can’t forgive myself.",
+        "assistant_example": "Carrying self-criticism for so long is exhausting. Let’s try a three-step self-compassion break: acknowledge the pain, remember you’re not alone in feeling this, then offer yourself a genuinely kind phrase to soften the inner critic.",
+        "follow_up_questions": [
+          "When self-judgment shows up, what phrases or tones do you hear in your mind?",
+          "Can you recall something comforting you’ve told a friend that you might also tell yourself?",
+          "What kind of support or reminder helps you feel worthy of the same kindness you give others?"
+        ],
+        "self_care_tips": [
+          "Take three minutes daily for the self-compassion break: notice the pain → remind yourself of common humanity → offer a kind phrase.",
+          "List three small things you completed this week, even if it’s simply eating when hungry or keeping a routine.",
+          "When the inner critic is loud, place a hand on your heart, breathe deeply, and repeat “I’m trying, and I deserve care.”"
+        ]
+      }
+    }
+  }
+]
