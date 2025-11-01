@@ -193,3 +193,22 @@ export type ExploreModulesResponse = {
   modules: ExploreModule[];
   evaluatedFlags: Record<string, boolean>;
 };
+
+export type ChatTemplate = {
+  id: string;
+  topic: string;
+  locale: string;
+  title: string;
+  userPrompt: string;
+  assistantExample: string;
+  followUpQuestions: string[];
+  selfCareTips: string[];
+  keywords: string[];
+  tags: string[];
+};
+
+export type ChatTemplatesResponse = {
+  locale: string;
+  topics: string[];
+  templates: ChatTemplate[];
+};

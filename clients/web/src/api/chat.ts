@@ -1,4 +1,5 @@
 import { getApiBaseUrl, withAuthHeaders } from "./client";
+import { asArray, asBoolean, asNumber, asRecord, asString, asStringArray } from "./parsing";
 import type {
   ChatMessage,
   ChatStreamEvent,
@@ -13,58 +14,75 @@ type ParsedEvent = {
   data: string;
 };
 
-function normalizeChatMessage(raw: any): ChatMessage {
+function isChatRole(value: unknown): value is ChatMessage["role"] {
+  return value === "user" || value === "assistant" || value === "system";
+}
+
+function normalizeChatMessage(raw: unknown): ChatMessage {
+  const data = asRecord(raw) ?? {};
+  const createdAtCandidate = data.created_at ?? data.createdAt;
   const createdAt =
-    typeof raw?.created_at === "string"
-      ? raw.created_at
-      : typeof raw?.createdAt === "string"
-        ? raw.createdAt
-        : new Date().toISOString();
+    typeof createdAtCandidate === "string" ? createdAtCandidate : new Date().toISOString();
 
   return {
-    role: (raw?.role ?? "assistant") as ChatMessage["role"],
-    content: typeof raw?.content === "string" ? raw.content : "",
+    role: isChatRole(data.role) ? data.role : "assistant",
+    content: asString(data.content),
     createdAt
   };
 }
 
-function normalizeRecommendations(items: any[]): TherapistRecommendationDetail[] {
-  return items.map((item) => ({
-    therapistId: String(item?.therapist_id ?? item?.therapistId ?? ""),
-    name: typeof item?.name === "string" ? item.name : "",
-    title: typeof item?.title === "string" ? item.title : "",
-    specialties: Array.isArray(item?.specialties) ? item.specialties : [],
-    languages: Array.isArray(item?.languages) ? item.languages : [],
-    pricePerSession:
-      typeof item?.price_per_session === "number"
-        ? item.price_per_session
-        : Number.parseFloat(item?.price_per_session) || 0,
-    currency: typeof item?.currency === "string" ? item.currency : "CNY",
-    isRecommended: Boolean(item?.is_recommended ?? item?.isRecommended),
-    score: typeof item?.score === "number" ? item.score : 0,
-    reason: typeof item?.reason === "string" ? item.reason : "",
-    matchedKeywords: Array.isArray(item?.matched_keywords ?? item?.matchedKeywords)
-      ? (item?.matched_keywords ?? item?.matchedKeywords).map((keyword: any) => String(keyword))
-      : []
-  }));
+function normalizeRecommendations(items: unknown): TherapistRecommendationDetail[] {
+  return asArray(items, (entry) => {
+    const data = asRecord(entry);
+    if (!data) {
+      return null;
+    }
+
+    const matchedKeywordsSource = data.matched_keywords ?? data.matchedKeywords;
+    const therapistId = asString(data.therapist_id ?? data.therapistId);
+
+    return {
+      therapistId,
+      name: asString(data.name),
+      title: asString(data.title),
+      specialties: asStringArray(data.specialties),
+      languages: asStringArray(data.languages),
+      pricePerSession: asNumber(data.price_per_session ?? data.pricePerSession),
+      currency: asString(data.currency, "CNY") || "CNY",
+      isRecommended: asBoolean(data.is_recommended ?? data.isRecommended),
+      score: asNumber(data.score),
+      reason: asString(data.reason),
+      matchedKeywords: asStringArray(matchedKeywordsSource)
+    };
+  });
 }
 
-function normalizeHighlights(items: any[]): MemoryHighlight[] {
-  return items.map((item) => ({
-    summary: typeof item?.summary === "string" ? item.summary : "",
-    keywords: Array.isArray(item?.keywords) ? item.keywords.map((keyword: any) => String(keyword)) : []
-  }));
+function normalizeHighlights(items: unknown): MemoryHighlight[] {
+  return asArray(items, (entry) => {
+    const data = asRecord(entry);
+    if (!data) {
+      return null;
+    }
+    return {
+      summary: asString(data.summary),
+      keywords: asStringArray(data.keywords)
+    };
+  });
 }
 
-function normalizeResponse(payload: any): ChatTurnResponse {
+function normalizeResponse(payload: unknown): ChatTurnResponse {
+  const data = asRecord(payload) ?? {};
+  const recommendedIdsSource = data.recommended_therapist_ids ?? data.recommendedTherapistIds;
+
   return {
-    sessionId: String(payload?.session_id ?? payload?.sessionId ?? ""),
-    reply: normalizeChatMessage(payload?.reply ?? payload?.message),
-    recommendedTherapistIds: Array.isArray(payload?.recommended_therapist_ids ?? payload?.recommendedTherapistIds)
-      ? (payload?.recommended_therapist_ids ?? payload?.recommendedTherapistIds).map((id: any) => String(id))
-      : [],
-    recommendations: normalizeRecommendations(payload?.recommendations ?? []),
-    memoryHighlights: normalizeHighlights(payload?.memory_highlights ?? [])
+    sessionId: asString(data.session_id ?? data.sessionId),
+    reply: normalizeChatMessage(data.reply ?? data.message),
+    recommendedTherapistIds: asArray(recommendedIdsSource, (id) => {
+      const value = asString(id);
+      return value ? value : null;
+    }),
+    recommendations: normalizeRecommendations(data.recommendations),
+    memoryHighlights: normalizeHighlights(data.memory_highlights)
   };
 }
 
@@ -72,7 +90,7 @@ function parseSseBuffer(buffer: string): { events: ParsedEvent[]; remainder: str
   const events: ParsedEvent[] = [];
   let remaining = buffer;
 
-  while (true) {
+  while (remaining.includes("\n\n")) {
     const delimiterIndex = remaining.indexOf("\n\n");
     if (delimiterIndex === -1) {
       break;
@@ -115,7 +133,7 @@ function parseSseBuffer(buffer: string): { events: ParsedEvent[]; remainder: str
   return { events, remainder: remaining };
 }
 
-function asJson(value: string): any {
+function asJson(value: string): unknown {
   try {
     return JSON.parse(value);
   } catch {
@@ -165,11 +183,13 @@ export async function* streamChatTurn(
   const reader = response.body.getReader();
   const decoder = new TextDecoder("utf-8");
   let buffer = "";
+  let keepReading = true;
 
   try {
-    while (true) {
+    while (keepReading) {
       const { value, done } = await reader.read();
       if (done) {
+        keepReading = false;
         break;
       }
       buffer += decoder.decode(value, { stream: true });
@@ -178,36 +198,38 @@ export async function* streamChatTurn(
 
       for (const rawEvent of events) {
         const payload = typeof rawEvent.data === "string" ? asJson(rawEvent.data) : rawEvent.data;
+        const payloadRecord = asRecord(payload) ?? {};
         switch (rawEvent.event ?? "") {
           case "session_established":
             yield {
               type: "session",
               data: {
-                sessionId: String(payload?.session_id ?? ""),
-                recommendations: normalizeRecommendations(payload?.recommendations ?? []),
-                recommendedTherapistIds: Array.isArray(payload?.recommended_therapist_ids)
-                  ? payload.recommended_therapist_ids.map((id: any) => String(id))
-                  : [],
-                memoryHighlights: normalizeHighlights(payload?.memory_highlights ?? [])
+                sessionId: asString(payloadRecord.session_id),
+                recommendations: normalizeRecommendations(payloadRecord.recommendations),
+                recommendedTherapistIds: asArray(payloadRecord.recommended_therapist_ids, (id) => {
+                  const value = asString(id);
+                  return value ? value : null;
+                }),
+                memoryHighlights: normalizeHighlights(payloadRecord.memory_highlights)
               }
             };
             break;
           case "token":
             yield {
               type: "token",
-              data: { delta: typeof payload?.delta === "string" ? payload.delta : "" }
+              data: { delta: asString(payloadRecord.delta) }
             };
             break;
           case "complete":
             yield {
               type: "complete",
-              data: normalizeResponse(payload)
+              data: normalizeResponse(payloadRecord)
             };
             break;
           case "error":
             yield {
               type: "error",
-              data: { detail: typeof payload?.detail === "string" ? payload.detail : "Streaming error" }
+              data: { detail: asString(payloadRecord.detail, "Streaming error") }
             };
             break;
           default:

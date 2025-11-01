@@ -31,6 +31,7 @@ services/backend/
 | `/api/auth/sms` | POST | Initiates SMS OTP flow (stubbed response). |
 | `/api/auth/token` | POST | Exchanges OTP/OAuth code for tokens (fake tokens). |
 | `/api/chat/message` | POST | Processes a chat turn; streams assistant tokens via SSE when `enable_streaming` is true, otherwise returns the full reply payload. |
+| `/api/chat/templates` | GET | Returns curated conversation templates (per locale/topic) with sample openings and self-care nudges. |
 | `/api/therapists/` | GET | Lists therapists with filters, backed by static seed data. |
 | `/api/therapists/{id}` | GET | Returns therapist detail payload. |
 | `/api/reports/{userId}` | GET | Returns latest daily/weekly journey reports plus recent conversation slices for context. |

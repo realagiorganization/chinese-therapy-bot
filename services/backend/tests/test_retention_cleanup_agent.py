@@ -71,6 +71,7 @@ async def test_dry_run_reports_candidates_without_deletion() -> None:
         S3_CONVERSATION_LOGS_BUCKET="mindwell-logs",
         S3_CONVERSATION_LOGS_PREFIX="conversations",
         S3_SUMMARIES_BUCKET="mindwell-summaries",
+        CONVERSATION_LOGS_RETENTION_MONTHS=6,
     )
 
     agent = RetentionCleanupAgent(
@@ -142,6 +143,7 @@ async def test_execute_deletes_objects_older_than_retention() -> None:
         S3_CONVERSATION_LOGS_BUCKET="mindwell-logs",
         S3_CONVERSATION_LOGS_PREFIX="conversations",
         S3_SUMMARIES_BUCKET="mindwell-summaries",
+        CONVERSATION_LOGS_RETENTION_MONTHS=6,
     )
 
     agent = RetentionCleanupAgent(

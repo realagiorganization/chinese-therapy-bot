@@ -1,4 +1,5 @@
-import { FormEvent, useCallback, useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
+import type { FormEvent } from "react";
 import { useTranslation } from "react-i18next";
 
 import { exchangeGoogleCode, exchangeSmsCode, requestSmsChallenge } from "../api/auth";

@@ -6,11 +6,21 @@ type TranscriptHandler = (text: string) => void;
 
 const FALLBACK_MIME_TYPES = ["audio/webm;codecs=opus", "audio/ogg;codecs=opus", "audio/webm"];
 
-function selectPreferredMimeType(): string | undefined {
+type MediaRecorderWindow = Window &
+  typeof globalThis & {
+    MediaRecorder?: typeof MediaRecorder;
+  };
+
+function getMediaRecorderCtor(): typeof MediaRecorder | undefined {
   if (typeof window === "undefined") {
     return undefined;
   }
-  const MediaRecorderCtor = (window as any).MediaRecorder as typeof MediaRecorder | undefined;
+  const mediaWindow = window as MediaRecorderWindow;
+  return typeof mediaWindow.MediaRecorder === "function" ? mediaWindow.MediaRecorder : undefined;
+}
+
+function selectPreferredMimeType(): string | undefined {
+  const MediaRecorderCtor = getMediaRecorderCtor();
   if (!MediaRecorderCtor || typeof MediaRecorderCtor.isTypeSupported !== "function") {
     return undefined;
   }
@@ -57,7 +67,7 @@ export function useServerTranscriber(locale: string): ServerTranscriber {
     if (typeof window === "undefined" || typeof navigator === "undefined") {
       return false;
     }
-    const hasMediaRecorder = "MediaRecorder" in window;
+    const hasMediaRecorder = Boolean(getMediaRecorderCtor());
     const hasMediaDevices = Boolean(navigator.mediaDevices?.getUserMedia);
     return hasMediaRecorder && hasMediaDevices;
   }, []);
@@ -80,7 +90,13 @@ export function useServerTranscriber(locale: string): ServerTranscriber {
       try {
         const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
         const preferred = selectPreferredMimeType();
-        const recorder = preferred ? new MediaRecorder(stream, { mimeType: preferred }) : new MediaRecorder(stream);
+        const MediaRecorderCtor = getMediaRecorderCtor();
+        if (!MediaRecorderCtor) {
+          throw new Error("当前浏览器不支持语音录制。");
+        }
+        const recorder = preferred
+          ? new MediaRecorderCtor(stream, { mimeType: preferred })
+          : new MediaRecorderCtor(stream);
 
         streamRef.current = stream;
         recorderRef.current = recorder;
@@ -92,7 +108,7 @@ export function useServerTranscriber(locale: string): ServerTranscriber {
           }
         };
 
-        recorder.onerror = (event: MediaRecorderErrorEvent) => {
+        recorder.onerror = (event: Event & { error?: DOMException }) => {
           setError(event.error?.message ?? "录音发生错误，请稍后重试。");
           setIsRecording(false);
           recorderRef.current = null;
@@ -124,7 +140,7 @@ export function useServerTranscriber(locale: string): ServerTranscriber {
             } else {
               onTranscript(normalized);
             }
-          } catch (transcriptionError: any) {
+          } catch (transcriptionError: unknown) {
             const message =
               transcriptionError instanceof Error ? transcriptionError.message : String(transcriptionError);
             setError(message || "语音识别失败，请稍后再试。");
@@ -135,8 +151,9 @@ export function useServerTranscriber(locale: string): ServerTranscriber {
 
         recorder.start();
         setIsRecording(true);
-      } catch (err: any) {
-        setError(err?.message ?? "无法访问麦克风，请检查浏览器权限。");
+      } catch (err: unknown) {
+        const message = err instanceof Error ? err.message : String(err);
+        setError(message || "无法访问麦克风，请检查浏览器权限。");
         stopMediaStream(streamRef.current);
         streamRef.current = null;
         recorderRef.current = null;

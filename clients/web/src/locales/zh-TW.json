@@ -147,6 +147,28 @@
     "speak_reply": "播報上一則回覆",
     "memory_highlights": "近期關注重點",
     "recommendations": "適配的治療師",
-    "keywords": "關鍵詞：{{keywords}}"
+    "keywords": "關鍵詞：{{keywords}}",
+    "templates": {
+      "heading": "引導場景",
+      "subtitle": "不知道怎麼開口時，可以先從這些情境開始。",
+      "all": "全部場景",
+      "loading": "正在載入引導話題…",
+      "error": "暫時無法載入引導話題。",
+      "retry": "重新嘗試",
+      "use_prompt": "使用這段開場",
+      "user_prompt_label": "可以這樣開口：",
+      "assistant_example_label": "MindWell 可能會回應：",
+      "follow_up_label": "可延伸的提問",
+      "self_care_label": "自我照護提醒",
+      "keywords_label": "關鍵詞：{{keywords}}",
+      "topic": {
+        "anxiety": "緩解焦慮",
+        "stress": "舒緩壓力",
+        "sleep": "睡眠作息",
+        "relationships": "親密關係",
+        "burnout": "倦怠修復",
+        "self_compassion": "自我慈悲"
+      }
+    }
   }
 }

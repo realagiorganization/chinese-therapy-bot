@@ -1,4 +1,5 @@
 import { getApiBaseUrl, withAuthHeaders } from "./client";
+import { asArray, asNumber, asRecord, asString, asStringArray } from "./parsing";
 import type {
   JourneyConversationMessage,
   JourneyConversationSlice,
@@ -86,71 +87,104 @@ const FALLBACK_REPORTS: JourneyReportsResponse = (() => {
   };
 })();
 
-function normalizeDailyReports(raw: any[] | undefined): DailyJourneyReport[] {
-  if (!raw) {
-    return [];
-  }
-
-  return raw
-    .map((entry) => ({
-      reportDate: entry.reportDate ?? entry.report_date ?? "",
-      title: entry.title ?? "",
-      spotlight: entry.spotlight ?? "",
-      summary: entry.summary ?? "",
-      moodDelta: typeof entry.moodDelta === "number" ? entry.moodDelta : entry.mood_delta ?? 0
-    }))
-    .filter((entry) => Boolean(entry.reportDate));
+function normalizeDailyReports(raw: unknown): DailyJourneyReport[] {
+  return asArray(raw, (entry) => {
+    const data = asRecord(entry);
+    if (!data) {
+      return null;
+    }
+    const reportDate = asString(data.reportDate ?? data.report_date);
+    if (!reportDate) {
+      return null;
+    }
+    return {
+      reportDate,
+      title: asString(data.title),
+      spotlight: asString(data.spotlight),
+      summary: asString(data.summary),
+      moodDelta: asNumber(data.moodDelta ?? data.mood_delta)
+    };
+  });
 }
 
-function normalizeWeeklyReports(raw: any[] | undefined): WeeklyJourneyReport[] {
-  if (!raw) {
-    return [];
-  }
-
-  return raw
-    .map((entry) => ({
-      weekStart: entry.weekStart ?? entry.week_start ?? "",
-      themes: Array.isArray(entry.themes) ? entry.themes : [],
-      highlights: entry.highlights ?? "",
-      actionItems: Array.isArray(entry.actionItems)
-        ? entry.actionItems
-        : Array.isArray(entry.action_items)
-        ? entry.action_items
-        : [],
-      riskLevel: entry.riskLevel ?? entry.risk_level ?? "low"
-    }))
-    .filter((entry) => Boolean(entry.weekStart));
+function normalizeWeeklyReports(raw: unknown): WeeklyJourneyReport[] {
+  return asArray(raw, (entry) => {
+    const data = asRecord(entry);
+    if (!data) {
+      return null;
+    }
+    const weekStart = asString(data.weekStart ?? data.week_start);
+    if (!weekStart) {
+      return null;
+    }
+    const riskLevelCandidate = asString(data.riskLevel ?? data.risk_level, "low");
+    const riskLevel: WeeklyJourneyReport["riskLevel"] =
+      riskLevelCandidate === "high" || riskLevelCandidate === "medium" || riskLevelCandidate === "low"
+        ? riskLevelCandidate
+        : "low";
+    return {
+      weekStart,
+      themes: asStringArray(data.themes),
+      highlights: asString(data.highlights),
+      actionItems: asStringArray(data.actionItems ?? data.action_items),
+      riskLevel
+    };
+  });
 }
 
-function normalizeConversationMessages(raw: any[] | undefined): JourneyConversationMessage[] {
-  if (!raw) {
-    return [];
-  }
-
-  return raw
-    .map((message) => ({
-      messageId: message.messageId ?? message.message_id ?? crypto.randomUUID?.() ?? String(Math.random()),
-      role: (message.role ?? "assistant") as JourneyConversationMessage["role"],
-      content: message.content ?? "",
-      createdAt: message.createdAt ?? message.created_at ?? new Date().toISOString()
-    }))
-    .filter((message) => Boolean(message.content));
+function isJourneyRole(value: unknown): value is JourneyConversationMessage["role"] {
+  return value === "user" || value === "assistant" || value === "system";
 }
 
-function normalizeConversations(raw: any[] | undefined): JourneyConversationSlice[] {
-  if (!raw) {
-    return [];
-  }
+function normalizeConversationMessages(raw: unknown): JourneyConversationMessage[] {
+  return asArray(raw, (message) => {
+    const data = asRecord(message);
+    if (!data) {
+      return null;
+    }
+    const content = asString(data.content);
+    if (!content) {
+      return null;
+    }
+    const id =
+      asString(data.messageId ?? data.message_id) ||
+      (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
+        ? crypto.randomUUID()
+        : Math.random().toString(36).slice(2));
+    const createdAt = asString(data.createdAt ?? data.created_at, new Date().toISOString());
+    const role = isJourneyRole(data.role) ? data.role : ("assistant" as JourneyConversationMessage["role"]);
+    return {
+      messageId: id,
+      role,
+      content,
+      createdAt
+    };
+  });
+}
 
-  return raw
-    .map((entry) => ({
-      sessionId: entry.sessionId ?? entry.session_id ?? "",
-      startedAt: entry.startedAt ?? entry.started_at ?? "",
-      updatedAt: entry.updatedAt ?? entry.updated_at ?? entry.startedAt ?? entry.started_at ?? "",
-      therapistId: entry.therapistId ?? entry.therapist_id ?? null,
-      messages: normalizeConversationMessages(entry.messages)
-    }))
-    .filter((entry) => Boolean(entry.sessionId) && Boolean(entry.startedAt));
+function normalizeConversations(raw: unknown): JourneyConversationSlice[] {
+  return asArray(raw, (entry) => {
+    const data = asRecord(entry);
+    if (!data) {
+      return null;
+    }
+    const sessionId = asString(data.sessionId ?? data.session_id);
+    const startedAt = asString(data.startedAt ?? data.started_at);
+    if (!sessionId || !startedAt) {
+      return null;
+    }
+    const updatedAt = asString(
+      data.updatedAt ?? data.updated_at ?? data.startedAt ?? data.started_at,
+      startedAt
+    );
+    return {
+      sessionId,
+      startedAt,
+      updatedAt,
+      therapistId: data.therapistId ?? data.therapist_id ?? null,
+      messages: normalizeConversationMessages(data.messages)
+    };
+  });
 }
 
 async function requestJourneyReports(userId: string, locale: string): Promise<JourneyReportsResponse> {
@@ -170,8 +204,8 @@ async function requestJourneyReports(userId: string, locale: string): Promise<Jo
     throw new Error(`Failed to load journey reports (status ${response.status})`);
   }
 
-  const data = await response.json();
-  if (!data || typeof data !== "object") {
+  const data = asRecord((await response.json()) as unknown);
+  if (!data) {
     throw new Error("Journey reports response is empty.");
   }
 

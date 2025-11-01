@@ -29,6 +29,11 @@ These notes capture evidence that the completed checklist items in `PROGRESS.md`
 - Streaming chat UI with Web Speech input, server ASR fallback, and speech synthesis toggles is implemented in `clients/web/src/components/ChatPanel.tsx:1-280` and `clients/web/src/hooks/useChatSession.ts:1-260`, satisfying the voice interaction deliverables.
 - Therapist directory filtering, recommendations, and design-system adoption are provided in `clients/web/src/components/TherapistDirectory.tsx:1-220` and `clients/web/src/hooks/useTherapistDirectory.ts:1-200`.
 
+## Mobile Client Scaffold
+- Expo-based React Native application lives under `clients/mobile/`, with app entry in `clients/mobile/App.tsx:1-54` wiring shared theming and auth context.
+- SMS + Google login flows are implemented in `clients/mobile/src/screens/LoginScreen.tsx:1-189` backed by context logic in `clients/mobile/src/context/AuthContext.tsx:1-238`.
+- Chat shell consuming the FastAPI backend exists at `clients/mobile/src/screens/ChatScreen.tsx:1-260`, delegating API interaction to `clients/mobile/src/services/chat.ts:1-72`.
+
 ## Phase 5 – Intelligent Agent Features
 - Summary scheduler agent implementation exists at `services/backend/app/agents/summary_scheduler.py:1-120`.
 - Summary generation pipeline with daily and weekly workflows is covered by `services/backend/app/services/summaries.py:1-200`.
@@ -38,6 +43,7 @@ These notes capture evidence that the completed checklist items in `PROGRESS.md`
 
 ## Phase 6 – Quality Assurance
 - Backend unit tests for chat streaming and transcript persistence reside in `services/backend/tests/test_chat_service.py:1-165`, demonstrating coverage of the documented behaviors.
+- Summary generation pipeline coverage added via `services/backend/tests/test_summaries.py:1-200`, validating daily summary persistence, heuristic fallback, and mood scoring logic.
 - Load testing scaffolding is present in `services/backend/loadtests/locustfile.py:1-160`.
 - Data retention automation implemented via `services/backend/app/agents/retention_cleanup.py:1-260` with coverage in `tests/test_retention_cleanup_agent.py:1-150`, matching the compliance automation checklist.
 

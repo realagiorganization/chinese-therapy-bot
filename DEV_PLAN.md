@@ -74,6 +74,7 @@
 - Summary generation
   - Daily summaries ✅ *(pipeline implemented via Summary Scheduler Agent)*
   - Weekly summaries ✅ *(weekly aggregation + storage complete)*
+- Guided chat templates for common scenes ✅ *(curated dataset `chat_templates.json`, `/api/chat/templates`, and web quick-start chips).*
 
 #### **Model Integration**
 
@@ -128,6 +129,8 @@
 ### **Chat Functionality**
 
 - Streamed response integration ✅
+- Offline transcript caching ✅ *(AsyncStorage-backed restore in the Expo client.)*
+- Push notification scaffolding ✅ *(Expo Notifications registration with device token caching.)*
 - **Input Methods:**
   - Text input
   - Voice input via local system model (iOS ✅ / Android pending)

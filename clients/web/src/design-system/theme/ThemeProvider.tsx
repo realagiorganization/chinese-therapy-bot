@@ -1,6 +1,8 @@
-import { ReactNode, useEffect } from "react";
+import { useEffect } from "react";
+import type { ReactNode } from "react";
 
-import { lightTheme, ThemeTokens, tokensToCssVariables } from "./tokens";
+import { lightTheme, tokensToCssVariables } from "./tokens";
+import type { ThemeTokens } from "./tokens";
 
 type ThemeProviderProps = {
   children: ReactNode;

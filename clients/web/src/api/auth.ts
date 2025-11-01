@@ -1,4 +1,5 @@
 import { getApiBaseUrl } from "./client";
+import { asNumber, asRecord, asString } from "./parsing";
 
 export type SmsChallengePayload = {
   challengeId: string;
@@ -13,7 +14,7 @@ export type TokenPair = {
   tokenType: string;
 };
 
-async function parseJson(response: Response): Promise<any> {
+async function parseJson(response: Response): Promise<unknown> {
   try {
     return await response.json();
   } catch {
@@ -45,17 +46,16 @@ export async function requestSmsChallenge(options: {
   });
 
   if (!response.ok) {
-    const payload = await parseJson(response);
-    const detail =
-      typeof payload?.detail === "string" ? payload.detail : `SMS challenge failed (${response.status}).`;
+    const payload = asRecord(await parseJson(response));
+    const detail = asString(payload?.detail, `SMS challenge failed (${response.status}).`);
     throw new Error(detail);
   }
 
-  const payload = await response.json();
+  const payload = asRecord((await response.json()) as unknown) ?? {};
   return {
-    challengeId: String(payload.challenge_id ?? ""),
-    expiresIn: Number(payload.expires_in ?? 0) || 0,
-    detail: typeof payload.detail === "string" ? payload.detail : ""
+    challengeId: asString(payload.challenge_id),
+    expiresIn: asNumber(payload.expires_in),
+    detail: asString(payload.detail)
   };
 }
 
@@ -77,18 +77,17 @@ export async function exchangeSmsCode(options: {
   });
 
   if (!response.ok) {
-    const payload = await parseJson(response);
-    const detail =
-      typeof payload?.detail === "string" ? payload.detail : `Verification failed (${response.status}).`;
+    const payload = asRecord(await parseJson(response));
+    const detail = asString(payload?.detail, `Verification failed (${response.status}).`);
     throw new Error(detail);
   }
 
-  const payload = await response.json();
+  const payload = asRecord((await response.json()) as unknown) ?? {};
   return {
-    accessToken: String(payload.access_token ?? ""),
-    refreshToken: String(payload.refresh_token ?? ""),
-    expiresIn: Number(payload.expires_in ?? 0) || 0,
-    tokenType: String(payload.token_type ?? "bearer")
+    accessToken: asString(payload.access_token),
+    refreshToken: asString(payload.refresh_token),
+    expiresIn: asNumber(payload.expires_in),
+    tokenType: asString(payload.token_type, "bearer") || "bearer"
   };
 }
 
@@ -110,18 +109,17 @@ export async function exchangeGoogleCode(options: {
   });
 
   if (!response.ok) {
-    const payload = await parseJson(response);
-    const detail =
-      typeof payload?.detail === "string" ? payload.detail : `Google login failed (${response.status}).`;
+    const payload = asRecord(await parseJson(response));
+    const detail = asString(payload?.detail, `Google login failed (${response.status}).`);
     throw new Error(detail);
   }
 
-  const payload = await response.json();
+  const payload = asRecord((await response.json()) as unknown) ?? {};
   return {
-    accessToken: String(payload.access_token ?? ""),
-    refreshToken: String(payload.refresh_token ?? ""),
-    expiresIn: Number(payload.expires_in ?? 0) || 0,
-    tokenType: String(payload.token_type ?? "bearer")
+    accessToken: asString(payload.access_token),
+    refreshToken: asString(payload.refresh_token),
+    expiresIn: asNumber(payload.expires_in),
+    tokenType: asString(payload.token_type, "bearer") || "bearer"
   };
 }
 
@@ -144,17 +142,16 @@ export async function refreshToken(options: {
   });
 
   if (!response.ok) {
-    const payload = await parseJson(response);
-    const detail =
-      typeof payload?.detail === "string" ? payload.detail : `Token refresh failed (${response.status}).`;
+    const payload = asRecord(await parseJson(response));
+    const detail = asString(payload?.detail, `Token refresh failed (${response.status}).`);
     throw new Error(detail);
   }
 
-  const payload = await response.json();
+  const payload = asRecord((await response.json()) as unknown) ?? {};
   return {
-    accessToken: String(payload.access_token ?? ""),
-    refreshToken: String(payload.refresh_token ?? ""),
-    expiresIn: Number(payload.expires_in ?? 0) || 0,
-    tokenType: String(payload.token_type ?? "bearer")
+    accessToken: asString(payload.access_token),
+    refreshToken: asString(payload.refresh_token),
+    expiresIn: asNumber(payload.expires_in),
+    tokenType: asString(payload.token_type, "bearer") || "bearer"
   };
 }

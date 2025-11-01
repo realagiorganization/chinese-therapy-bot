@@ -1,5 +1,6 @@
 import type { TherapistDetail, TherapistSummary } from "./types";
 import { getApiBaseUrl, withAuthHeaders } from "./client";
+import { asArray, asBoolean, asNumber, asRecord, asString, asStringArray } from "./parsing";
 
 export type TherapistListSource = "api" | "fallback";
 
@@ -50,42 +51,41 @@ const FALLBACK_THERAPIST_DETAILS: TherapistDetail[] = [
   }
 ];
 
-const FALLBACK_THERAPISTS: TherapistSummary[] = FALLBACK_THERAPIST_DETAILS.map(
-  ({ biography, ...summary }) => summary
-);
+const FALLBACK_THERAPISTS: TherapistSummary[] = FALLBACK_THERAPIST_DETAILS.map((detail) => {
+  const { biography, ...summary } = detail;
+  void biography;
+  return summary;
+});
 
 const FALLBACK_DETAIL_MAP = new Map(
   FALLBACK_THERAPIST_DETAILS.map((detail) => [detail.id, detail])
 );
 
-function mapSummary(item: any): TherapistSummary {
+function mapSummary(item: unknown): TherapistSummary {
+  const data = asRecord(item) ?? {};
   return {
-    id: item.therapist_id ?? item.id ?? "",
-    name: item.name ?? "",
-    title: item.title ?? "",
-    specialties: Array.isArray(item.specialties) ? item.specialties : [],
-    languages: Array.isArray(item.languages) ? item.languages : [],
-    price:
-      typeof item.price_per_session === "number"
-        ? item.price_per_session
-        : Number.parseFloat(item.price_per_session) || 0,
-    currency: item.currency ?? "CNY",
-    recommended: Boolean(item.is_recommended ?? item.recommended),
-    availability: Array.isArray(item.availability) ? item.availability : []
+    id: asString(data.therapist_id ?? data.id),
+    name: asString(data.name),
+    title: asString(data.title),
+    specialties: asStringArray(data.specialties),
+    languages: asStringArray(data.languages),
+    price: asNumber(data.price_per_session ?? data.price),
+    currency: asString(data.currency, "CNY") || "CNY",
+    recommended: asBoolean(data.is_recommended ?? data.recommended),
+    availability: asStringArray(data.availability)
   };
 }
 
-function mapDetail(item: any): TherapistDetail {
-  const summary = mapSummary(item);
+function mapDetail(item: unknown): TherapistDetail {
+  const data = asRecord(item) ?? {};
+  const summary = mapSummary(data);
   return {
     ...summary,
-    biography: typeof item.biography === "string" ? item.biography : "",
-    recommendationReason:
-      typeof item.recommendation_reason === "string"
-        ? item.recommendation_reason
-        : typeof item.recommendationReason === "string"
-        ? item.recommendationReason
-        : undefined
+    biography: asString(data.biography),
+    recommendationReason: (() => {
+      const reason = asString(data.recommendation_reason ?? data.recommendationReason);
+      return reason || undefined;
+    })()
   };
 }
 
@@ -102,12 +102,16 @@ async function requestTherapists(locale = "zh-CN"): Promise<TherapistSummary[]> 
     throw new Error(`Failed to load therapists (status ${response.status})`);
   }
 
-  const data = await response.json();
-  if (!data || !Array.isArray(data.items)) {
+  const payload = asRecord((await response.json()) as unknown);
+  if (!payload) {
+    throw new Error("Therapist API payload missing `items`.");
+  }
+  const items = asArray(payload.items, (item) => mapSummary(item));
+  if (items.length === 0) {
     throw new Error("Therapist API payload missing `items`.");
   }
 
-  return data.items.map((item: any) => mapSummary(item));
+  return items;
 }
 
 async function requestTherapistDetail(therapistId: string, locale = "zh-CN"): Promise<TherapistDetail> {
@@ -125,8 +129,8 @@ async function requestTherapistDetail(therapistId: string, locale = "zh-CN"): Pr
     throw new Error(`Failed to load therapist detail (status ${response.status})`);
   }
 
-  const data = await response.json();
-  if (!data || typeof data !== "object") {
+  const data = asRecord((await response.json()) as unknown);
+  if (!data) {
     throw new Error("Therapist detail payload is empty.");
   }
 

@@ -118,6 +118,25 @@ describe("App", () => {
       ]
     };
 
+    const templatesResponse = {
+      locale: "zh-CN",
+      topics: ["anxiety", "sleep"],
+      templates: [
+        {
+          id: "anxiety_grounding",
+          topic: "anxiety",
+          locale: "zh-CN",
+          title: "突发焦虑的呼吸锚定",
+          userPrompt: "最近心跳突然加快，想学一些帮助自己稳定下来的方法。",
+          assistantExample: "让我们先试试 4-7-8 呼吸法，慢慢让身体恢复到安全的节奏。",
+          followUpQuestions: ["这种焦虑通常发生在什么情境或时间点？"],
+          selfCareTips: ["把练习后的感受记录下来，下次焦虑时可以复习。"],
+          keywords: ["焦虑", "呼吸"],
+          tags: ["breathing"]
+        }
+      ]
+    };
+
     const future = Date.now() + 60 * 60 * 1000;
     window.localStorage.setItem(
       "mindwell:auth",
@@ -150,6 +169,13 @@ describe("App", () => {
           json: async () => exploreResponse
         } as Response;
       }
+      if (url.includes("/api/chat/templates")) {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => templatesResponse
+        } as Response;
+      }
       return {
         ok: false,
         status: 404,
@@ -169,7 +195,7 @@ describe("App", () => {
     expect(await screen.findByText(/支持语音输入/)).toBeInTheDocument();
     expect(await screen.findByText(/疗愈陪伴对话/)).toBeInTheDocument();
     expect(await screen.findByText(/旅程报告/)).toBeInTheDocument();
-    expect(globalThis.fetch).toHaveBeenCalledTimes(3);
+    expect(globalThis.fetch).toHaveBeenCalledTimes(4);
   });
 
   it("switches to English locale", async () => {

@@ -1,4 +1,4 @@
-import { ElementType, ReactNode } from "react";
+import type { ComponentPropsWithoutRef, ElementType, ReactNode } from "react";
 
 type TypographyVariant = "display" | "title" | "subtitle" | "body" | "caption" | "overline";
 
@@ -7,7 +7,7 @@ export type TypographyProps<T extends ElementType> = {
   variant?: TypographyVariant;
   children: ReactNode;
   align?: "left" | "center" | "right";
-} & Omit<React.ComponentPropsWithoutRef<T>, "as" | "children">;
+} & Omit<ComponentPropsWithoutRef<T>, "as" | "children">;
 
 const defaults: Record<TypographyVariant, { fontSize: string; fontWeight: string; letterSpacing?: string }> = {
   display: { fontSize: "2.4rem", fontWeight: "var(--mw-font-weight-bold)" },

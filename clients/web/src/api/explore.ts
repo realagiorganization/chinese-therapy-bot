@@ -1,4 +1,5 @@
 import { getApiBaseUrl, withAuthHeaders } from "./client";
+import { asArray, asNumber, asRecord, asString, asStringArray } from "./parsing";
 import type {
   BreathingModule,
   ExploreModule,
@@ -104,7 +105,7 @@ const FALLBACK_RESPONSE: ExploreModulesResponse = {
   ]
 };
 
-function coerceModuleType(raw: any): ExploreModuleType | null {
+function coerceModuleType(raw: unknown): ExploreModuleType | null {
   const value = typeof raw === "string" ? raw : raw?.toString?.();
   if (value === "breathing_exercise" || value === "psychoeducation" || value === "trending_topics") {
     return value;
@@ -112,118 +113,145 @@ function coerceModuleType(raw: any): ExploreModuleType | null {
   return null;
 }
 
-function normalizeBreathingModule(raw: any): BreathingModule {
-  const steps = Array.isArray(raw?.steps)
-    ? raw.steps.map((step: any) => ({
-        label: step.label ?? "",
-        instruction: step.instruction ?? "",
-        durationSeconds: Number(step.durationSeconds ?? step.duration_seconds ?? 0) || 0
-      }))
-    : [];
+function normalizeBreathingModule(raw: unknown): BreathingModule {
+  const data = asRecord(raw) ?? {};
+  const steps = asArray(data.steps, (step) => {
+    const stepData = asRecord(step);
+    if (!stepData) {
+      return null;
+    }
+    return {
+      label: asString(stepData.label),
+      instruction: asString(stepData.instruction),
+      durationSeconds: asNumber(stepData.durationSeconds ?? stepData.duration_seconds)
+    };
+  });
 
   return {
-    id: raw.id ?? "breathing",
+    id: asString(data.id, "breathing") || "breathing",
     moduleType: "breathing_exercise",
-    title: raw.title ?? "Breathing practice",
-    description: raw.description ?? "",
-    featureFlag: raw.featureFlag ?? raw.feature_flag ?? undefined,
-    ctaLabel: raw.ctaLabel ?? raw.cta_label ?? undefined,
-    ctaAction: raw.ctaAction ?? raw.cta_action ?? undefined,
-    durationMinutes: Number(raw.durationMinutes ?? raw.duration_minutes ?? 5) || 5,
-    cadenceLabel: raw.cadenceLabel ?? raw.cadence_label ?? "",
+    title: asString(data.title, "Breathing practice") || "Breathing practice",
+    description: asString(data.description),
+    featureFlag: asString(data.featureFlag ?? data.feature_flag) || undefined,
+    ctaLabel: asString(data.ctaLabel ?? data.cta_label) || undefined,
+    ctaAction: asString(data.ctaAction ?? data.cta_action) || undefined,
+    durationMinutes: asNumber(data.durationMinutes ?? data.duration_minutes, 5),
+    cadenceLabel: asString(data.cadenceLabel ?? data.cadence_label),
     steps,
-    recommendedFrequency: raw.recommendedFrequency ?? raw.recommended_frequency ?? ""
+    recommendedFrequency: asString(data.recommendedFrequency ?? data.recommended_frequency)
   };
 }
 
-function normalizePsychoeducationModule(raw: any): PsychoeducationModule {
-  const resources: PsychoeducationResource[] = Array.isArray(raw?.resources)
-    ? raw.resources.map((resource: any) => ({
-        id: resource.id ?? crypto.randomUUID?.() ?? String(Math.random()),
-        title: resource.title ?? "",
-        summary: resource.summary ?? "",
-        readTimeMinutes: Number(resource.readTimeMinutes ?? resource.read_time_minutes ?? 0) || 0,
-        tags: Array.isArray(resource.tags) ? resource.tags : [],
-        resourceType: resource.resourceType ?? resource.resource_type ?? "article",
-        url: resource.url ?? null
-      }))
-    : [];
+function normalizePsychoeducationModule(raw: unknown): PsychoeducationModule {
+  const data = asRecord(raw) ?? {};
+  const resources: PsychoeducationResource[] = asArray(data.resources, (resource) => {
+    const resourceData = asRecord(resource);
+    if (!resourceData) {
+      return null;
+    }
+    const id =
+      asString(resourceData.id) ||
+      (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
+        ? crypto.randomUUID()
+        : Math.random().toString(36).slice(2));
+    return {
+      id,
+      title: asString(resourceData.title),
+      summary: asString(resourceData.summary),
+      readTimeMinutes: asNumber(resourceData.readTimeMinutes ?? resourceData.read_time_minutes),
+      tags: asStringArray(resourceData.tags),
+      resourceType: asString(resourceData.resourceType ?? resourceData.resource_type, "article") || "article",
+      url: resourceData.url === null ? null : asString(resourceData.url) || null
+    };
+  });
 
   return {
-    id: raw.id ?? "psychoeducation",
+    id: asString(data.id, "psychoeducation") || "psychoeducation",
     moduleType: "psychoeducation",
-    title: raw.title ?? "Psychoeducation",
-    description: raw.description ?? "",
-    featureFlag: raw.featureFlag ?? raw.feature_flag ?? undefined,
-    ctaLabel: raw.ctaLabel ?? raw.cta_label ?? undefined,
-    ctaAction: raw.ctaAction ?? raw.cta_action ?? undefined,
+    title: asString(data.title, "Psychoeducation") || "Psychoeducation",
+    description: asString(data.description),
+    featureFlag: asString(data.featureFlag ?? data.feature_flag) || undefined,
+    ctaLabel: asString(data.ctaLabel ?? data.cta_label) || undefined,
+    ctaAction: asString(data.ctaAction ?? data.cta_action) || undefined,
     resources
   };
 }
 
-function normalizeTrendingModule(raw: any): TrendingTopicsModule {
-  const topics: TrendingTopic[] = Array.isArray(raw?.topics)
-    ? raw.topics
-        .map((topic: any) => ({
-          name: topic.name ?? "",
-          momentum: Number(topic.momentum ?? 0) || 0,
-          trend: topic.trend === "up" || topic.trend === "down" ? topic.trend : "steady",
-          summary: topic.summary ?? ""
-        }))
-        .filter((topic: TrendingTopic) => Boolean(topic.name))
-    : [];
+function normalizeTrendingModule(raw: unknown): TrendingTopicsModule {
+  const data = asRecord(raw) ?? {};
+  const topics: TrendingTopic[] = asArray(data.topics, (topic) => {
+    const topicData = asRecord(topic);
+    if (!topicData) {
+      return null;
+    }
+    const trend =
+      topicData.trend === "up" || topicData.trend === "down" || topicData.trend === "steady"
+        ? (topicData.trend as TrendingTopic["trend"])
+        : "steady";
+    const name = asString(topicData.name);
+    if (!name) {
+      return null;
+    }
+    return {
+      name,
+      momentum: asNumber(topicData.momentum),
+      trend,
+      summary: asString(topicData.summary)
+    };
+  });
 
   return {
-    id: raw.id ?? "trending",
+    id: asString(data.id, "trending") || "trending",
     moduleType: "trending_topics",
-    title: raw.title ?? "Trending focus areas",
-    description: raw.description ?? "",
-    featureFlag: raw.featureFlag ?? raw.feature_flag ?? undefined,
-    ctaLabel: raw.ctaLabel ?? raw.cta_label ?? undefined,
-    ctaAction: raw.ctaAction ?? raw.cta_action ?? undefined,
+    title: asString(data.title, "Trending focus areas") || "Trending focus areas",
+    description: asString(data.description),
+    featureFlag: asString(data.featureFlag ?? data.feature_flag) || undefined,
+    ctaLabel: asString(data.ctaLabel ?? data.cta_label) || undefined,
+    ctaAction: asString(data.ctaAction ?? data.cta_action) || undefined,
     topics,
-    insights: Array.isArray(raw?.insights) ? raw.insights : []
+    insights: asStringArray(data.insights)
   };
 }
 
-function normalizeModule(raw: any): ExploreModule | null {
-  const type = coerceModuleType(raw?.moduleType ?? raw?.module_type);
+function normalizeModule(raw: unknown): ExploreModule | null {
+  const data = asRecord(raw);
+  const type = coerceModuleType(data?.moduleType ?? data?.module_type);
   if (!type) {
     return null;
   }
 
   switch (type) {
     case "breathing_exercise":
-      return normalizeBreathingModule(raw);
+      return normalizeBreathingModule(data);
     case "psychoeducation":
-      return normalizePsychoeducationModule(raw);
+      return normalizePsychoeducationModule(data);
     case "trending_topics":
-      return normalizeTrendingModule(raw);
+      return normalizeTrendingModule(data);
     default:
       return null;
   }
 }
 
-function normalizeResponse(raw: any, fallbackLocale: string): ExploreModulesResponse {
-  if (!raw || typeof raw !== "object") {
+function normalizeResponse(raw: unknown, fallbackLocale: string): ExploreModulesResponse {
+  const data = asRecord(raw);
+  if (!data) {
     return FALLBACK_RESPONSE;
   }
 
-  const modules = Array.isArray(raw.modules)
-    ? raw.modules
-        .map((module) => normalizeModule(module))
-        .filter((module): module is ExploreModule => Boolean(module))
-    : [];
+  const modules = asArray(data.modules, (module) => normalizeModule(module)).filter(
+    (module): module is ExploreModule => Boolean(module)
+  );
 
   const evaluatedFlags: Record<string, boolean> = {};
-  if (raw.evaluatedFlags && typeof raw.evaluatedFlags === "object") {
-    for (const [key, value] of Object.entries(raw.evaluatedFlags as Record<string, unknown>)) {
+  const flagsRecord = asRecord(data.evaluatedFlags);
+  if (flagsRecord) {
+    for (const [key, value] of Object.entries(flagsRecord)) {
       evaluatedFlags[key] = Boolean(value);
     }
   }
 
   return {
-    locale: raw.locale ?? fallbackLocale,
+    locale: asString(data.locale, fallbackLocale) || fallbackLocale,
     modules,
     evaluatedFlags
   };

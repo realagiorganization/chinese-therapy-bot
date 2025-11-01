@@ -4,6 +4,7 @@ app/__init__.py
 app/main.py
 app/agents/__init__.py
 app/agents/data_sync.py
+app/agents/retention_cleanup.py
 app/agents/summary_scheduler.py
 app/api/__init__.py
 app/api/deps.py
@@ -12,6 +13,7 @@ app/api/routes/__init__.py
 app/api/routes/auth.py
 app/api/routes/chat.py
 app/api/routes/evaluations.py
+app/api/routes/explore.py
 app/api/routes/features.py
 app/api/routes/health.py
 app/api/routes/memory.py
@@ -22,6 +24,7 @@ app/core/app.py
 app/core/config.py
 app/core/database.py
 app/core/migrations.py
+app/data/__init__.py
 app/integrations/__init__.py
 app/integrations/asr.py
 app/integrations/embeddings.py
@@ -37,9 +40,11 @@ app/schemas/__init__.py
 app/schemas/auth.py
 app/schemas/chat.py
 app/schemas/evaluation.py
+app/schemas/explore.py
 app/schemas/features.py
 app/schemas/memory.py
 app/schemas/reports.py
+app/schemas/templates.py
 app/schemas/therapists.py
 app/schemas/voice.py
 app/services/__init__.py
@@ -47,11 +52,13 @@ app/services/asr.py
 app/services/auth.py
 app/services/chat.py
 app/services/evaluation.py
+app/services/explore.py
 app/services/feature_flags.py
 app/services/memory.py
 app/services/recommendations.py
 app/services/reports.py
 app/services/summaries.py
+app/services/templates.py
 app/services/therapists.py
 mindwell_backend.egg-info/PKG-INFO
 mindwell_backend.egg-info/SOURCES.txt
@@ -65,6 +72,9 @@ tests/test_auth_service.py
 tests/test_chat_service.py
 tests/test_data_sync_agent.py
 tests/test_evaluation.py
+tests/test_explore_service.py
 tests/test_recommendations.py
+tests/test_retention_cleanup_agent.py
 tests/test_storage.py
+tests/test_template_service.py
 tests/test_voice_api.py

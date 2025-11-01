@@ -1,4 +1,5 @@
-import { ButtonHTMLAttributes, CSSProperties, forwardRef } from "react";
+import { forwardRef } from "react";
+import type { ButtonHTMLAttributes, CSSProperties } from "react";
 
 type ButtonVariant = "primary" | "secondary" | "ghost";
 type ButtonSize = "sm" | "md" | "lg";

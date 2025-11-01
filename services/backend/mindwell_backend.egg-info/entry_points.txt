@@ -1,4 +1,5 @@
 [console_scripts]
 mindwell-api = app.main:run
 mindwell-data-sync = app.agents.data_sync:main
+mindwell-retention-cleanup = app.agents.retention_cleanup:main
 mindwell-summary-scheduler = app.agents.summary_scheduler:main

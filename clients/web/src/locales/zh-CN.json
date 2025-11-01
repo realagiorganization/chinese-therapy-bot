@@ -147,6 +147,28 @@
     "speak_reply": "播报上一条回复",
     "memory_highlights": "近期关注重点",
     "recommendations": "适配的治疗师",
-    "keywords": "关键词：{{keywords}}"
+    "keywords": "关键词：{{keywords}}",
+    "templates": {
+      "heading": "引导场景",
+      "subtitle": "不知道怎么开口时，可以先从这些场景开始。",
+      "all": "全部场景",
+      "loading": "正在载入引导话题…",
+      "error": "引导话题暂时无法载入。",
+      "retry": "重试",
+      "use_prompt": "填入这段开场",
+      "user_prompt_label": "可以这样开口：",
+      "assistant_example_label": "MindWell 可能会回应：",
+      "follow_up_label": "可继续探索的问题",
+      "self_care_label": "自我照护提示",
+      "keywords_label": "关键词：{{keywords}}",
+      "topic": {
+        "anxiety": "缓解焦虑",
+        "stress": "压力舒缓",
+        "sleep": "睡眠作息",
+        "relationships": "亲密关系",
+        "burnout": "倦怠修复",
+        "self_compassion": "自我慈悲"
+      }
+    }
   }
 }

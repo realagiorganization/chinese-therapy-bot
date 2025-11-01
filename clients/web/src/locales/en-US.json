@@ -147,6 +147,28 @@
     "speak_reply": "Speak last reply",
     "memory_highlights": "Recent focus areas",
     "recommendations": "Therapist suggestions",
-    "keywords": "Keywords: {{keywords}}"
+    "keywords": "Keywords: {{keywords}}",
+    "templates": {
+      "heading": "Guided conversation starters",
+      "subtitle": "Choose a curated opening when you’re unsure how to begin.",
+      "all": "All scenes",
+      "loading": "Loading guided scenes…",
+      "error": "We couldn’t load guided scenes.",
+      "retry": "Retry",
+      "use_prompt": "Fill prompt",
+      "user_prompt_label": "Try saying:",
+      "assistant_example_label": "MindWell might respond:",
+      "follow_up_label": "Follow-up reflections",
+      "self_care_label": "Self-care nudges",
+      "keywords_label": "Keywords: {{keywords}}",
+      "topic": {
+        "anxiety": "Anxiety relief",
+        "stress": "Stress reset",
+        "sleep": "Sleep routine",
+        "relationships": "Relationships",
+        "burnout": "Burnout recovery",
+        "self_compassion": "Self-compassion"
+      }
+    }
   }
 }

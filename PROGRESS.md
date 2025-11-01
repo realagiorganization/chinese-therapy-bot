@@ -76,9 +76,10 @@
 - [x] Implement account onboarding/login flows (SMS, Google).
   - [x] Build OTP request/verification UI tied into backend throttling.
   - [x] Add Google OAuth web flow and token exchange using the stub client.
+- [x] Scaffold React Native/Expo mobile client with SMS + Google authentication and chat shell. *(see `clients/mobile/` for initial app structure and theming tied to shared tokens.)*
 - [ ] Ensure iOS optimization (gesture handling, offline caching, push notifications).
   - [ ] Validate React Native/Expo builds against Apple HIG-aligned interactions.
-  - [ ] Add offline transcript caching and push notification scaffolding.
+  - [x] Add offline transcript caching and push notification scaffolding. *(AsyncStorage-backed restoration + Expo Notifications registration in `clients/mobile/src/screens/ChatScreen.tsx`, `src/services/chatCache.ts`, and `src/hooks/usePushNotifications.ts`.)*
 - [ ] Ensure Android optimization (voice integration parity, performance, compatibility).
   - [ ] Ensure voice input parity using Android speech APIs.
   - [ ] Profile startup/performance on mid-range devices and tune asset sizes.
@@ -87,11 +88,13 @@
 - [x] Implement conversation memory service with keyword filtering and summarization store. *(see `services/backend/app/services/memory.py` & `/api/memory/{userId}`)*
 - [x] Build therapist recommendation engine leveraging embeddings + prompt standardization. *(see `services/backend/app/services/recommendations.py` using Azure/OpenAI embeddings with heuristic fallback + `ChatService` integration)*
 - [x] Add RAG pipeline for contextual response generation with conversation snippets and therapist knowledge base. *(chat context prompt now stitches therapist recommendations + memory highlights in `services/backend/app/services/chat.py`)*
+- [x] Introduce guided chat scene templates for common mental health topics. *(curated dataset in `services/backend/app/data/chat_templates.json`, API `/api/chat/templates`, and web quick-start UI in `clients/web/src/components/ChatPanel.tsx`.)*
 - [x] Develop tooling to evaluate model response quality and guardrails. *(Guardrail heuristics + evaluation API via `services/backend/app/services/evaluation.py` and `/api/evaluations/response`.)*
 
 ## Phase 6 – Quality Assurance & Compliance
 - [ ] Create automated testing suites (unit, integration, end-to-end) and load testing scenarios.
   - [x] Expand backend coverage (auth edge cases, streaming chat, S3 persistence). *(new pytest suites under `services/backend/tests/` cover AuthService OTP limits, ChatService streaming flow, and S3 transcript/summary storage stubs.)*
+  - [x] Add summary generation unit tests covering daily pipeline behavior, heuristic fallback, and mood scoring. *(see `services/backend/tests/test_summaries.py`.)*
 - [x] Add frontend unit/component tests for chat, therapist flows, and localization. *(Vitest suites in `clients/web/src/App.test.tsx`, `clients/web/src/hooks/__tests__/useTherapistDirectory.test.tsx`, and `clients/web/src/api/therapists.test.ts` validate locale switching, therapist filtering, and API fallback logic.)*
   - [x] Author k6 or Locust load suites for LLM-backed chat throughput. *(Locust scenario under `services/backend/loadtests/` drives chat turns, therapist discovery, and journey report fetches with configurable headless runs.)*
 - [ ] Conduct security review (OWASP ASVS, data encryption, privacy compliance).
@@ -106,6 +109,8 @@
 ## Phase 7 – Deployment & Operations
 - [ ] Finalize CI/CD pipelines for backend, frontend, and mobile releases.
   - [ ] Extend GitHub Actions to lint/build/deploy web and mobile clients.
+    - [x] Add web client lint/test/build job to `.github/workflows/ci.yml` with Node.js caching and Vite build verification.
+    - [x] Add mobile client quality gates once React Native project scaffolding is available. *(New `mobile` job in `.github/workflows/ci.yml` runs `npm ci`, lint, and TypeScript checks inside `clients/mobile`.)*
   - [ ] Integrate Terraform apply stages with manual approval gates.
 - [ ] Prepare release management process for App Store/TestFlight and Android beta.
   - [ ] Document release branching, semantic versioning, and store metadata checklists.

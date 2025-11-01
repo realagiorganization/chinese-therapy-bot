@@ -37,6 +37,65 @@ jobs:
       - name: Lint (ruff)
         run: ruff check app
 
+  web:
+    name: Web Client Quality Gates
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: clients/web
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: clients/web/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint (eslint)
+        run: npm run lint
+
+      - name: Run unit tests
+        run: npm run test -- --run
+
+      - name: Build (vite)
+        run: npm run build
+
+  mobile:
+    name: Mobile Client Quality Gates
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: clients/mobile
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: clients/mobile/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint (eslint)
+        run: npm run lint
+
+      - name: Typecheck (tsc)
+        run: npm run typecheck
+
   security:
     name: Security Scans
     runs-on: ubuntu-latest

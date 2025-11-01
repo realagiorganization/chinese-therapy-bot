@@ -1,19 +1,65 @@
-import { FormEvent, KeyboardEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import type { FormEvent, KeyboardEvent } from "react";
 import { useTranslation } from "react-i18next";
 
+import type { ChatTemplate } from "../api/types";
 import { Button, Card, Typography } from "../design-system";
 import { useChatSession, type ChatTranscriptMessage } from "../hooks/useChatSession";
 import { useServerTranscriber } from "../hooks/useServerTranscriber";
+import { useChatTemplates } from "../hooks/useChatTemplates";
+
+type SpeechRecognitionAlternativeLike = {
+  transcript?: string;
+};
+
+type SpeechRecognitionResultLike = {
+  readonly length: number;
+  [index: number]: SpeechRecognitionAlternativeLike | undefined;
+};
+
+type SpeechRecognitionResultListLike = {
+  readonly length: number;
+  [index: number]: SpeechRecognitionResultLike | undefined;
+};
+
+type SpeechRecognitionEventLike = {
+  resultIndex: number;
+  results: SpeechRecognitionResultListLike;
+};
+
+type SpeechRecognitionLike = {
+  lang: string;
+  interimResults: boolean;
+  onresult: ((event: SpeechRecognitionEventLike) => void) | null;
+  onerror: ((event?: unknown) => void) | null;
+  onend: (() => void) | null;
+  start: () => void;
+  stop: () => void;
+  abort?: () => void;
+};
+
+type SpeechRecognitionConstructorLike = new () => SpeechRecognitionLike;
+
+type SpeechRecognitionWindow = Window &
+  typeof globalThis & {
+    SpeechRecognition?: SpeechRecognitionConstructorLike;
+    webkitSpeechRecognition?: SpeechRecognitionConstructorLike;
+  };
+
+function getSpeechRecognitionCtor(): SpeechRecognitionConstructorLike | undefined {
+  if (typeof window === "undefined") {
+    return undefined;
+  }
+  const speechWindow = window as SpeechRecognitionWindow;
+  return speechWindow.SpeechRecognition ?? speechWindow.webkitSpeechRecognition;
+}
 
 function useSpeechRecognition(locale: string) {
   const [isListening, setIsListening] = useState(false);
-  const recognitionRef = useRef<any | null>(null);
+  const recognitionRef = useRef<SpeechRecognitionLike | null>(null);
 
   const supported = useMemo(() => {
-    if (typeof window === "undefined") {
-      return false;
-    }
-    return Boolean((window as any).SpeechRecognition || (window as any).webkitSpeechRecognition);
+    return Boolean(getSpeechRecognitionCtor());
   }, []);
 
   const start = useCallback(
@@ -21,10 +67,7 @@ function useSpeechRecognition(locale: string) {
       if (!supported || isListening) {
         return;
       }
-      const RecognitionCtor =
-        typeof window !== "undefined"
-          ? (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition
-          : null;
+      const RecognitionCtor = getSpeechRecognitionCtor();
       if (!RecognitionCtor) {
         return;
       }
@@ -34,10 +77,15 @@ function useSpeechRecognition(locale: string) {
         recognition.lang = locale;
         recognition.interimResults = false;
 
-        recognition.onresult = (event: any) => {
+        recognition.onresult = (event: SpeechRecognitionEventLike) => {
           let transcript = "";
           for (let i = event.resultIndex; i < event.results.length; i += 1) {
-            transcript += event.results[i][0]?.transcript ?? "";
+            const result = event.results[i];
+            if (!result) {
+              continue;
+            }
+            const alternative = result[0];
+            transcript += alternative?.transcript ?? "";
           }
           if (transcript.trim().length > 0) {
             onTranscript(transcript.trim());
@@ -161,6 +209,15 @@ export function ChatPanel({ className }: ChatPanelProps) {
     memoryHighlights
   } = useChatSession(locale);
   const {
+    status: templateStatus,
+    templates: chatTemplates,
+    topics: templateTopics,
+    error: templateError,
+    selectedTopic: selectedTemplateTopic,
+    setSelectedTopic: setSelectedTemplateTopic,
+    refetch: refetchTemplates
+  } = useChatTemplates(locale);
+  const {
     supported: serverVoiceSupported,
     isRecording: serverIsRecording,
     isTranscribing: serverIsTranscribing,
@@ -182,6 +239,41 @@ export function ChatPanel({ className }: ChatPanelProps) {
     }
     return error ?? serverVoiceError;
   }, [error, serverVoiceError]);
+
+  const templateTopicLabel = useCallback(
+    (topic: string) => {
+      const fallback = topic.replace(/[_-]/g, " ");
+      const capitalized = fallback.replace(/\b\w/g, (character) => character.toUpperCase());
+      return t(`chat.templates.topic.${topic}`, { defaultValue: capitalized });
+    },
+    [t]
+  );
+
+  const showTemplateSection =
+    templateStatus !== "idle" || chatTemplates.length > 0 || Boolean(templateError);
+
+  const handleTemplateFilter = useCallback(
+    (topic: string | null) => {
+      setSelectedTemplateTopic(topic);
+    },
+    [setSelectedTemplateTopic]
+  );
+
+  const handleTemplateApply = useCallback(
+    (template: ChatTemplate) => {
+      setInput((previous) => {
+        if (!previous.trim()) {
+          return template.userPrompt;
+        }
+        return `${previous.trim()}\n${template.userPrompt}`.trim();
+      });
+    },
+    [setInput]
+  );
+
+  const handleTemplateRetry = useCallback(() => {
+    refetchTemplates();
+  }, [refetchTemplates]);
 
   useEffect(() => {
     const container = transcriptContainerRef.current;
@@ -409,6 +501,183 @@ export function ChatPanel({ className }: ChatPanelProps) {
           messages.map(renderMessage)
         )}
       </div>
+
+      {showTemplateSection && (
+        <div
+          style={{
+            display: "grid",
+            gap: "var(--mw-spacing-sm)",
+            background: "rgba(226,232,240,0.35)",
+            borderRadius: "var(--mw-radius-md)",
+            border: "1px solid rgba(148,163,184,0.25)",
+            padding: "var(--mw-spacing-md)"
+          }}
+        >
+          <div style={{ display: "grid", gap: "2px" }}>
+            <Typography variant="caption" style={{ fontWeight: 600, color: "var(--mw-color-primary)" }}>
+              {t("chat.templates.heading")}
+            </Typography>
+            <Typography variant="caption" style={{ color: "var(--text-secondary)" }}>
+              {t("chat.templates.subtitle")}
+            </Typography>
+          </div>
+
+          <div
+            style={{
+              display: "flex",
+              gap: "var(--mw-spacing-xs)",
+              flexWrap: "wrap"
+            }}
+          >
+            <Button
+              type="button"
+              variant={selectedTemplateTopic === null ? "secondary" : "ghost"}
+              size="sm"
+              onClick={() => handleTemplateFilter(null)}
+            >
+              {t("chat.templates.all")}
+            </Button>
+            {templateTopics.map((topic) => (
+              <Button
+                key={topic}
+                type="button"
+                variant={selectedTemplateTopic === topic ? "secondary" : "ghost"}
+                size="sm"
+                onClick={() => handleTemplateFilter(topic)}
+              >
+                {templateTopicLabel(topic)}
+              </Button>
+            ))}
+          </div>
+
+          {templateStatus === "loading" && chatTemplates.length === 0 && (
+            <Typography variant="body" style={{ color: "var(--text-secondary)" }}>
+              {t("chat.templates.loading")}
+            </Typography>
+          )}
+
+          {templateError && (
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                gap: "var(--mw-spacing-sm)",
+                background: "rgba(239,68,68,0.08)",
+                borderRadius: "var(--mw-radius-sm)",
+                border: "1px solid rgba(239,68,68,0.2)",
+                padding: "var(--mw-spacing-xs) var(--mw-spacing-sm)"
+              }}
+            >
+              <Typography variant="body" style={{ color: "var(--mw-color-danger)" }}>
+                {t("chat.templates.error")} {templateError}
+              </Typography>
+              <Button type="button" variant="ghost" size="sm" onClick={handleTemplateRetry}>
+                {t("chat.templates.retry")}
+              </Button>
+            </div>
+          )}
+
+          {chatTemplates.length > 0 && (
+            <div
+              style={{
+                display: "grid",
+                gap: "var(--mw-spacing-sm)"
+              }}
+            >
+              {chatTemplates.map((template) => (
+                <div
+                  key={template.id}
+                  style={{
+                    display: "grid",
+                    gap: "6px",
+                    background: "#FFFFFF",
+                    borderRadius: "var(--mw-radius-md)",
+                    border: "1px solid rgba(148,163,184,0.25)",
+                    padding: "var(--mw-spacing-sm)"
+                  }}
+                >
+                  <Typography variant="body" style={{ fontWeight: 600 }}>
+                    {template.title}
+                  </Typography>
+
+                  <div style={{ display: "grid", gap: "4px" }}>
+                    <Typography variant="caption" style={{ color: "var(--text-secondary)" }}>
+                      {t("chat.templates.user_prompt_label")}
+                    </Typography>
+                    <Typography variant="body">{template.userPrompt}</Typography>
+                  </div>
+
+                  {template.assistantExample && (
+                    <div style={{ display: "grid", gap: "4px" }}>
+                      <Typography variant="caption" style={{ color: "var(--text-secondary)" }}>
+                        {t("chat.templates.assistant_example_label")}
+                      </Typography>
+                      <Typography variant="body" style={{ color: "var(--text-secondary)" }}>
+                        {template.assistantExample}
+                      </Typography>
+                    </div>
+                  )}
+
+                  {template.followUpQuestions.length > 0 && (
+                    <div style={{ display: "grid", gap: "4px" }}>
+                      <Typography variant="caption" style={{ color: "var(--text-secondary)" }}>
+                        {t("chat.templates.follow_up_label")}
+                      </Typography>
+                      <ul
+                        style={{
+                          margin: 0,
+                          paddingLeft: "20px",
+                          color: "var(--text-secondary)",
+                          fontSize: "0.9rem"
+                        }}
+                      >
+                        {template.followUpQuestions.map((question) => (
+                          <li key={question}>{question}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+
+                  {template.selfCareTips.length > 0 && (
+                    <div style={{ display: "grid", gap: "4px" }}>
+                      <Typography variant="caption" style={{ color: "var(--text-secondary)" }}>
+                        {t("chat.templates.self_care_label")}
+                      </Typography>
+                      <ul
+                        style={{
+                          margin: 0,
+                          paddingLeft: "20px",
+                          color: "var(--text-secondary)",
+                          fontSize: "0.9rem"
+                        }}
+                      >
+                        {template.selfCareTips.map((tip) => (
+                          <li key={tip}>{tip}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+
+                  {template.keywords.length > 0 && (
+                    <Typography variant="caption" style={{ color: "var(--text-secondary)" }}>
+                      {t("chat.templates.keywords_label", {
+                        keywords: template.keywords.join(" · ")
+                      })}
+                    </Typography>
+                  )}
+
+                  <div>
+                    <Button type="button" variant="ghost" size="sm" onClick={() => handleTemplateApply(template)}>
+                      {t("chat.templates.use_prompt")}
+                    </Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
       {voiceError && (
         <div
