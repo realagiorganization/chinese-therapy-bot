@@ -5,6 +5,9 @@
 - Validated Terraform modules for remote state, AKS, observability, and secret management under `infra/terraform/`, matching Phase 2 completed tasks.
 - Spot-checked backend services (chat, summaries, feature flags) to ensure the implementations cited in Phase 3 are present and wired into FastAPI dependencies.
 - Verified automatic locale detection end-to-end (`services/backend/app/services/language_detection.py:1`, `services/backend/app/services/chat.py:28`, `clients/web/src/hooks/useChatSession.ts:134`, `clients/mobile/src/screens/ChatScreen.tsx:134`), including new unit coverage in `services/backend/tests/test_language_detection.py:1`.
+- Revalidated streaming chat and guardrail tooling align with Phase 4/5 milestones (`clients/web/src/hooks/useChatSession.ts:1`, `services/backend/app/services/evaluation.py:1`).
+- Confirmed infrastructure automation and CI coverage for mobile clients match Phase 2/7 claims (`infra/terraform/azure_postgres.tf:1`, `.github/workflows/ci.yml:1`).
+- README now documents end-to-end frontend/mobile setup workflows as required by DEV_PLAN (`README.md:70`, `README.md:90`).
 
 ## Phase 0 – Foundations
 - [x] Review DEV_PLAN.md and existing documentation to align on scope and priorities.
@@ -98,15 +101,17 @@
 - [ ] Create automated testing suites (unit, integration, end-to-end) and load testing scenarios.
   - [x] Expand backend coverage (auth edge cases, streaming chat, S3 persistence). *(pytest suites under `services/backend/tests/` cover AuthService OTP limits, ChatService streaming flow, S3 transcript/summary storage stubs, and locale detection in `test_language_detection.py`.)*
   - [x] Add summary generation unit tests covering daily pipeline behavior, heuristic fallback, and mood scoring. *(see `services/backend/tests/test_summaries.py`.)*
+  - [x] Modernize FastAPI lifespan management and Pydantic settings metadata to eliminate test-time deprecation warnings surfaced by the backend suite.
 - [x] Add frontend unit/component tests for chat, therapist flows, and localization. *(Vitest suites in `clients/web/src/App.test.tsx`, `clients/web/src/hooks/__tests__/useTherapistDirectory.test.tsx`, and `clients/web/src/api/therapists.test.ts` validate locale switching, therapist filtering, and API fallback logic.)*
   - [x] Author k6 or Locust load suites for LLM-backed chat throughput. *(Locust scenario under `services/backend/loadtests/` drives chat turns, therapist discovery, and journey report fetches with configurable headless runs.)*
-- [ ] Conduct security review (OWASP ASVS, data encryption, privacy compliance).
+- [x] Conduct security review (OWASP ASVS, data encryption, privacy compliance). *(See `docs/security/owasp_asvs_review.md` for Level 2 assessment, gaps, and mitigation owners.)*
   - [x] Perform threat modeling, dependency scanning, and secret scanning in CI. *(Threat model documented in `docs/threat_model.md` and security checks enforced via `.github/workflows/ci.yml` + `.gitleaks.toml`.)*
   - [x] Validate encryption in transit/at rest across Azure and AWS resources. *(See `docs/security/encryption_validation.md`; S3 buckets enforce TLS + SSE per `infra/terraform/aws_storage.tf` updates.)*
 - [ ] Implement data governance workflows for PII management and retention.
   - [x] Define retention schedules, anonymization routines, and SAR handling. *(documented in `docs/data_governance.md`)*
   - [x] Automate cleanup of transcripts/summaries per compliance requirements. *(Automated via `mindwell-retention-cleanup` agent in `services/backend/app/agents/retention_cleanup.py` with retention coverage documented in `docs/data_governance.md`.)*
 - [ ] Run user acceptance testing with pilot users and collect feedback for iteration.
+  - [x] Draft pilot UAT plan, cohort targets, and success criteria. *(See `docs/uat_plan.md`.)*
   - [ ] Recruit pilot cohort, capture structured feedback, and prioritize iteration backlog.
 
 ## Phase 7 – Deployment & Operations
@@ -114,11 +119,12 @@
   - [ ] Extend GitHub Actions to lint/build/deploy web and mobile clients.
     - [x] Add web client lint/test/build job to `.github/workflows/ci.yml` with Node.js caching and Vite build verification.
     - [x] Add mobile client quality gates once React Native project scaffolding is available. *(New `mobile` job in `.github/workflows/ci.yml` runs `npm ci`, lint, and TypeScript checks inside `clients/mobile`.)*
-  - [ ] Integrate Terraform apply stages with manual approval gates.
+  - [x] Integrate Terraform apply stages with manual approval gates. *(New workflow `.github/workflows/infra-apply.yml` consumes signed plan artifacts and requires environment approval before invoking `infra/scripts/run_terraform_apply.sh`.)*
 - [ ] Prepare release management process for App Store/TestFlight and Android beta.
-  - [ ] Document release branching, semantic versioning, and store metadata checklists.
-- [ ] Establish customer support workflows and incident response playbooks.
-  - [ ] Define escalation matrix, paging channels, and runbook templates.
+  - [x] Document release branching, semantic versioning, and store metadata checklists. *(See `docs/release_management.md` for branching strategy, submission workflows, and platform-specific checklists.)*
+  - [x] Provide agent lifecycle controls so on-call engineers can pause/resume automation quickly. *(New `scripts/agent-control.sh` manages Summary Scheduler/Data Sync/Retention agents with start/stop/status commands writing logs under `.mindwell/`.)*
+- [x] Establish customer support workflows and incident response playbooks.
+  - [x] Define escalation matrix, paging channels, and runbook templates. *(Documented in `docs/operations/incident_response.md` tying Monitoring/CIRunner/Data Sync agents into a single escalation process.)*
 - [ ] Monitor production metrics post-launch and iterate based on telemetry.
   - [ ] Instrument product analytics (journey engagement, conversion funnels) and feed into growth roadmap.
 
@@ -126,7 +132,7 @@
 - [x] Complete ENVS.md with environment variable definitions and secure handling notes. *(adds source-of-truth matrix + automation references)*
   - [x] Classify environment variables by mandatory/optional and source-of-truth (Terraform, Key Vault, Secrets Manager). *(see ENVS.md §“Source of Truth & Rotation Overview”)*
   - [x] Document rotation owners and automation hooks for sensitive credentials. *(captured in ENVS.md matrix + `scripts/dump-env-matrix.py`)*
-- [ ] Update README.md with setup instructions, architecture overview, and usage guide.
-  - [ ] Add frontend/mobile setup instructions and illustrative screenshots once available.
+- [x] Update README.md with setup instructions, architecture overview, and usage guide. *(README now covers backend/frontend/mobile quickstart, architecture, observability, and testing expectations.)*
+  - [x] Add frontend/mobile setup instructions (illustrative screenshots remain a backlog item).
 - [ ] Prepare investor/partner summary collateral (optional DOCX/PDF).
 - [ ] Maintain DEV_PLAN and PROGRESS updates as milestones are achieved.

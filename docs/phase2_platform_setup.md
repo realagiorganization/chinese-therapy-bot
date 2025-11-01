@@ -32,6 +32,8 @@ This document records the baseline infrastructure design for Phase 2 of the Mind
 - Terraform can be executed locally or via GitHub Actions runners with OIDC federation.
   - Local operators can run `infra/scripts/run_terraform_plan.sh <env>` after copying `infra/terraform/dev.tfvars.example` to a real tfvars file and exporting cloud credentials.
   - GitHub Actions workflow `.github/workflows/infra-plan.yml` performs a non-destructive plan using OIDC to Azure/AWS once repository secrets are configured (`AZURE_CLIENT_ID`, `AZURE_TENANT_ID`, `AZURE_SUBSCRIPTION_ID`, `AWS_TERRAFORM_ROLE_ARN`, etc.).
+  - `infra/scripts/run_terraform_apply.sh <env>` now wraps the `terraform apply` flow, supporting existing plan files, backend config injection, and CI-friendly `--auto-approve`.
+  - GitHub Actions workflow `.github/workflows/infra-apply.yml` orchestrates a two-stage plan + apply with environment-scoped manual approval gates; it reuses the generated tfvars file and downloads the signed plan artifact produced in the first stage before applying.
 - Remote backend (Azure Storage) is recommended before collaborating; block is stubbed for later wiring (`TF_BACKEND_CONFIG_FILE` can be passed to the helper script or workflow as soon as the backend exists).
 - Placeholder secrets and credentials defined as variables to avoid baking sensitive data into state files. Workflow-generated tfvars source sensitive values from repository secrets.
 

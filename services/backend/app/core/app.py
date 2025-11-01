@@ -1,3 +1,5 @@
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -9,10 +11,17 @@ from app.core.database import init_database
 def create_app() -> FastAPI:
     settings = get_settings()
 
+    @asynccontextmanager
+    async def lifespan(_: FastAPI):
+        if settings.database_url:
+            await init_database()
+        yield
+
     app = FastAPI(
         title=settings.app_name,
         debug=settings.debug,
         version="0.1.0",
+        lifespan=lifespan,
     )
 
     app.add_middleware(
@@ -24,11 +33,6 @@ def create_app() -> FastAPI:
     )
 
     app.include_router(api_router, prefix="/api")
-
-    @app.on_event("startup")
-    async def _startup() -> None:
-        if settings.database_url:
-            await init_database()
 
     @app.get("/", tags=["health"])
     async def root() -> dict[str, str]:

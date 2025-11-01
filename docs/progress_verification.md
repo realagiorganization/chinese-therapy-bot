@@ -48,5 +48,9 @@ These notes capture evidence that the completed checklist items in `PROGRESS.md`
 - Encryption enforcement across Azure/AWS resources documented in `docs/security/encryption_validation.md:1-74`, covering TLS requirements and server-side encryption updates.
 - Data retention automation implemented via `services/backend/app/agents/retention_cleanup.py:1-260` with coverage in `tests/test_retention_cleanup_agent.py:1-150`, matching the compliance automation checklist.
 
+## Phase 7 – Deployment & Operations
+- Terraform apply automation with manual approval gates is codified in `.github/workflows/infra-apply.yml:1-213`, leveraging the new helper script `infra/scripts/run_terraform_apply.sh:1-170` to reuse signed plan artifacts.
+- Customer support and incident response workflows are documented in `docs/operations/incident_response.md:1-123`, aligning with the requirement to establish escalation playbooks.
+
 ## Outstanding Areas
 - Tasks still unchecked in `PROGRESS.md` (e.g., Terraform apply execution, security review actions, data governance runbooks) remain pending and are not evidenced in the repository.

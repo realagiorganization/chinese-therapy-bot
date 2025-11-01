@@ -2,7 +2,7 @@ from functools import lru_cache
 from typing import Optional
 
 from pydantic import Field, SecretStr
-from pydantic_settings import BaseSettings
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class AppSettings(BaseSettings):
@@ -90,10 +90,11 @@ class AppSettings(BaseSettings):
     feature_flags: Optional[str] = Field(default=None, alias="FEATURE_FLAGS")
     openai_embedding_model: Optional[str] = Field(default=None, alias="OPENAI_EMBEDDING_MODEL")
 
-    class Config:
-        env_file = ".env"
-        env_file_encoding = "utf-8"
-        case_sensitive = False
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        env_file_encoding="utf-8",
+        case_sensitive=False,
+    )
 
 
 @lru_cache

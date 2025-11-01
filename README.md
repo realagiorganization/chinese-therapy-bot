@@ -72,34 +72,54 @@ Agent entry points are exposed as `mindwell-summary-scheduler` and `mindwell-dat
 the same virtual environment once credentials are configured.
 
 ### Frontend (Vite/React)
-1. Install dependencies and run the dev server:
+1. Install dependencies:
    ```bash
    cd clients/web
    npm install
+   ```
+2. Create a `.env.local` (or export) with at minimum:
+   ```bash
+   VITE_API_BASE_URL=http://localhost:8000/api
+   ```
+   The API base URL must include the `/api` prefix so the web client can reach FastAPI routes. Update this value when targeting remote environments.
+3. Start the dev server with hot module reload:
+   ```bash
    npm run dev
    ```
-2. Copy `.env.example` (if present) or export `VITE_API_BASE_URL` to point at the backend (`http://localhost:8000/api` by default). During local development the
-   dev server proxies unauthenticated API requests.
-3. Run `npm run lint`, `npm run test`, and `npm run build` before submitting changes. Vitest runs in watch mode with `npm run test -- --watch`.
+   The server proxies unauthenticated requests to the backend; protected routes still require valid tokens.
+4. Before opening a PR run:
+   ```bash
+   npm run lint
+   npm run test -- --run
+   npm run build
+   ```
+   `npm run preview` serves the production build locally for smoke testing.
 
 ### Mobile (Expo)
-1. Install dependencies and launch Metro:
+1. Install dependencies and verify the Expo toolchain:
    ```bash
    cd clients/mobile
    npm install
-   npm run start
+   npx expo doctor
    ```
-   Use the Expo Go app or a development build to load the project.
-2. Provide `EXPO_PUBLIC_API_BASE_URL`, `EXPO_PUBLIC_SPEECH_REGION`, and authentication secrets via
-   `.env` or your preferred secrets manager before running on a device. See `ENVS.md` for the complete list.
-3. Voice and gesture validation:
-   - The root view now uses `GestureHandlerRootView` so swipe/back gestures match Apple HIG guidance.
-   - Hold the microphone button in the chat composer to capture voice input; the app streams audio to
-     `/api/voice/transcribe`. Android prompts for microphone permission automatically.
-4. Performance tooling:
-   - `npm run profile:android` bundles a release build and reports bundle/asset sizes (outputs under `clients/mobile/dist/profile-android`).
-   - `npm run optimize:assets` compresses PNG/JPEG assets—run after adding media.
-   - `useStartupProfiler` logs startup milestones to device logs; review `docs/mobile_performance.md` for interpretation.
+   Ensure Xcode (for iOS) or Android Studio/SDK (for Android) are installed before running the native builds.
+2. Configure runtime environment variables (read from `app.config.ts`):
+   ```bash
+   echo "EXPO_PUBLIC_API_BASE_URL=http://localhost:8000/api" >> .env.local
+   echo "EXPO_PUBLIC_SPEECH_REGION=eastasia" >> .env.local
+   ```
+   Additional keys (speech API credentials, push notification secrets) are documented in `ENVS.md`.
+3. Launch the development server:
+   ```bash
+   npm run start                # Metro bundler
+   npm run ios                  # Requires an iOS simulator / device
+   npm run android              # Requires an Android emulator / device
+   ```
+   The chat composer exposes “press and hold” voice capture; the recorder falls back to server-side ASR when device APIs are unavailable.
+4. Performance and asset workflows:
+   - `npm run profile:android` assembles a release bundle and outputs timing reports under `clients/mobile/dist/profile-android/`.
+   - `npm run optimize:assets` applies Expo image compression; run it after introducing new media.
+   - Review `docs/mobile_performance.md` alongside the `useStartupProfiler` logs to track launch latency and gesture responsiveness.
 
 ### Voice & Media Services
 - Server-side ASR and optional TTS require Azure Cognitive Services credentials:

@@ -10,9 +10,15 @@ class AuthProvider(str, Enum):
 
 
 class SMSLoginRequest(BaseModel):
-    phone_number: str = Field(..., example="+8613800000000")
-    country_code: str = Field(default="+86", example="+86")
-    locale: Optional[str] = Field(default=None, example="zh-CN")
+    phone_number: str = Field(..., json_schema_extra={"example": "+8613800000000"})
+    country_code: str = Field(
+        default="+86",
+        json_schema_extra={"example": "+86"},
+    )
+    locale: Optional[str] = Field(
+        default=None,
+        json_schema_extra={"example": "zh-CN"},
+    )
 
 
 class LoginChallengeResponse(BaseModel):
