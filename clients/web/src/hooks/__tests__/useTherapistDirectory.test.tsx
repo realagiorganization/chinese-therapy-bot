@@ -54,6 +54,7 @@ describe("useTherapistDirectory", () => {
     expect(result.current.source).toBe("api");
     expect(result.current.specialties).toEqual(["CBT", "Family Therapy", "Mindfulness"]);
     expect(result.current.languages).toEqual(["en-US", "zh-CN"]);
+    expect(result.current.minPrice).toBe(460);
     expect(result.current.maxPrice).toBe(620);
     expect(result.current.filtered.map((item) => item.id)).toEqual(["alpha", "bravo"]);
   });
@@ -68,6 +69,7 @@ describe("useTherapistDirectory", () => {
         specialty: undefined,
         language: undefined,
         recommendedOnly: true,
+        minPrice: undefined,
         maxPrice: undefined
       }));
     });
@@ -83,6 +85,26 @@ describe("useTherapistDirectory", () => {
     });
 
     expect(result.current.filtered).toHaveLength(0);
+
+    act(() => {
+      result.current.setFilters(() => ({
+        specialty: undefined,
+        language: undefined,
+        recommendedOnly: false,
+        minPrice: 600,
+        maxPrice: undefined
+      }));
+    });
+
+    expect(result.current.filtered).toHaveLength(1);
+    expect(result.current.filtered[0].id).toBe("bravo");
+
+    act(() => {
+      result.current.setFilters((prev) => ({
+        ...prev,
+        minPrice: undefined
+      }));
+    });
 
     act(() => {
       result.current.resetFilters();

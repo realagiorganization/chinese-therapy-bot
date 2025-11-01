@@ -19,6 +19,7 @@ export type TherapistFilters = {
   specialty?: string;
   language?: string;
   recommendedOnly?: boolean;
+  minPrice?: number;
   maxPrice?: number;
 };
 

@@ -6,6 +6,7 @@ from pydantic import BaseModel, Field
 class TherapistFilter(BaseModel):
     specialty: Optional[str] = None
     language: Optional[str] = None
+    price_min: Optional[float] = Field(default=None, ge=0)
     price_max: Optional[float] = Field(default=None, ge=0)
     locale: str = Field(default="zh-CN", description="Preferred locale for localized fields.")
     is_recommended: Optional[bool] = Field(default=None, description="Filter by recommendation flag.")

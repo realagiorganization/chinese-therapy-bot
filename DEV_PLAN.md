@@ -154,7 +154,7 @@
 
 - Therapist overview ✅
 - Therapist detail page ✅
-- Therapist filtering functionality (planned)
+- Therapist filtering functionality ✅ *(Web/mobile directories expose specialty, language, price, and recommendation filters.)*
 
 ### **Explore Page**
 
@@ -168,6 +168,7 @@
   - Detail View:
     - **Tab 1:** Date, Title, Spotlight, Summary
     - **Tab 2:** Chat Records
+- ✅ Expo Journey dashboard implements the flows above with locale-aware summaries, transcript toggles, and manual refresh (`JourneyScreen`, `useJourneyReports`, `services/reports`).
 
 ### **Localization**
 
@@ -194,6 +195,7 @@
 
 - Integration with Google and other third-party account management platforms in progress.
 - Release artefact pipeline `.github/workflows/release.yml` produces backend wheels plus web/mobile bundles for tag builds and manual dispatch.
+- Investor/partner summary brief lives in `docs/investor_partner_brief.md` for fundraising and partnership outreach.
 
 ---
 

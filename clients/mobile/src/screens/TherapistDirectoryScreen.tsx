@@ -164,6 +164,7 @@ export function TherapistDirectoryScreen() {
     resetFilters,
     specialties,
     languages,
+    minPrice,
     maxPrice,
     source,
     isLoading,
@@ -412,6 +413,36 @@ export function TherapistDirectoryScreen() {
               <Text style={styles.subtitle}>暂无语言信息</Text>
             )}
           </View>
+        </View>
+
+        <View>
+          <Text style={styles.filterLabel}>价格下限（每次）</Text>
+          <TextInput
+            inputMode="numeric"
+            keyboardType="number-pad"
+            style={styles.input}
+            placeholder={
+              minPrice
+                ? `最低 ${minPrice} ${therapists[0]?.currency ?? "CNY"}`
+                : "不限"
+            }
+            placeholderTextColor={theme.colors.textSecondary}
+            value={
+              filters.minPrice === undefined ? "" : String(filters.minPrice)
+            }
+            onChangeText={(value) => {
+              setFilters((prev) => {
+                if (value.trim().length === 0) {
+                  return { ...prev, minPrice: undefined };
+                }
+                const parsed = Number.parseInt(value, 10);
+                return {
+                  ...prev,
+                  minPrice: Number.isNaN(parsed) ? prev.minPrice : parsed,
+                };
+              });
+            }}
+          />
         </View>
 
         <View>

@@ -10,6 +10,7 @@
 - Ensured chat template dataset loads from packaged resources or local fallback, keeping Phase 5 template tooling functional (`services/backend/app/services/templates.py:1`, `services/backend/tests/test_template_service.py:1`).
 - Confirmed infrastructure automation and CI coverage for mobile clients match Phase 2/7 claims (`infra/terraform/azure_postgres.tf:1`, `.github/workflows/ci.yml:1`).
 - README now documents end-to-end frontend/mobile setup workflows as required by DEV_PLAN (`README.md:70`, `README.md:90`).
+- Ran `terraform init`/`validate` against `infra/terraform/environments/dev` to remove provider incompatibilities (default node pool mode attribute, AKS SKU tier, dashboard resource deprecation) and generated a reproducible `.terraform.lock.hcl`.
 
 ## Phase 0 – Foundations
 - [x] Review DEV_PLAN.md and existing documentation to align on scope and priorities.
@@ -32,7 +33,7 @@
 ## Phase 2 – Platform & Infrastructure Setup
 - [ ] Provision Azure AKS cluster, configure node pools, and set up cluster networking. *(Terraform definitions in `infra/terraform/azure_*.tf`; apply pending.)*
   - [x] Configure remote Terraform state (Azure Storage/Key Vault) and document backend credentials.
-  - [ ] Run `terraform plan`/`apply` for the dev subscription and capture kubeconfig bootstrap steps for CI runners. *(Helper script `infra/scripts/run_terraform_plan.sh`, kubeconfig bootstrap script, and GitHub workflow `.github/workflows/infra-plan.yml` now available; awaiting secret configuration and first execution.)*
+  - [ ] Run `terraform plan`/`apply` for the dev subscription and capture kubeconfig bootstrap steps for CI runners. *(Helper script `infra/scripts/run_terraform_plan.sh`, kubeconfig bootstrap script, and GitHub workflow `.github/workflows/infra-plan.yml` now available; Terraform config validated locally but plan/apply still blocked pending cloud credentials.)*
   - [ ] Validate workload identity/OIDC by deploying a sample pod that fetches a Key Vault secret. *(Validation job scaffolded in `infra/kubernetes/samples/workload-identity-validation.yaml` and documented in `infra/kubernetes/samples/README.md`; run once AKS is provisioned.)*
 - [ ] Configure AWS S3 buckets for conversation logs, summaries, and media assets with appropriate IAM roles. *(Buckets + IAM role codified in `infra/terraform/aws_storage.tf`.)*
   - [ ] Execute Terraform against the target AWS account and capture bucket ARNs plus IAM outputs.
@@ -56,6 +57,7 @@
 - [x] Integrate AI model orchestrator (Azure OpenAI primary, AWS Bedrock fallback) with prompt templates.
 - [x] Persist chat transcripts and metadata to AWS S3 conversation logs bucket. *(ChatTranscriptStorage now streams per-message JSON events alongside transcript snapshots.)*
 - [x] Implement therapist data management APIs (list/get, filtering, admin imports, i18n support). *(FastAPI service now supports locale-aware responses and S3-backed imports via `/api/therapists/admin/import`.)*
+  - [x] Extended therapist filters to support price floor/ceiling (`price_min`/`price_max`) with backend validation and test coverage.
 - [x] Deliver Data Sync agent to normalize therapist sources and publish S3 payloads. *(CLI `mindwell-data-sync` under `services/backend/app/agents/data_sync.py` produces `profile_<locale>.json` artifacts for ingestion.)*
 - [x] Develop summary generation pipeline (daily & weekly) with scheduled workers and storage integration. *(see `services/backend/app/services/summaries.py` & `app/agents/summary_scheduler.py`)*
 - [x] Expose journey report APIs delivering recent summaries and chat history slices. *(Journey endpoint returns daily/weekly digests plus recent conversation slices via `ReportsService`.)*
@@ -74,9 +76,11 @@
 - [x] Build therapist overview/detail pages with filters and recommendation badges. *(Delivered via `clients/web/src/components/TherapistDirectory.tsx`.)*
   - [x] Port therapist cards to shared design system tokens and integrate live API filters. *(Directory now reuses design-system `Card`/`Button` while filtering through `useTherapistDirectory`.)*
   - [x] Surface recommendation rationales/badges sourced from backend embeddings. *(Recommended therapists render badge styling and show embedding rationale when present.)*
+  - [x] Added price range controls (min/max) with i18n placeholders across web/mobile directories to mirror backend filtering.
 - [x] Create Journey page showing 10-day daily reports and 10-week weekly reports with drill-down tabs. *(Delivered as `JourneyDashboard` in `clients/web/src/components/JourneyDashboard.tsx`.)*
   - [x] Implement daily/weekly list components backed by reports API.
   - [x] Design detail view with tabbed transcript versus highlights presentation.
+  - [x] Ship mobile Journey dashboard with locale-aware summaries, transcript toggles, and refresh support. *(New Expo tab via `clients/mobile/src/screens/JourneyScreen.tsx` + hook/service combo `src/hooks/useJourneyReports.ts` & `src/services/reports.ts`.)*
 - [x] Prototype Explore page content modules and personalization hooks.
   - [x] Define placeholder content blocks (breathing exercises, psychoeducation, trending topics).
   - [x] Connect modules to feature flag service for staged rollouts.
@@ -103,7 +107,7 @@
 
 ## Phase 6 – Quality Assurance & Compliance
 - [ ] Create automated testing suites (unit, integration, end-to-end) and load testing scenarios.
-  - [x] Expand backend coverage (auth edge cases, streaming chat, S3 persistence). *(pytest suites under `services/backend/tests/` cover AuthService OTP limits, ChatService streaming flow, S3 transcript/summary storage stubs, and locale detection in `test_language_detection.py`.)*
+  - [x] Expand backend coverage (auth edge cases, streaming chat, S3 persistence). *(pytest suites under `services/backend/tests/` cover AuthService OTP limits, ChatService streaming flow, S3 transcript/summary storage stubs, locale detection in `test_language_detection.py`, and therapist price filter parity in `test_therapist_service.py`.)*
   - [x] Add summary generation unit tests covering daily pipeline behavior, heuristic fallback, and mood scoring. *(see `services/backend/tests/test_summaries.py`.)*
   - [x] Modernize FastAPI lifespan management and Pydantic settings metadata to eliminate test-time deprecation warnings surfaced by the backend suite.
 - [x] Add frontend unit/component tests for chat, therapist flows, and localization. *(Vitest suites in `clients/web/src/App.test.tsx`, `clients/web/src/hooks/__tests__/useTherapistDirectory.test.tsx`, and `clients/web/src/api/therapists.test.ts` validate locale switching, therapist filtering, and API fallback logic.)*
@@ -140,5 +144,5 @@
   - [x] Document rotation owners and automation hooks for sensitive credentials. *(captured in ENVS.md matrix + `scripts/dump-env-matrix.py`)*
 - [x] Update README.md with setup instructions, architecture overview, and usage guide. *(README now covers backend/frontend/mobile quickstart, architecture, observability, and testing expectations.)*
   - [x] Add frontend/mobile setup instructions (illustrative screenshots remain a backlog item).
-- [ ] Prepare investor/partner summary collateral (optional DOCX/PDF).
+- [x] Prepare investor/partner summary collateral (optional DOCX/PDF). *(See `docs/investor_partner_brief.md` for investor-ready overview.)*
 - [ ] Maintain DEV_PLAN and PROGRESS updates as milestones are achieved.

@@ -49,6 +49,7 @@ export function TherapistDirectory() {
     resetFilters,
     specialties,
     languages,
+    minPrice,
     isLoading,
     source,
     maxPrice
@@ -184,6 +185,44 @@ export function TherapistDirectory() {
                 </option>
               ))}
             </select>
+          </label>
+
+          <label style={{ display: "grid", gap: "4px", fontSize: "0.85rem" }}>
+            <span style={{ color: "var(--text-secondary)" }}>
+              {t("therapists.filters.min_price", { currency: "CNY" })}
+            </span>
+            <input
+              type="number"
+              min={0}
+              max={maxPrice ?? undefined}
+              value={filters.minPrice ?? ""}
+              onChange={(event) => {
+                const nextValue = event.target.value;
+                setFilters((prev) => {
+                  if (nextValue === "") {
+                    return { ...prev, minPrice: undefined };
+                  }
+                  const numeric = Number.parseInt(nextValue, 10);
+                  return {
+                    ...prev,
+                    minPrice: Number.isNaN(numeric) ? prev.minPrice : numeric
+                  };
+                });
+              }}
+              placeholder={
+                minPrice !== null
+                  ? t("therapists.filters.price_placeholder_min", {
+                      value: minPrice
+                    })
+                  : undefined
+              }
+              style={{
+                padding: "6px 10px",
+                borderRadius: "8px",
+                border: "1px solid var(--mw-border-subtle)",
+                width: "140px"
+              }}
+            />
           </label>
 
           <label style={{ display: "grid", gap: "4px", fontSize: "0.85rem" }}>

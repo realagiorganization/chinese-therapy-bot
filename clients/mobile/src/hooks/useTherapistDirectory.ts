@@ -17,6 +17,7 @@ export type TherapistDirectoryState = {
   error: Error | null;
   specialties: string[];
   languages: string[];
+  minPrice: number | null;
   maxPrice: number | null;
   setFilters: (updater: (prev: TherapistFilters) => TherapistFilters) => void;
   resetFilters: () => void;
@@ -27,6 +28,7 @@ const INITIAL_FILTERS: TherapistFilters = {
   specialty: undefined,
   language: undefined,
   recommendedOnly: false,
+  minPrice: undefined,
   maxPrice: undefined,
 };
 
@@ -110,12 +112,19 @@ export function useTherapistDirectory(
     return Array.from(pool).sort((a, b) => a.localeCompare(b, locale));
   }, [therapists, locale]);
 
-  const maxPrice = useMemo(() => {
+  const pricePoints = useMemo(() => {
     if (therapists.length === 0) {
       return null;
     }
-    return Math.max(...therapists.map((therapist) => therapist.price));
+    const prices = therapists.map((therapist) => therapist.price);
+    return {
+      min: Math.min(...prices),
+      max: Math.max(...prices),
+    };
   }, [therapists]);
+
+  const minPrice = pricePoints ? pricePoints.min : null;
+  const maxPrice = pricePoints ? pricePoints.max : null;
 
   const setFilters = useCallback(
     (updater: (prev: TherapistFilters) => TherapistFilters) => {
@@ -138,6 +147,7 @@ export function useTherapistDirectory(
     error,
     specialties,
     languages,
+    minPrice,
     maxPrice,
     setFilters,
     resetFilters,

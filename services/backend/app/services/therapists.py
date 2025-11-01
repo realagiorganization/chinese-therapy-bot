@@ -251,6 +251,12 @@ class TherapistService:
             if not any(lang.lower() == language for lang in therapist.languages):
                 return False
         if (
+            filters.price_min is not None
+            and therapist.price_per_session is not None
+            and therapist.price_per_session < filters.price_min
+        ):
+            return False
+        if (
             filters.price_max is not None
             and therapist.price_per_session is not None
             and therapist.price_per_session > filters.price_max

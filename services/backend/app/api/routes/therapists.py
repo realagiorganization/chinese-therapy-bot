@@ -21,6 +21,7 @@ router = APIRouter()
 async def list_therapists(
     specialty: str | None = None,
     language: str | None = None,
+    price_min: float | None = None,
     price_max: float | None = None,
     locale: str = "zh-CN",
     recommended: bool | None = None,
@@ -29,6 +30,7 @@ async def list_therapists(
     filters = TherapistFilter(
         specialty=specialty,
         language=language,
+        price_min=price_min,
         price_max=price_max,
         locale=locale,
         is_recommended=recommended,

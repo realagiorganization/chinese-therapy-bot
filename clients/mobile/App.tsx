@@ -2,6 +2,7 @@ import { AuthProvider, useAuth } from "@context/AuthContext";
 import { usePushNotifications } from "@hooks/usePushNotifications";
 import { useStartupProfiler } from "@hooks/useStartupProfiler";
 import { ChatScreen } from "@screens/ChatScreen";
+import { JourneyScreen } from "@screens/JourneyScreen";
 import { LoginScreen } from "@screens/LoginScreen";
 import { TherapistDirectoryScreen } from "@screens/TherapistDirectoryScreen";
 import { ThemeProvider, useTheme } from "@theme/ThemeProvider";
@@ -18,9 +19,11 @@ import {
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 
+type MobileTab = "chat" | "journey" | "therapists";
+
 function AuthenticatedShell() {
   const theme = useTheme();
-  const [activeTab, setActiveTab] = useState<"chat" | "therapists">("chat");
+  const [activeTab, setActiveTab] = useState<MobileTab>("chat");
 
   const styles = useMemo(
     () =>
@@ -88,6 +91,23 @@ function AuthenticatedShell() {
           {activeTab === "chat" && <View style={styles.tabIndicator} />}
         </Pressable>
         <Pressable
+          onPress={() => setActiveTab("journey")}
+          style={[
+            styles.tabButton,
+            activeTab === "journey" && styles.tabButtonActive,
+          ]}
+        >
+          <Text
+            style={[
+              styles.tabLabel,
+              activeTab === "journey" && styles.tabLabelActive,
+            ]}
+          >
+            旅程
+          </Text>
+          {activeTab === "journey" && <View style={styles.tabIndicator} />}
+        </Pressable>
+        <Pressable
           onPress={() => setActiveTab("therapists")}
           style={[
             styles.tabButton,
@@ -106,7 +126,9 @@ function AuthenticatedShell() {
         </Pressable>
       </View>
       <View style={styles.content}>
-        {activeTab === "chat" ? <ChatScreen /> : <TherapistDirectoryScreen />}
+        {activeTab === "chat" && <ChatScreen />}
+        {activeTab === "journey" && <JourneyScreen />}
+        {activeTab === "therapists" && <TherapistDirectoryScreen />}
       </View>
     </View>
   );

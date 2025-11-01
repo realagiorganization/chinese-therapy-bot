@@ -163,6 +163,9 @@ export function applyFilters(
     if (filters.language && !therapist.languages.includes(filters.language)) {
       return false;
     }
+    if (filters.minPrice !== undefined && therapist.price < filters.minPrice) {
+      return false;
+    }
     if (filters.maxPrice !== undefined && therapist.price > filters.maxPrice) {
       return false;
     }

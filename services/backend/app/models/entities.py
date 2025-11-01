@@ -18,7 +18,8 @@ from sqlalchemy import (
     UniqueConstraint,
     CheckConstraint,
 )
-from sqlalchemy.dialects.postgresql import ARRAY, UUID
+from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.ext.mutable import MutableList
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import Base
@@ -72,14 +73,14 @@ class Therapist(Base):
     slug: Mapped[str] = mapped_column(String(64), unique=True)
     name: Mapped[str] = mapped_column(String(120))
     title: Mapped[str] = mapped_column(String(120))
-    specialties: Mapped[list[str]] = mapped_column(ARRAY(String), default=list)
-    languages: Mapped[list[str]] = mapped_column(ARRAY(String), default=list)
+    specialties: Mapped[list[str]] = mapped_column(MutableList.as_mutable(JSON), default=list)
+    languages: Mapped[list[str]] = mapped_column(MutableList.as_mutable(JSON), default=list)
     price_per_session: Mapped[float | None] = mapped_column(Float, nullable=True)
     currency: Mapped[str] = mapped_column(String(8), default="CNY")
     biography: Mapped[str | None] = mapped_column(Text, nullable=True)
     is_recommended: Mapped[bool] = mapped_column(Boolean, default=False)
     profile_image_url: Mapped[str | None] = mapped_column(String(512), nullable=True)
-    availability: Mapped[list[str]] = mapped_column(ARRAY(String), default=list)
+    availability: Mapped[list[str]] = mapped_column(MutableList.as_mutable(JSON), default=list)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=datetime.utcnow
     )
@@ -191,9 +192,9 @@ class WeeklySummary(Base):
         UUID(as_uuid=True), ForeignKey("users.id", ondelete="cascade"), nullable=False
     )
     week_start: Mapped[date] = mapped_column(Date, nullable=False)
-    themes: Mapped[list[str]] = mapped_column(ARRAY(String), default=list)
+    themes: Mapped[list[str]] = mapped_column(MutableList.as_mutable(JSON), default=list)
     highlights: Mapped[str] = mapped_column(Text)
-    action_items: Mapped[list[str]] = mapped_column(ARRAY(String), default=list)
+    action_items: Mapped[list[str]] = mapped_column(MutableList.as_mutable(JSON), default=list)
     risk_level: Mapped[str] = mapped_column(String(16), default="low")
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=datetime.utcnow
@@ -219,7 +220,7 @@ class ConversationMemory(Base):
     session_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("chat_sessions.id", ondelete="set null"), nullable=True
     )
-    keywords: Mapped[list[str]] = mapped_column(ARRAY(String), default=list)
+    keywords: Mapped[list[str]] = mapped_column(MutableList.as_mutable(JSON), default=list)
     summary: Mapped[str] = mapped_column(Text)
     last_message_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     created_at: Mapped[datetime] = mapped_column(

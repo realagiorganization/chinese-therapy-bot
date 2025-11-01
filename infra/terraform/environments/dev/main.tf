@@ -27,7 +27,7 @@ provider "azurerm" {
 }
 
 provider "aws" {
-  region     = var.aws_region
+  region = var.aws_region
 }
 
 locals {
@@ -129,7 +129,7 @@ resource "azurerm_monitor_action_group" "oncall" {
   }
 
   sms_receiver {
-    name        = "oncall-sms"
+    name         = "oncall-sms"
     country_code = var.oncall_country_code
     phone_number = var.oncall_phone
   }
@@ -137,17 +137,17 @@ resource "azurerm_monitor_action_group" "oncall" {
   tags = local.tags
 }
 
-resource "azurerm_dashboard" "observability" {
+resource "azurerm_portal_dashboard" "observability" {
   name                = "${local.name_prefix}-${var.environment}-observability"
   resource_group_name = azurerm_resource_group.core.name
   location            = azurerm_resource_group.core.location
   tags                = local.tags
 
   dashboard_properties = templatefile("${path.module}/templates/azure_dashboard.json.tftpl", {
-    workspace_id     = azurerm_log_analytics_workspace.core.id
-    workspace_guid   = azurerm_log_analytics_workspace.core.workspace_id
-    aks_resource_id  = azurerm_kubernetes_cluster.core.id
-    environment      = var.environment
+    workspace_id    = azurerm_log_analytics_workspace.core.id
+    workspace_guid  = azurerm_log_analytics_workspace.core.workspace_id
+    aks_resource_id = azurerm_kubernetes_cluster.core.id
+    environment     = var.environment
   })
 }
 
@@ -187,17 +187,16 @@ resource "azurerm_kubernetes_cluster" "core" {
   kubernetes_version  = var.aks_version
 
   default_node_pool {
-    name                = "system"
-    vm_size             = var.aks_system_vm_size
-    node_count          = var.aks_system_node_count
-    os_disk_size_gb     = 64
-    vnet_subnet_id      = azurerm_subnet.aks_system.id
+    name                 = "system"
+    vm_size              = var.aks_system_vm_size
+    node_count           = var.aks_system_node_count
+    os_disk_size_gb      = 64
+    vnet_subnet_id       = azurerm_subnet.aks_system.id
     orchestrator_version = var.aks_version
-    type                = "VirtualMachineScaleSets"
+    type                 = "VirtualMachineScaleSets"
     upgrade_settings {
       max_surge = var.aks_node_max_surge
     }
-    mode = "System"
   }
 
   identity {
@@ -217,15 +216,15 @@ resource "azurerm_kubernetes_cluster" "core" {
   }
 
   azure_active_directory_role_based_access_control {
-    managed               = true
+    managed                = true
     admin_group_object_ids = var.aks_admin_group_object_ids
-    azure_rbac_enabled    = true
+    azure_rbac_enabled     = true
   }
 
   oidc_issuer_enabled       = true
   workload_identity_enabled = true
 
-  sku_tier = "Paid"
+  sku_tier = "Standard"
 
   tags = local.tags
 }
@@ -245,8 +244,8 @@ resource "azurerm_kubernetes_cluster_node_pool" "workload" {
 }
 
 resource "azurerm_monitor_diagnostic_setting" "aks_logs" {
-  name               = "${local.name_prefix}-${var.environment}-aks-diag"
-  target_resource_id = azurerm_kubernetes_cluster.core.id
+  name                       = "${local.name_prefix}-${var.environment}-aks-diag"
+  target_resource_id         = azurerm_kubernetes_cluster.core.id
   log_analytics_workspace_id = azurerm_log_analytics_workspace.core.id
 
   enabled_log {
@@ -272,17 +271,17 @@ resource "random_password" "postgres_admin" {
 }
 
 resource "azurerm_postgresql_flexible_server" "core" {
-  name                   = local.postgres_name
-  location               = azurerm_resource_group.core.location
-  resource_group_name    = azurerm_resource_group.core.name
-  version                = var.postgres_version
-  delegated_subnet_id    = azurerm_subnet.postgres.id
-  sku_name               = var.postgres_sku_name
-  storage_mb             = var.postgres_storage_mb
-  backup_retention_days  = var.postgres_backup_retention_days
+  name                         = local.postgres_name
+  location                     = azurerm_resource_group.core.location
+  resource_group_name          = azurerm_resource_group.core.name
+  version                      = var.postgres_version
+  delegated_subnet_id          = azurerm_subnet.postgres.id
+  sku_name                     = var.postgres_sku_name
+  storage_mb                   = var.postgres_storage_mb
+  backup_retention_days        = var.postgres_backup_retention_days
   geo_redundant_backup_enabled = var.postgres_geo_redundant_backup_enabled
-  administrator_login    = var.postgres_admin_username
-  administrator_password = random_password.postgres_admin.result
+  administrator_login          = var.postgres_admin_username
+  administrator_password       = random_password.postgres_admin.result
 
   high_availability {
     mode = var.postgres_ha_mode
@@ -316,11 +315,11 @@ resource "azurerm_postgresql_flexible_server_database" "mindwell" {
 # ---------------------------
 
 resource "azurerm_key_vault" "core" {
-  name                = local.key_vault_name
-  location            = azurerm_resource_group.core.location
-  resource_group_name = azurerm_resource_group.core.name
-  tenant_id           = var.azure_tenant_id
-  sku_name            = "standard"
+  name                       = local.key_vault_name
+  location                   = azurerm_resource_group.core.location
+  resource_group_name        = azurerm_resource_group.core.name
+  tenant_id                  = var.azure_tenant_id
+  sku_name                   = "standard"
   soft_delete_retention_days = 14
   purge_protection_enabled   = true
 
@@ -405,7 +404,7 @@ resource "aws_iam_role_policy" "ci_runner_s3" {
 }
 
 resource "aws_s3_bucket" "conversation_logs" {
-  bucket = "${local.name_prefix}-${var.environment}-conversation-logs"
+  bucket        = "${local.name_prefix}-${var.environment}-conversation-logs"
   force_destroy = false
 
   tags = merge(local.tags, {
@@ -414,7 +413,7 @@ resource "aws_s3_bucket" "conversation_logs" {
 }
 
 resource "aws_s3_bucket" "summaries" {
-  bucket = "${local.name_prefix}-${var.environment}-summaries"
+  bucket        = "${local.name_prefix}-${var.environment}-summaries"
   force_destroy = false
 
   tags = merge(local.tags, {
@@ -423,7 +422,7 @@ resource "aws_s3_bucket" "summaries" {
 }
 
 resource "aws_s3_bucket" "media_assets" {
-  bucket = "${local.name_prefix}-${var.environment}-media"
+  bucket        = "${local.name_prefix}-${var.environment}-media"
   force_destroy = false
 
   tags = merge(local.tags, {

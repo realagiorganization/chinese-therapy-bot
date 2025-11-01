@@ -12,6 +12,7 @@ export type TherapistDirectoryState = {
   error?: Error | null;
   specialties: string[];
   languages: string[];
+  minPrice: number | null;
   maxPrice: number | null;
   setFilters: (updater: (prev: TherapistFilters) => TherapistFilters) => void;
   resetFilters: () => void;
@@ -21,6 +22,7 @@ const INITIAL_FILTERS: TherapistFilters = {
   specialty: undefined,
   language: undefined,
   recommendedOnly: false,
+  minPrice: undefined,
   maxPrice: undefined
 };
 
@@ -77,14 +79,24 @@ export function useTherapistDirectory(): TherapistDirectoryState {
     return Array.from(pool).sort();
   }, [therapists]);
 
-  const maxPrice = useMemo(() => {
+  const pricePoints = useMemo(() => {
     if (therapists.length === 0) {
       return null;
     }
-    return Math.max(...therapists.map((therapist) => therapist.price));
+    const prices = therapists.map((therapist) => therapist.price);
+    return {
+      min: Math.min(...prices),
+      max: Math.max(...prices)
+    };
   }, [therapists]);
 
+  const minPrice = pricePoints ? pricePoints.min : null;
+  const maxPrice = pricePoints ? pricePoints.max : null;
+
   const filtered = useMemo(() => {
+    if (therapists.length === 0) {
+      return [];
+    }
     return therapists.filter((therapist) => {
       if (filters.recommendedOnly && !therapist.recommended) {
         return false;
@@ -95,7 +107,10 @@ export function useTherapistDirectory(): TherapistDirectoryState {
       if (filters.language && !therapist.languages.includes(filters.language)) {
         return false;
       }
-      if (filters.maxPrice && therapist.price > filters.maxPrice) {
+      if (filters.minPrice !== undefined && therapist.price < filters.minPrice) {
+        return false;
+      }
+      if (filters.maxPrice !== undefined && therapist.price > filters.maxPrice) {
         return false;
       }
       return true;
@@ -119,6 +134,7 @@ export function useTherapistDirectory(): TherapistDirectoryState {
     error,
     specialties,
     languages,
+    minPrice,
     maxPrice,
     setFilters,
     resetFilters
