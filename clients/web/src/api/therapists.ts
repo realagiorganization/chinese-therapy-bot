@@ -1,4 +1,5 @@
 import type { TherapistSummary } from "./types";
+import { getApiBaseUrl } from "./client";
 
 export type TherapistListSource = "api" | "fallback";
 
@@ -6,8 +7,6 @@ export type TherapistListPayload = {
   therapists: TherapistSummary[];
   source: TherapistListSource;
 };
-
-const DEFAULT_BASE_URL = "http://localhost:8000";
 
 const FALLBACK_THERAPISTS: TherapistSummary[] = [
   {
@@ -42,16 +41,8 @@ const FALLBACK_THERAPISTS: TherapistSummary[] = [
   }
 ];
 
-function resolveBaseUrl(): string {
-  const envValue = import.meta.env?.VITE_API_BASE_URL as string | undefined;
-  if (!envValue || envValue.trim().length === 0) {
-    return DEFAULT_BASE_URL;
-  }
-  return envValue.replace(/\/$/, "");
-}
-
 async function requestTherapists(): Promise<TherapistSummary[]> {
-  const baseUrl = resolveBaseUrl();
+  const baseUrl = getApiBaseUrl();
   const endpoint = `${baseUrl}/api/therapists?locale=zh-CN`;
   const response = await fetch(endpoint, {
     headers: {

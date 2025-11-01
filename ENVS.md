@@ -1,45 +1,51 @@
 # Environment Configuration
 
+The backend reads configuration from environment variables via `AppSettings` (`services/backend/app/core/config.py`). Production deployments must supply the mandatory variables below; optional variables refine behaviour or enable integrations.
+
 ## Mandatory Variables
-- `APP_ENV`: Deployment environment identifier (`development`, `staging`, `production`) used for environment-specific toggles.
-- `API_HOST`: Interface the FastAPI service binds to (default `0.0.0.0`).
-- `API_PORT`: Port where the backend HTTP server listens (e.g., `8000`).
-- `CORS_ALLOW_ORIGINS`: Comma-separated list of origins allowed to access the API.
-- `DATABASE_URL`: Async SQLAlchemy/Postgres connection string storing users, therapists, sessions, and summaries.
-- `JWT_SECRET_KEY`: Symmetric signing key used to mint and validate JWT access tokens.
-- `AZURE_OPENAI_ENDPOINT`: HTTPS endpoint of the Azure OpenAI resource powering chatbot responses.
-- `AZURE_OPENAI_API_KEY`: API key granting access to the Azure OpenAI resource.
-- `AZURE_OPENAI_DEPLOYMENT`: Deployment name of the primary chat completion model on Azure.
-- `AZURE_OPENAI_API_VERSION`: Version string required for Azure OpenAI REST API requests.
-- `AWS_REGION`: Region identifier for AWS resources (S3, Bedrock fallback).
-- `S3_CONVERSATION_LOGS_BUCKET`: S3 bucket name used to store raw chat transcripts.
-- `S3_SUMMARIES_BUCKET`: S3 bucket used to store generated daily and weekly summaries.
-- `SMS_PROVIDER_API_KEY`: Credential for the SMS gateway used during login verification (set to a placeholder when using the console debug provider).
-- `GOOGLE_OAUTH_CLIENT_ID`: Client ID for Google OAuth login.
-- `GOOGLE_OAUTH_CLIENT_SECRET`: Client secret for Google OAuth login.
+- `APP_ENV`: Logical deployment name (`dev`, `staging`, `prod`) used in logging, metrics, and S3/Key Vault naming.
+- `DATABASE_URL`: Async SQLAlchemy connection string for the primary PostgreSQL database (e.g. `postgresql+asyncpg://user:pass@host:5432/db`).
+- `JWT_SECRET_KEY`: Symmetric signing key used to mint and validate JWT access/refresh tokens.
+- `AZURE_OPENAI_ENDPOINT`: HTTPS endpoint of the Azure OpenAI resource powering chat and summaries.
+- `AZURE_OPENAI_API_KEY`: API key providing access to the Azure OpenAI resource.
+- `AZURE_OPENAI_DEPLOYMENT`: Deployment name for the primary chat completion model (e.g. `gpt-4o-mini`).
+- `AZURE_OPENAI_EMBEDDINGS_DEPLOYMENT`: Deployment name for the embeddings model used by therapist recommendations.
+- `AWS_REGION`: AWS region where the S3 buckets and optional Bedrock fallback live (e.g. `ap-northeast-1`).
+- `S3_CONVERSATION_LOGS_BUCKET`: S3 bucket storing raw chat transcripts exported by the backend.
+- `S3_SUMMARIES_BUCKET`: S3 bucket storing generated daily/weekly conversation summaries.
+- `S3_BUCKET_THERAPISTS`: S3 bucket containing normalized therapist profile JSON used by the Data Sync agent.
+- `SMS_PROVIDER_API_KEY`: Credential for the SMS provider used to deliver OTP codes (use a sandbox token in non-prod).
+- `GOOGLE_OAUTH_CLIENT_ID`: OAuth client ID for Google sign-in flows.
+- `GOOGLE_OAUTH_CLIENT_SECRET`: OAuth client secret paired with `GOOGLE_OAUTH_CLIENT_ID`.
 
 ## Optional Variables
-- `APP_DEBUG`: Enables debug mode (auto-reload, verbose logging) when set to `true`.
-- `JWT_ALGORITHM`: JWT signing algorithm (defaults to `HS256`).
-- `ACCESS_TOKEN_TTL`: Access token lifetime in seconds (defaults to `3600`).
-- `REFRESH_TOKEN_TTL`: Refresh token lifetime in seconds (defaults to 30 days).
-- `OTP_EXPIRY_SECONDS`: Seconds before SMS login challenges expire (default `300`).
-- `OTP_ATTEMPT_LIMIT`: Maximum OTP verification attempts before lockout (default `5`).
-- `OPENAI_API_KEY`: Generic OpenAI key for local experimentation outside Azure.
-- `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY`: IAM credentials for Bedrock or S3 in environments without instance profiles.
+- `APP_NAME`: Overrides the default service name shown in health endpoints.
+- `APP_DEBUG`: Enables FastAPI debug/reload mode (`true`/`false`).
+- `API_HOST` / `API_PORT`: Bind address and port for the FastAPI server (defaults `0.0.0.0:8000`).
+- `CORS_ALLOW_ORIGINS`: Comma-separated list of allowed origins; defaults to `*` during early development.
+- `AZURE_OPENAI_API_VERSION`: API version for Azure OpenAI (defaults to `2024-02-15-preview` when omitted).
+- `OPENAI_API_KEY`: Fallback OpenAI API key for local testing when Azure OpenAI is unavailable.
+- `OPENAI_EMBEDDING_MODEL`: Model identifier when using OpenAI embeddings fallback (default `text-embedding-3-small`).
+- `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY`: Static AWS credentials for environments without role-based access.
 - `S3_CONVERSATION_LOGS_PREFIX`: Key prefix for transcript uploads (default `conversations/`).
-- `S3_BUCKET_THERAPISTS`: Bucket containing normalized therapist profile JSON files consumed by the admin import endpoint.
-- `S3_MEDIA_BUCKET`: Bucket for storing rich media assets (audio snippets, attachments).
-- `THERAPIST_DATA_S3_PREFIX`: Optional S3 key prefix for therapist data imports.
-- `BEDROCK_REGION`: AWS region hosting Bedrock fallback model inference.
-- `BEDROCK_MODEL_ID`: Identifier of the Bedrock model used when Azure OpenAI is unavailable.
-- `SMS_SENDER_ID`: Sender identifier registered with the SMS provider.
-- `GOOGLE_OAUTH_REDIRECT_URI`: Redirect URI registered with Google OAuth for web/mobile clients.
-- `TTS_SERVICE_API_KEY`: Credential for text-to-speech provider used in voice playback.
-- `ASR_SERVICE_API_KEY`: Credential for speech-to-text service supporting voice input.
-- `WECHAT_APP_ID`: Application ID for WeChat voice integration (if enabled).
-- `FEATURE_FLAGS`: JSON or comma-separated toggles enabling experimental functionality.
-- `AZURE_KEY_VAULT_NAME`: Name of the Azure Key Vault storing secrets when externalized.
-- `LOG_LEVEL`: Overrides default logging verbosity (`info`, `debug`, `warn`, `error`).
-- `AZURE_OPENAI_EMBEDDINGS_DEPLOYMENT`: Deployment identifier for the Azure OpenAI embeddings model powering the recommendation index.
-- `OPENAI_EMBEDDING_MODEL`: Model identifier to use when falling back to OpenAI embeddings (defaults to `text-embedding-3-small`).
+- `S3_MEDIA_BUCKET`: Optional bucket for audio attachments or rich media served to clients.
+- `THERAPIST_DATA_S3_PREFIX`: Overrides the default therapist data prefix (`therapists/`) during ingestion.
+- `BEDROCK_REGION`: AWS region hosting the Bedrock fallback model.
+- `BEDROCK_MODEL_ID`: Model identifier used when invoking AWS Bedrock as an LLM fallback.
+- `SMS_SENDER_ID`: Sender identifier registered with the SMS provider (defaults to provider-specific value when omitted).
+- `GOOGLE_OAUTH_REDIRECT_URI`: Redirect URI registered for web/mobile Google OAuth flows.
+- `TTS_SERVICE_API_KEY`: Credential for the text-to-speech provider powering voice playback.
+- `ASR_SERVICE_API_KEY`: Credential for server-side automatic speech recognition.
+- `WECHAT_APP_ID`: Application identifier enabling WeChat voice input integration.
+- `FEATURE_FLAGS`: JSON or comma-separated string defining default feature toggles at startup.
+- `JWT_ALGORITHM`: Signing algorithm for JWT tokens (default `HS256`).
+- `ACCESS_TOKEN_TTL`: Access token lifetime in seconds (default `3600`).
+- `REFRESH_TOKEN_TTL`: Refresh token lifetime in seconds (default 30 days).
+- `TOKEN_REFRESH_TTL`: Optional override for refresh token grace period on rotation.
+- `OTP_EXPIRY_SECONDS`: OTP validity window in seconds (default `300`).
+- `OTP_ATTEMPT_LIMIT`: Maximum OTP verification attempts before lockout (default `5`).
+
+### Notes
+- When Azure OpenAI variables are omitted, the orchestrator falls back to OpenAI (if configured) and deterministic heuristics for development environments.
+- Supplying `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` is unnecessary when running on infrastructure with an attached IAM role (AKS workload identity or EC2 instance profiles).
+- Secrets should be stored in Azure Key Vault and AWS Secrets Manager; automation agents hydrate environment variables at runtime using the associated CSI drivers or secret managers.

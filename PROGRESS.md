@@ -14,9 +14,18 @@
 
 ## Phase 2 – Platform & Infrastructure Setup
 - [ ] Provision Azure AKS cluster, configure node pools, and set up cluster networking. *(Terraform definitions in `infra/terraform/azure_*.tf`; apply pending.)*
+  - [ ] Configure remote Terraform state (Azure Storage/Key Vault) and document backend credentials.
+  - [ ] Run `terraform plan`/`apply` for the dev subscription and capture kubeconfig bootstrap steps for CI runners.
+  - [ ] Validate workload identity/OIDC by deploying a sample pod that fetches a Key Vault secret.
 - [ ] Configure AWS S3 buckets for conversation logs, summaries, and media assets with appropriate IAM roles. *(Buckets + IAM role codified in `infra/terraform/aws_storage.tf`.)*
+  - [ ] Execute Terraform against the target AWS account and capture bucket ARNs plus IAM outputs.
+  - [ ] Script CI Runner Agent role assumption (federated login) and document temporary credential retrieval.
+  - [ ] Define lifecycle rules/prefix conventions for transcripts, summaries, and therapist media ingestion.
 - [x] Set up managed database (Azure Postgres or AWS RDS) with schemas for users, therapists, sessions, and reports. *(Azure Flexible Server defined with private networking in `infra/terraform/azure_postgres.tf`; Alembic migrations under `services/backend/alembic/` bootstrap the schema.)*
-- [ ] Implement secret management (Azure Key Vault + AWS Secrets Manager) and IaC templates (Terraform/Bicep). *(Key Vault and Secrets Manager placeholders authored in `infra/terraform/azure_keyvault.tf` & `secrets.tf`.)*
+- [x] Implement secret management (Azure Key Vault + AWS Secrets Manager) and IaC templates (Terraform/Bicep). *(Terraform seeds connection secrets/role assignments in `infra/terraform/azure_keyvault.tf`, rotation SOP in `docs/phase2_secret_management.md`, and backend manifests under `infra/kubernetes/backend/` mount secrets via CSI driver.)*
+  - [x] Finalize Terraform outputs/permissions for AKS CSI driver + GitHub OIDC identities.
+  - [x] Define secret rotation SOPs and automation hooks for LLM/API credentials.
+  - [x] Integrate backend deployment manifests with secret references (Helm/manifest overlays).
 - [x] Configure observability stack (logging, metrics, alerts) and cost monitoring dashboards. *(App Insights, AKS CPU + error alerts, Azure Portal dashboard, and cost budget alerts codified in `infra/terraform/observability.tf`.)*
 
 ## Phase 3 – Backend Services
@@ -36,13 +45,31 @@
 
 ## Phase 4 – Frontend & Mobile Clients
 - [ ] Set up shared design system and localization framework (Chinese-first).
+  - [ ] Publish reusable component tokens (buttons, typography, colors) for web and mobile parity.
+  - [ ] Expand locale bundle management and fallback strategy (zh-CN primary, en-US secondary, zh-TW placeholder).
+  - [ ] Document theming usage guidelines for React web/Native clients.
 - [ ] Implement chatbot screen with streaming UI, voice input (local + server ASR), and TTS playback controls.
+  - [ ] Build web chat hook handling SSE turn streaming with graceful JSON fallback.
+  - [ ] Surface therapist recommendations and memory highlights inline with the transcript.
+  - [ ] Wire Web Speech API voice capture and speech synthesis toggles with server ASR handoff hooks.
 - [ ] Build therapist overview/detail pages with filters and recommendation badges.
+  - [ ] Port therapist cards to shared design system tokens and integrate live API filters.
+  - [ ] Surface recommendation rationales/badges sourced from backend embeddings.
 - [ ] Create Journey page showing 10-day daily reports and 10-week weekly reports with drill-down tabs.
+  - [ ] Implement daily/weekly list components backed by reports API.
+  - [ ] Design detail view with tabbed transcript versus highlights presentation.
 - [ ] Prototype Explore page content modules and personalization hooks.
+  - [ ] Define placeholder content blocks (breathing exercises, psychoeducation, trending topics).
+  - [ ] Connect modules to feature flag service for staged rollouts.
 - [ ] Implement account onboarding/login flows (SMS, Google).
+  - [ ] Build OTP request/verification UI tied into backend throttling.
+  - [ ] Add Google OAuth web flow and token exchange using the stub client.
 - [ ] Ensure iOS optimization (gesture handling, offline caching, push notifications).
+  - [ ] Validate React Native/Expo builds against Apple HIG-aligned interactions.
+  - [ ] Add offline transcript caching and push notification scaffolding.
 - [ ] Ensure Android optimization (voice integration parity, performance, compatibility).
+  - [ ] Ensure voice input parity using Android speech APIs.
+  - [ ] Profile startup/performance on mid-range devices and tune asset sizes.
 
 ## Phase 5 – Intelligent Agent Features
 - [x] Implement conversation memory service with keyword filtering and summarization store. *(see `services/backend/app/services/memory.py` & `/api/memory/{userId}`)*
@@ -52,18 +79,34 @@
 
 ## Phase 6 – Quality Assurance & Compliance
 - [ ] Create automated testing suites (unit, integration, end-to-end) and load testing scenarios.
+  - [x] Expand backend coverage (auth edge cases, streaming chat, S3 persistence). *(new pytest suites under `services/backend/tests/` cover AuthService OTP limits, ChatService streaming flow, and S3 transcript/summary storage stubs.)*
+- [x] Add frontend unit/component tests for chat, therapist flows, and localization. *(Vitest suites in `clients/web/src/App.test.tsx`, `clients/web/src/hooks/__tests__/useTherapistDirectory.test.tsx`, and `clients/web/src/api/therapists.test.ts` validate locale switching, therapist filtering, and API fallback logic.)*
+  - [ ] Author k6 or Locust load suites for LLM-backed chat throughput.
 - [ ] Conduct security review (OWASP ASVS, data encryption, privacy compliance).
+  - [ ] Perform threat modeling, dependency scanning, and secret scanning in CI.
+  - [ ] Validate encryption in transit/at rest across Azure and AWS resources.
 - [ ] Implement data governance workflows for PII management and retention.
+  - [ ] Define retention schedules, anonymization routines, and SAR handling.
+  - [ ] Automate cleanup of transcripts/summaries per compliance requirements.
 - [ ] Run user acceptance testing with pilot users and collect feedback for iteration.
+  - [ ] Recruit pilot cohort, capture structured feedback, and prioritize iteration backlog.
 
 ## Phase 7 – Deployment & Operations
 - [ ] Finalize CI/CD pipelines for backend, frontend, and mobile releases.
+  - [ ] Extend GitHub Actions to lint/build/deploy web and mobile clients.
+  - [ ] Integrate Terraform apply stages with manual approval gates.
 - [ ] Prepare release management process for App Store/TestFlight and Android beta.
+  - [ ] Document release branching, semantic versioning, and store metadata checklists.
 - [ ] Establish customer support workflows and incident response playbooks.
+  - [ ] Define escalation matrix, paging channels, and runbook templates.
 - [ ] Monitor production metrics post-launch and iterate based on telemetry.
+  - [ ] Instrument product analytics (journey engagement, conversion funnels) and feed into growth roadmap.
 
 ## Phase 8 – Documentation & Launch Readiness
 - [ ] Complete ENVS.md with environment variable definitions and secure handling notes.
+  - [ ] Classify environment variables by mandatory/optional and source-of-truth (Terraform, Key Vault, Secrets Manager).
+  - [ ] Document rotation owners and automation hooks for sensitive credentials.
 - [ ] Update README.md with setup instructions, architecture overview, and usage guide.
+  - [ ] Add frontend/mobile setup instructions and illustrative screenshots once available.
 - [ ] Prepare investor/partner summary collateral (optional DOCX/PDF).
 - [ ] Maintain DEV_PLAN and PROGRESS updates as milestones are achieved.

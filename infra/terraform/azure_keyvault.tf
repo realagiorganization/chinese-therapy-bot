@@ -28,3 +28,25 @@ resource "azurerm_key_vault_secret" "postgres_admin_password" {
     description = "Initial PostgreSQL flexible server administrator password."
   }
 }
+
+resource "azurerm_key_vault_secret" "postgres_connection_url" {
+  name         = coalesce(var.postgres_connection_secret_name, "database-url")
+  value        = "postgresql://${var.postgres_admin_username}:${random_password.postgres_admin.result}@${azurerm_postgresql_flexible_server.main.fqdn}:5432/mindwell_app?sslmode=require"
+  key_vault_id = azurerm_key_vault.main.id
+
+  tags = {
+    description = "MindWell application connection string for Azure PostgreSQL Flexible Server."
+  }
+}
+
+resource "azurerm_role_assignment" "key_vault_secrets_user_kubelet" {
+  scope                = azurerm_key_vault.main.id
+  role_definition_name = "Key Vault Secrets User"
+  principal_id         = azurerm_kubernetes_cluster.main.kubelet_identity[0].object_id
+}
+
+resource "azurerm_role_assignment" "key_vault_secrets_user_control_plane" {
+  scope                = azurerm_key_vault.main.id
+  role_definition_name = "Key Vault Secrets User"
+  principal_id         = azurerm_kubernetes_cluster.main.identity[0].principal_id
+}

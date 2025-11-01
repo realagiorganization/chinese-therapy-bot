@@ -13,6 +13,21 @@ output "aks_api_server_url" {
   value       = azurerm_kubernetes_cluster.main.kube_config[0].host
 }
 
+output "aks_managed_identity_principal_id" {
+  description = "Principal ID of the AKS cluster managed identity (used for workload identity integrations)."
+  value       = azurerm_kubernetes_cluster.main.identity[0].principal_id
+}
+
+output "aks_managed_identity_client_id" {
+  description = "Client ID of the AKS cluster managed identity for GitHub OIDC federation."
+  value       = azurerm_kubernetes_cluster.main.identity[0].client_id
+}
+
+output "aks_kubelet_identity_object_id" {
+  description = "Object ID of the AKS kubelet identity (nodes) granted access to Key Vault secrets."
+  value       = azurerm_kubernetes_cluster.main.kubelet_identity[0].object_id
+}
+
 output "postgres_server_fqdn" {
   description = "Fully qualified domain name of the PostgreSQL flexible server."
   value       = azurerm_postgresql_flexible_server.main.fqdn

@@ -17,7 +17,27 @@
     "mood_trend": "Mood trend",
     "weekly_report": "This week’s summary",
     "insight_spotlight": "Insight spotlight",
-    "next_steps": "Next steps"
+    "next_steps": "Next steps",
+    "section_title": "Journey reports",
+    "fallback_notice": "Showing illustrative insights while we sync your data.",
+    "daily_reports": "Daily reports",
+    "weekly_reports": "Weekly summaries",
+    "loading": "Loading your journey insights…",
+    "empty": "No summaries yet—keep engaging with MindWell to unlock insights.",
+    "mood_up": "Mood up {{value}}",
+    "mood_down": "Mood down {{value}}",
+    "mood_flat": "Mood steady",
+    "tab_summary": "Summary",
+    "tab_conversation": "Chat transcript",
+    "conversation_empty": "No transcript captured for this day yet.",
+    "conversation_started": "Session started at {{timestamp}}",
+    "role_assistant": "MindWell",
+    "role_user": "You",
+    "themes": "Focus themes",
+    "action_items": "Action items",
+    "risk_level": "Risk level: {{level}}",
+    "export_pdf": "Export PDF",
+    "share_with_therapist": "Share with therapist"
   },
   "therapists": {
     "availability": "Available slots",
@@ -43,5 +63,27 @@
   "locale": {
     "zh": "简体中文",
     "en": "English"
+  },
+  "chat": {
+    "title": "Therapy Companion",
+    "subtitle": "Share what’s on your mind—MindWell replies in Mandarin with actionable care.",
+    "reset": "Start new session",
+    "cancel_stream": "Stop response",
+    "empty_state": "Say hello or speak about today’s emotions to begin the session.",
+    "generating": "MindWell is reflecting…",
+    "streaming": "Responding…",
+    "error_prefix": "We hit a snag:",
+    "dismiss": "Dismiss",
+    "input_placeholder": "Describe how you’re feeling. Press Enter to send, Shift+Enter for a new line.",
+    "send": "Send",
+    "sending": "Sending…",
+    "start_voice": "Voice input",
+    "stop_voice": "Stop voice input",
+    "auto_speak_enable": "Enable auto playback",
+    "auto_speak_disable": "Disable auto playback",
+    "speak_reply": "Speak last reply",
+    "memory_highlights": "Recent focus areas",
+    "recommendations": "Therapist suggestions",
+    "keywords": "Keywords: {{keywords}}"
   }
 }

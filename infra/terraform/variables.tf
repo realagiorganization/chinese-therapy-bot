@@ -121,6 +121,12 @@ variable "postgres_admin_password_secret_name" {
   default     = "postgres-admin-password"
 }
 
+variable "postgres_connection_secret_name" {
+  description = "Azure Key Vault secret name storing the database connection string."
+  type        = string
+  default     = null
+}
+
 variable "aws_account_id" {
   description = "AWS account identifier for IAM role trust relationships."
   type        = string

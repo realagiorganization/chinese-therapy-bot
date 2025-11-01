@@ -17,7 +17,27 @@
     "mood_trend": "情绪趋势",
     "weekly_report": "本周总结",
     "insight_spotlight": "焦点洞察",
-    "next_steps": "建议下一步"
+    "next_steps": "建议下一步",
+    "section_title": "旅程报告",
+    "fallback_notice": "当前展示示例数据，真实报告生成后将自动替换。",
+    "daily_reports": "每日摘要",
+    "weekly_reports": "每周总结",
+    "loading": "正在整理旅程报告…",
+    "empty": "暂时没有可展示的摘要，继续与 MindWell 对话即可生成洞察。",
+    "mood_up": "情绪提升 {{value}}",
+    "mood_down": "情绪下降 {{value}}",
+    "mood_flat": "情绪保持稳定",
+    "tab_summary": "摘要",
+    "tab_conversation": "聊天记录",
+    "conversation_empty": "当日暂无聊天片段。",
+    "conversation_started": "会话开始于 {{timestamp}}",
+    "role_assistant": "MindWell",
+    "role_user": "我",
+    "themes": "重点主题",
+    "action_items": "建议行动",
+    "risk_level": "风险级别：{{level}}",
+    "export_pdf": "导出 PDF",
+    "share_with_therapist": "分享给治疗师"
   },
   "therapists": {
     "availability": "可约时间",
@@ -43,5 +63,27 @@
   "locale": {
     "zh": "简体中文",
     "en": "English"
+  },
+  "chat": {
+    "title": "疗愈陪伴对话",
+    "subtitle": "随时倾诉当下的情绪或事件，MindWell 会用中文给出温柔的下一步建议。",
+    "reset": "开始新会话",
+    "cancel_stream": "停止生成",
+    "empty_state": "准备好时就和我聊聊今天的心情，也可以直接语音输入。",
+    "generating": "MindWell 正在思考…",
+    "streaming": "正在回复…",
+    "error_prefix": "出现一点小问题：",
+    "dismiss": "关闭提示",
+    "input_placeholder": "此刻最想分享的心情或事件是什么？按 Enter 发送，Shift+Enter 换行。",
+    "send": "发送",
+    "sending": "发送中…",
+    "start_voice": "语音输入",
+    "stop_voice": "停止语音",
+    "auto_speak_enable": "开启语音播报",
+    "auto_speak_disable": "关闭语音播报",
+    "speak_reply": "播报上一条回复",
+    "memory_highlights": "近期关注重点",
+    "recommendations": "适配的治疗师",
+    "keywords": "关键词：{{keywords}}"
   }
 }

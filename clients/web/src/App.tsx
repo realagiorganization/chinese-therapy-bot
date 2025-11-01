@@ -2,7 +2,9 @@ import { useTranslation } from "react-i18next";
 
 import { Button, Card, Typography } from "./design-system";
 import { LocaleSwitcher } from "./components/LocaleSwitcher";
+import { ChatPanel } from "./components/ChatPanel";
 import { useTherapistDirectory } from "./hooks/useTherapistDirectory";
+import { JourneyDashboard } from "./components/JourneyDashboard";
 
 type HighlightCard = {
   id: string;
@@ -12,7 +14,7 @@ type HighlightCard = {
 };
 
 export default function App() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const {
     filtered,
     filters,
@@ -107,6 +109,10 @@ export default function App() {
             </Button>
           </div>
         </Card>
+
+        <ChatPanel />
+
+        <JourneyDashboard locale={i18n.language} />
 
         <section
           style={{

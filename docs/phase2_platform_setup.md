@@ -18,7 +18,7 @@ This document records the baseline infrastructure design for Phase 2 of the Mind
 
 ## 3. IAM & Access Control
 - **CI Runner Role** – IAM role granting scoped read/write to S3 buckets for CI/CD, automation agents, and cross-cloud sync jobs.
-- **Key Vault Policies** – Admin object ID granted full control; AKS kubelet identity granted `Get` for pulling secrets through CSI driver.
+- **Key Vault Policies** – Admin object ID granted full control; AKS kubelet identity and cluster managed identity both receive `Key Vault Secrets User` for CSI driver and GitHub OIDC workloads (see Terraform outputs for IDs).
 - **Network ACLs** – Key Vault restricted to explicit IP ranges. S3 buckets block public access (media bucket allows object-level ACLs for shareable assets).
 
 ## 4. Observability & Cost Guardrails
@@ -43,5 +43,6 @@ This document records the baseline infrastructure design for Phase 2 of the Mind
 ## 7. Terraform Implementation Snapshot
 - **Source:** `infra/terraform/`
 - **Key Files:** `azure_core.tf`, `azure_aks.tf`, `azure_postgres.tf`, `azure_keyvault.tf`, `aws_storage.tf`, `observability.tf`, `secrets.tf`.
+- **Runtime Manifests:** `infra/kubernetes/backend/` hosts the base Kustomize overlay that mounts Key Vault secrets via the CSI driver and annotates the backend service account for workload identity.
 - **Highlights:** AKS workload identity enabled; PostgreSQL admin password seeded to Key Vault; three S3 buckets with encryption/versioning; CI Runner Agent IAM role; App Insights + AKS CPU & error alerts; Azure Portal dashboard and cost budget notifications.
 - **Next Steps:** Wire Terraform remote state, add database migration module, and extend monitoring dashboards (Grafana/Workbook) once application metrics are defined.
