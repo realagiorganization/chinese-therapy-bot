@@ -28,18 +28,6 @@ variable "aws_region" {
   type        = string
 }
 
-variable "aws_access_key" {
-  description = "AWS access key for provisioning when not using federated auth."
-  type        = string
-  sensitive   = true
-}
-
-variable "aws_secret_key" {
-  description = "AWS secret key for provisioning when not using federated auth."
-  type        = string
-  sensitive   = true
-}
-
 variable "default_tags" {
   description = "Common resource tags."
   type        = map(string)

@@ -17,14 +17,20 @@
 - [x] Finalize conversation history schema and retention policy (real-time logs, daily snapshots, weekly summaries). *(see `docs/phase1_product_design.md`)*
 - [x] Define UX wireframes for chatbot, therapist showcase, Journey reports, and Explore page. *(see `docs/phase1_product_design.md`)*
 
+## Cost & Resource Planning
+- [x] Produce detailed Azure/AWS monthly cost breakdown (compute, database, storage, bandwidth) based on Terraform sizing assumptions. *(see `docs/cost_controls.md`)*
+- [x] Model Azure OpenAI, Bedrock fallback, and OpenAI usage costs for testing vs. production workloads. *(token forecasts & provider mix captured in `docs/cost_controls.md`)*
+- [x] Document Claude Code Mirror licensing plan and budget owner. *(documented in `docs/cost_controls.md`)*
+- [x] Publish budget guardrails and alert thresholds for Finance/Monitoring teams in `docs/cost_controls.md`.
+
 ## Phase 2 – Platform & Infrastructure Setup
 - [ ] Provision Azure AKS cluster, configure node pools, and set up cluster networking. *(Terraform definitions in `infra/terraform/azure_*.tf`; apply pending.)*
   - [x] Configure remote Terraform state (Azure Storage/Key Vault) and document backend credentials.
-  - [ ] Run `terraform plan`/`apply` for the dev subscription and capture kubeconfig bootstrap steps for CI runners.
-  - [ ] Validate workload identity/OIDC by deploying a sample pod that fetches a Key Vault secret.
+  - [ ] Run `terraform plan`/`apply` for the dev subscription and capture kubeconfig bootstrap steps for CI runners. *(Helper script `infra/scripts/run_terraform_plan.sh`, kubeconfig bootstrap script, and GitHub workflow `.github/workflows/infra-plan.yml` now available; awaiting secret configuration and first execution.)*
+  - [ ] Validate workload identity/OIDC by deploying a sample pod that fetches a Key Vault secret. *(Validation job scaffolded in `infra/kubernetes/samples/workload-identity-validation.yaml` and documented in `infra/kubernetes/samples/README.md`; run once AKS is provisioned.)*
 - [ ] Configure AWS S3 buckets for conversation logs, summaries, and media assets with appropriate IAM roles. *(Buckets + IAM role codified in `infra/terraform/aws_storage.tf`.)*
   - [ ] Execute Terraform against the target AWS account and capture bucket ARNs plus IAM outputs.
-  - [ ] Script CI Runner Agent role assumption (federated login) and document temporary credential retrieval.
+  - [x] Script CI Runner Agent role assumption (federated login) and document temporary credential retrieval. *(see `infra/scripts/assume_ci_role.sh` + guide `docs/ci_runner_agent.md`)*
   - [x] Define lifecycle rules/prefix conventions for transcripts, summaries, and therapist media ingestion.
 - [x] Set up managed database (Azure Postgres or AWS RDS) with schemas for users, therapists, sessions, and reports. *(Azure Flexible Server defined with private networking in `infra/terraform/azure_postgres.tf`; Alembic migrations under `services/backend/alembic/` bootstrap the schema.)*
 - [x] Implement secret management (Azure Key Vault + AWS Secrets Manager) and IaC templates (Terraform/Bicep). *(Terraform seeds connection secrets/role assignments in `infra/terraform/azure_keyvault.tf`, rotation SOP in `docs/phase2_secret_management.md`, and backend manifests under `infra/kubernetes/backend/` mount secrets via CSI driver.)*
@@ -67,9 +73,9 @@
 - [x] Prototype Explore page content modules and personalization hooks.
   - [x] Define placeholder content blocks (breathing exercises, psychoeducation, trending topics).
   - [x] Connect modules to feature flag service for staged rollouts.
-- [ ] Implement account onboarding/login flows (SMS, Google).
-  - [ ] Build OTP request/verification UI tied into backend throttling.
-  - [ ] Add Google OAuth web flow and token exchange using the stub client.
+- [x] Implement account onboarding/login flows (SMS, Google).
+  - [x] Build OTP request/verification UI tied into backend throttling.
+  - [x] Add Google OAuth web flow and token exchange using the stub client.
 - [ ] Ensure iOS optimization (gesture handling, offline caching, push notifications).
   - [ ] Validate React Native/Expo builds against Apple HIG-aligned interactions.
   - [ ] Add offline transcript caching and push notification scaffolding.
@@ -92,8 +98,8 @@
   - [x] Perform threat modeling, dependency scanning, and secret scanning in CI. *(Threat model documented in `docs/threat_model.md` and security checks enforced via `.github/workflows/ci.yml` + `.gitleaks.toml`.)*
   - [ ] Validate encryption in transit/at rest across Azure and AWS resources.
 - [ ] Implement data governance workflows for PII management and retention.
-  - [ ] Define retention schedules, anonymization routines, and SAR handling.
-  - [ ] Automate cleanup of transcripts/summaries per compliance requirements.
+  - [x] Define retention schedules, anonymization routines, and SAR handling. *(documented in `docs/data_governance.md`)*
+  - [x] Automate cleanup of transcripts/summaries per compliance requirements. *(Automated via `mindwell-retention-cleanup` agent in `services/backend/app/agents/retention_cleanup.py` with retention coverage documented in `docs/data_governance.md`.)*
 - [ ] Run user acceptance testing with pilot users and collect feedback for iteration.
   - [ ] Recruit pilot cohort, capture structured feedback, and prioritize iteration backlog.
 
@@ -109,9 +115,9 @@
   - [ ] Instrument product analytics (journey engagement, conversion funnels) and feed into growth roadmap.
 
 ## Phase 8 – Documentation & Launch Readiness
-- [ ] Complete ENVS.md with environment variable definitions and secure handling notes.
-  - [ ] Classify environment variables by mandatory/optional and source-of-truth (Terraform, Key Vault, Secrets Manager).
-  - [ ] Document rotation owners and automation hooks for sensitive credentials.
+- [x] Complete ENVS.md with environment variable definitions and secure handling notes. *(adds source-of-truth matrix + automation references)*
+  - [x] Classify environment variables by mandatory/optional and source-of-truth (Terraform, Key Vault, Secrets Manager). *(see ENVS.md §“Source of Truth & Rotation Overview”)*
+  - [x] Document rotation owners and automation hooks for sensitive credentials. *(captured in ENVS.md matrix + `scripts/dump-env-matrix.py`)*
 - [ ] Update README.md with setup instructions, architecture overview, and usage guide.
   - [ ] Add frontend/mobile setup instructions and illustrative screenshots once available.
 - [ ] Prepare investor/partner summary collateral (optional DOCX/PDF).

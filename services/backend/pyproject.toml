@@ -35,6 +35,7 @@ dev = [
 mindwell-api = "app.main:run"
 mindwell-summary-scheduler = "app.agents.summary_scheduler:main"
 mindwell-data-sync = "app.agents.data_sync:main"
+mindwell-retention-cleanup = "app.agents.retention_cleanup:main"
 
 [build-system]
 requires = ["setuptools>=61", "wheel"]

@@ -13,6 +13,8 @@ These notes capture evidence that the completed checklist items in `PROGRESS.md`
 - Remote Terraform state backend is configured via `infra/terraform/backend.hcl.example:1-27`.
 - Key Vault secrets management and CSI integration are implemented in `infra/terraform/azure_keyvault.tf:1-52` and described in `docs/phase2_secret_management.md:1-57`.
 - Observability stack and cost guardrails are modeled in `infra/terraform/observability.tf:1-150`.
+- GitHub Actions workflow `.github/workflows/infra-plan.yml` and helper script `infra/scripts/run_terraform_plan.sh` generate repeatable Terraform plans, while `infra/scripts/bootstrap_kubeconfig.sh` documents kubeconfig retrieval.
+- Workload identity validation manifest resides at `infra/kubernetes/samples/workload-identity-validation.yaml`, enabling the pending checklist item to be executed once AKS is live.
 
 ## Phase 3 – Backend Services
 - FastAPI services, router wiring, and modular architecture live under `services/backend/app/api/router.py:1-120`.
@@ -20,17 +22,24 @@ These notes capture evidence that the completed checklist items in `PROGRESS.md`
 - S3 transcript and summary storage integrations reside in `services/backend/app/integrations/storage.py:1-179`.
 - Therapist recommendation engine with embeddings and heuristics is in `services/backend/app/services/recommendations.py:1-180`.
 - Conversation memory service with keyword filtering and summarization is defined in `services/backend/app/services/memory.py:1-200`.
+- Google OAuth stub, OTP throttling, and token rotation support are codified across `services/backend/app/services/auth.py:1-220` and `app/api/routes/auth.py:1-160`, aligning with the Phase 3 identity management checklist.
 
 ## Phase 4 – Frontend Experience
 - React web client with localization, journey reports, and therapist flows has supporting tests in `clients/web/src/App.test.tsx:1-131`.
+- Streaming chat UI with Web Speech input, server ASR fallback, and speech synthesis toggles is implemented in `clients/web/src/components/ChatPanel.tsx:1-280` and `clients/web/src/hooks/useChatSession.ts:1-260`, satisfying the voice interaction deliverables.
+- Therapist directory filtering, recommendations, and design-system adoption are provided in `clients/web/src/components/TherapistDirectory.tsx:1-220` and `clients/web/src/hooks/useTherapistDirectory.ts:1-200`.
 
 ## Phase 5 – Intelligent Agent Features
 - Summary scheduler agent implementation exists at `services/backend/app/agents/summary_scheduler.py:1-120`.
 - Summary generation pipeline with daily and weekly workflows is covered by `services/backend/app/services/summaries.py:1-200`.
 
+## Cost & Resource Planning
+- Infrastructure, LLM, and tooling budgets with alert guardrails are documented in `docs/cost_controls.md:1-176`, supporting the completed checklist items.
+
 ## Phase 6 – Quality Assurance
 - Backend unit tests for chat streaming and transcript persistence reside in `services/backend/tests/test_chat_service.py:1-165`, demonstrating coverage of the documented behaviors.
 - Load testing scaffolding is present in `services/backend/loadtests/locustfile.py:1-160`.
+- Data retention automation implemented via `services/backend/app/agents/retention_cleanup.py:1-260` with coverage in `tests/test_retention_cleanup_agent.py:1-150`, matching the compliance automation checklist.
 
 ## Outstanding Areas
 - Tasks still unchecked in `PROGRESS.md` (e.g., Terraform apply execution, security review actions, data governance runbooks) remain pending and are not evidenced in the repository.

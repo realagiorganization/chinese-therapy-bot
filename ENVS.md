@@ -3,6 +3,7 @@
 The backend reads configuration from environment variables via `AppSettings` (`services/backend/app/core/config.py`). Production deployments must supply the mandatory variables below; optional variables refine behaviour or enable integrations.
 
 ## Mandatory Variables
+### Backend Services
 - `APP_ENV`: Logical deployment name (`dev`, `staging`, `prod`) used in logging, metrics, and S3/Key Vault naming.
 - `DATABASE_URL`: Async SQLAlchemy connection string for the primary PostgreSQL database (e.g. `postgresql+asyncpg://user:pass@host:5432/db`).
 - `JWT_SECRET_KEY`: Symmetric signing key used to mint and validate JWT access/refresh tokens.
@@ -18,7 +19,15 @@ The backend reads configuration from environment variables via `AppSettings` (`s
 - `GOOGLE_OAUTH_CLIENT_ID`: OAuth client ID for Google sign-in flows.
 - `GOOGLE_OAUTH_CLIENT_SECRET`: OAuth client secret paired with `GOOGLE_OAUTH_CLIENT_ID`.
 
+### Frontend Web Client
+- `VITE_API_BASE_URL`: Fully qualified base URL of the deployed backend (e.g. `https://api.mindwell.cn`). Defaults to `http://localhost:8000` for local development but must be set for production builds.
+
+### Mobile (React Native) Clients
+- `EXPO_PUBLIC_API_BASE_URL`: Mirrors `VITE_API_BASE_URL` for Expo builds; injected via Expo config plugin.
+- `EXPO_PUBLIC_SPEECH_REGION`: Region hint for speech features (populated from Key Vault during build automation).
+
 ## Optional Variables
+### Backend Services
 - `APP_NAME`: Overrides the default service name shown in health endpoints.
 - `APP_DEBUG`: Enables FastAPI debug/reload mode (`true`/`false`).
 - `API_HOST` / `API_PORT`: Bind address and port for the FastAPI server (defaults `0.0.0.0:8000`).
@@ -52,3 +61,34 @@ The backend reads configuration from environment variables via `AppSettings` (`s
 - When Azure OpenAI variables are omitted, the orchestrator falls back to OpenAI (if configured) and deterministic heuristics for development environments.
 - Supplying `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` is unnecessary when running on infrastructure with an attached IAM role (AKS workload identity or EC2 instance profiles).
 - Secrets should be stored in Azure Key Vault and AWS Secrets Manager; automation agents hydrate environment variables at runtime using the associated CSI drivers or secret managers.
+
+## Source of Truth & Rotation Overview
+The table below captures the authoritative location, owning team, and rotation cadence for high-sensitivity configuration. Environment-specific manifests live under `infra/environments/`; secrets are never committed to the repository.
+
+| Variable | Required Environments | Source of Truth | Rotation Owner | Rotation Cadence | Automation Hooks |
+| --- | --- | --- | --- | --- | --- |
+| `JWT_SECRET_KEY` | dev / staging / prod | Azure Key Vault `kv-mindwell-<env>` secret `jwt-secret-key` | Platform Engineering | Semi-annual or after security incident | Rotated via GitHub Actions workflow `rotate-jwt-secret.yml` invoking Key Vault + Secrets Manager replication |
+| `DATABASE_URL` | dev / staging / prod | Azure Key Vault `kv-mindwell-<env>` secret `postgres-connection-string` | Data Platform | After credential rotation (quarterly) | Terraform outputs feed Azure DevOps pipeline that updates Key Vault and issues Postgres credential rotation using `az postgres flexible-server` |
+| `AZURE_OPENAI_API_KEY` | staging / prod | Azure Key Vault secret `azure-openai-api-key` | Applied AI Team | 90 days | Summary Scheduler Agent listens to rotation event grid topic and refreshes cache |
+| `AZURE_OPENAI_DEPLOYMENT` | staging / prod | Terraform variable `azure_openai_deployment` | Applied AI Team | On model upgrade | Terraform plan gate requires AI signoff |
+| `AZURE_OPENAI_EMBEDDINGS_DEPLOYMENT` | staging / prod | Terraform variable `azure_openai_embeddings_deployment` | Applied AI Team | On embeddings upgrade | Same approval process as primary deployment |
+| `S3_CONVERSATION_LOGS_BUCKET` | all | Terraform output `conversation_logs_bucket` (AWS account) | Platform Engineering | N/A (infrastructure identifier) | Lifecycle and bucket policies managed by Terraform; Monitoring Agent verifies encryption flag nightly |
+| `S3_SUMMARIES_BUCKET` | all | Terraform output `summaries_bucket` | Platform Engineering | N/A | Daily summary job checks bucket existence before upload |
+| `S3_BUCKET_THERAPISTS` | all | Terraform output `therapists_bucket` | Data Ops | N/A | Data Sync Agent uploads to prefixed folders per locale |
+| `SMS_PROVIDER_API_KEY` | staging / prod | AWS Secrets Manager `mindwell/sms-provider` | Growth Engineering | 60 days per vendor SLA | GitHub Actions workflow fetches secret during deployment and injects into AKS secret |
+| `GOOGLE_OAUTH_CLIENT_SECRET` | staging / prod | 1Password vault `MindWell OAuth` + Azure Key Vault replica | Mobile Team | 180 days / on incident | Rotation runbook `docs/security/oauth_rotation.md` issues new secret, updates Firebase + Key Vault |
+| `AZURE_SPEECH_KEY` | staging / prod | Azure Key Vault secret `azure-speech-key` | Voice Experience | 90 days | Monitoring Agent alarms if key age > 100 days |
+| `BEDROCK_MODEL_ID` | dev / staging / prod | Terraform variable `bedrock_model_id` | Platform Engineering | On fallback provider change | Terraform apply triggered by infra release pipeline |
+| `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` | dev (local only) | `.env.local` generated via `scripts/bootstrap-local-env.sh` | Platform Engineering | As needed when sandbox IAM user rotated | Local bootstrap script pulls credentials using `aws sts assume-role` |
+
+### Classification Cheat Sheet
+- **Mandatory:** Required for service startup; missing variables cause boot failure.
+- **Conditional:** Optional but recommended for production (e.g. Azure Speech keys).
+- **Development-only:** Used for local tooling only; never configured in shared environments.
+
+An authoritative CSV export for compliance reporting is generated by `scripts/dump-env-matrix.py` (see below).
+
+## Automation & Compliance Artifacts
+- `scripts/dump-env-matrix.py`: Produces an audit-friendly CSV summarizing the table above. Used by Compliance monthly.
+- `infra/terraform/outputs.tf`: Publishes bucket ARNs, Key Vault URIs, and OIDC audience strings consumed during deployment.
+- `docs/security/oauth_rotation.md`: Outlines the Google OAuth rotation process referenced above.

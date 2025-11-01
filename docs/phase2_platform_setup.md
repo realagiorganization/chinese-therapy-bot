@@ -30,8 +30,10 @@ This document records the baseline infrastructure design for Phase 2 of the Mind
 
 ## 5. Deployment Workflow Alignment
 - Terraform can be executed locally or via GitHub Actions runners with OIDC federation.
-- Remote backend (Azure Storage) is recommended before collaborating; block is stubbed for later wiring.
-- Placeholder secrets and credentials defined as variables to avoid baking sensitive data into state files.
+  - Local operators can run `infra/scripts/run_terraform_plan.sh <env>` after copying `infra/terraform/dev.tfvars.example` to a real tfvars file and exporting cloud credentials.
+  - GitHub Actions workflow `.github/workflows/infra-plan.yml` performs a non-destructive plan using OIDC to Azure/AWS once repository secrets are configured (`AZURE_CLIENT_ID`, `AZURE_TENANT_ID`, `AZURE_SUBSCRIPTION_ID`, `AWS_TERRAFORM_ROLE_ARN`, etc.).
+- Remote backend (Azure Storage) is recommended before collaborating; block is stubbed for later wiring (`TF_BACKEND_CONFIG_FILE` can be passed to the helper script or workflow as soon as the backend exists).
+- Placeholder secrets and credentials defined as variables to avoid baking sensitive data into state files. Workflow-generated tfvars source sensitive values from repository secrets.
 
 ## 6. Outstanding Work & Assumptions
 - Apply operations have **not** been run yet; cloud resources remain to be provisioned.
@@ -39,10 +41,11 @@ This document records the baseline infrastructure design for Phase 2 of the Mind
 - AWS IAM access patterns for Data Sync/Summary Scheduler agents will be expanded when their execution environments are finalized.
 - Observability dashboards currently focus on infrastructure; deep-dive workbooks (latency percentiles, conversation-level KPIs) will follow after service deployment.
 - Cost budget thresholds assume USD billing; revisit amounts when accurate Azure pricing projections are finalized.
+- Workload identity still requires an end-to-end dry run. A validation job manifest now lives in `infra/kubernetes/samples/workload-identity-validation.yaml` to exercise Key Vault access once the cluster is online.
 
 ## 7. Terraform Implementation Snapshot
 - **Source:** `infra/terraform/`
 - **Key Files:** `azure_core.tf`, `azure_aks.tf`, `azure_postgres.tf`, `azure_keyvault.tf`, `aws_storage.tf`, `observability.tf`, `secrets.tf`.
-- **Runtime Manifests:** `infra/kubernetes/backend/` hosts the base Kustomize overlay that mounts Key Vault secrets via the CSI driver and annotates the backend service account for workload identity.
+- **Runtime Manifests:** `infra/kubernetes/backend/` hosts the base Kustomize overlay that mounts Key Vault secrets via the CSI driver and annotates the backend service account for workload identity. The `infra/kubernetes/samples/` folder adds a Key Vault retrieval job for quick validation.
 - **Highlights:** AKS workload identity enabled; PostgreSQL admin password seeded to Key Vault; three S3 buckets with encryption/versioning; CI Runner Agent IAM role; App Insights + AKS CPU & error alerts; Azure Portal dashboard and cost budget notifications.
-- **Next Steps:** Wire Terraform remote state, add database migration module, and extend monitoring dashboards (Grafana/Workbook) once application metrics are defined.
+- **Next Steps:** Wire Terraform remote state, add database migration module, extend monitoring dashboards (Grafana/Workbook) once application metrics are defined, and automate apply stages with manual approval.

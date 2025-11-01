@@ -55,6 +55,15 @@ class AppSettings(BaseSettings):
     therapist_data_s3_prefix: Optional[str] = Field(
         default=None, alias="THERAPIST_DATA_S3_PREFIX"
     )
+    conversation_logs_retention_months: int = Field(
+        default=18, alias="CONVERSATION_LOGS_RETENTION_MONTHS"
+    )
+    conversation_logs_delete_months: int = Field(
+        default=24, alias="CONVERSATION_LOGS_DELETE_MONTHS"
+    )
+    daily_summary_retention_months: int = Field(
+        default=24, alias="DAILY_SUMMARY_RETENTION_MONTHS"
+    )
     bedrock_region: Optional[str] = Field(default=None, alias="BEDROCK_REGION")
     bedrock_model_id: Optional[str] = Field(default=None, alias="BEDROCK_MODEL_ID")
     sms_provider_api_key: Optional[SecretStr] = Field(
