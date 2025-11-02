@@ -70,6 +70,12 @@ class AppSettings(BaseSettings):
         default=None, alias="SMS_PROVIDER_API_KEY"
     )
     sms_sender_id: Optional[str] = Field(default=None, alias="SMS_SENDER_ID")
+    twilio_account_sid: Optional[str] = Field(default=None, alias="TWILIO_ACCOUNT_SID")
+    twilio_auth_token: Optional[SecretStr] = Field(default=None, alias="TWILIO_AUTH_TOKEN")
+    twilio_from_number: Optional[str] = Field(default=None, alias="TWILIO_FROM_NUMBER")
+    twilio_messaging_service_sid: Optional[str] = Field(
+        default=None, alias="TWILIO_MESSAGING_SERVICE_SID"
+    )
     google_oauth_client_id: Optional[str] = Field(
         default=None, alias="GOOGLE_OAUTH_CLIENT_ID"
     )
@@ -102,6 +108,9 @@ class AppSettings(BaseSettings):
     )
     monitoring_cost_lookback_days: int = Field(
         default=1, alias="MONITORING_COST_LOOKBACK_DAYS"
+    )
+    monitoring_metrics_path: Optional[str] = Field(
+        default=None, alias="MONITORING_METRICS_PATH"
     )
     alert_webhook_url: Optional[SecretStr] = Field(default=None, alias="ALERT_WEBHOOK_URL")
     alert_channel: Optional[str] = Field(default=None, alias="ALERT_CHANNEL")

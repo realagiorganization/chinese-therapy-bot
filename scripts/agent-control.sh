@@ -11,6 +11,7 @@ declare -A AGENT_MODULES=(
   ["summary-scheduler"]="app.agents.summary_scheduler"
   ["data-sync"]="app.agents.data_sync"
   ["retention-cleanup"]="app.agents.retention_cleanup"
+  ["monitoring"]="app.agents.monitoring"
 )
 
 function usage() {
@@ -30,6 +31,7 @@ Agents:
   summary-scheduler   Generates daily/weekly summaries.
   data-sync           Normalizes therapist roster data.
   retention-cleanup   Enforces transcript/summary retention policies.
+  monitoring          Monitors latency/error/cost metrics and dispatches alerts.
 
 Environment overrides:
   MINDWELL_VENV   Path to virtualenv containing project dependencies.

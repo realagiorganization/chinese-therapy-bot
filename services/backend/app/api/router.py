@@ -6,6 +6,7 @@ from app.api.routes import (
     chat,
     evaluations,
     explore,
+    feedback,
     features,
     health,
     memory,
@@ -27,3 +28,4 @@ api_router.include_router(evaluations.router, prefix="/evaluations", tags=["eval
 api_router.include_router(voice.router, prefix="/voice", tags=["voice"])
 api_router.include_router(explore.router, prefix="/explore", tags=["explore"])
 api_router.include_router(analytics.router, prefix="/analytics", tags=["analytics"])
+api_router.include_router(feedback.router, prefix="/feedback", tags=["feedback"])

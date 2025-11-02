@@ -10,6 +10,7 @@ from app.models.entities import (  # noqa: F401
     LoginChallenge,
     RefreshToken,
     FeatureFlag,
+    PilotFeedback,
     Therapist,
     TherapistLocalization,
     User,
@@ -31,4 +32,5 @@ __all__ = [
     "FeatureFlag",
     "TherapistLocalization",
     "AnalyticsEvent",
+    "PilotFeedback",
 ]

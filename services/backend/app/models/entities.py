@@ -19,7 +19,7 @@ from sqlalchemy import (
     CheckConstraint,
 )
 from sqlalchemy.dialects.postgresql import UUID
-from sqlalchemy.ext.mutable import MutableList
+from sqlalchemy.ext.mutable import MutableDict, MutableList
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import Base
@@ -375,4 +375,48 @@ class AnalyticsEvent(Base):
         Index("ix_analytics_events_type_time", "event_type", "occurred_at"),
         Index("ix_analytics_events_user_time", "user_id", "occurred_at"),
         Index("ix_analytics_events_stage_time", "funnel_stage", "occurred_at"),
+    )
+
+
+class PilotFeedback(Base):
+    """Structured UAT feedback captured during pilot programs."""
+
+    __tablename__ = "pilot_feedback"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
+    user_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("users.id", ondelete="set null"),
+        nullable=True,
+    )
+    cohort: Mapped[str] = mapped_column(String(64))
+    participant_alias: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    contact_email: Mapped[str | None] = mapped_column(String(254), nullable=True)
+    role: Mapped[str] = mapped_column(String(32), default="participant")
+    channel: Mapped[str] = mapped_column(String(32), default="web")
+    scenario: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    sentiment_score: Mapped[int] = mapped_column(Integer, default=3)
+    trust_score: Mapped[int] = mapped_column(Integer, default=3)
+    usability_score: Mapped[int] = mapped_column(Integer, default=3)
+    severity: Mapped[str | None] = mapped_column(String(16), nullable=True)
+    tags: Mapped[list[str]] = mapped_column(MutableList.as_mutable(JSON), default=list)
+    highlights: Mapped[str | None] = mapped_column(Text, nullable=True)
+    blockers: Mapped[str | None] = mapped_column(Text, nullable=True)
+    follow_up_needed: Mapped[bool] = mapped_column(Boolean, default=False)
+    metadata_json: Mapped[dict[str, Any] | None] = mapped_column(
+        "metadata", MutableDict.as_mutable(JSON), nullable=True
+    )
+    submitted_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=datetime.utcnow
+    )
+
+    user: Mapped[User | None] = relationship("User")
+
+    __table_args__ = (
+        Index("ix_pilot_feedback_cohort", "cohort"),
+        Index("ix_pilot_feedback_channel", "channel"),
+        Index("ix_pilot_feedback_role", "role"),
+        Index("ix_pilot_feedback_submitted_at", "submitted_at"),
     )

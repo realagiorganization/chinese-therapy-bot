@@ -9,7 +9,7 @@ from app.integrations.asr import AzureSpeechTranscriber
 from app.integrations.embeddings import EmbeddingClient
 from app.integrations.google import GoogleOAuthClient
 from app.integrations.llm import ChatOrchestrator
-from app.integrations.sms import ConsoleSMSProvider
+from app.integrations.sms import ConsoleSMSProvider, SMSProvider, TwilioSMSProvider
 from app.integrations.storage import ChatTranscriptStorage
 from app.integrations.therapists import TherapistDataStorage
 from app.services.analytics import ProductAnalyticsService
@@ -18,6 +18,7 @@ from app.services.auth import AuthService
 from app.services.chat import ChatService
 from app.services.evaluation import ResponseEvaluator
 from app.services.feature_flags import FeatureFlagService
+from app.services.feedback import PilotFeedbackService
 from app.services.language_detection import LanguageDetector
 from app.services.memory import ConversationMemoryService
 from app.services.recommendations import TherapistRecommendationService
@@ -25,7 +26,7 @@ from app.services.reports import ReportsService
 from app.services.templates import ChatTemplateService
 from app.services.therapists import TherapistService
 
-_sms_provider: ConsoleSMSProvider | None = None
+_sms_provider: SMSProvider | None = None
 _google_client: GoogleOAuthClient | None = None
 _orchestrator: ChatOrchestrator | None = None
 _storage: ChatTranscriptStorage | None = None
@@ -57,7 +58,20 @@ async def get_auth_service(
     settings = get_settings()
     global _sms_provider, _google_client
     if _sms_provider is None:
-        _sms_provider = ConsoleSMSProvider()
+        if (
+            settings.twilio_account_sid
+            and settings.twilio_auth_token
+            and (settings.twilio_from_number or settings.twilio_messaging_service_sid)
+        ):
+            auth_token = settings.twilio_auth_token.get_secret_value()  # type: ignore[union-attr]
+            _sms_provider = TwilioSMSProvider(
+                settings.twilio_account_sid,
+                auth_token,
+                from_number=settings.twilio_from_number,
+                messaging_service_sid=settings.twilio_messaging_service_sid,
+            )
+        else:
+            _sms_provider = ConsoleSMSProvider()
     if _google_client is None:
         _google_client = GoogleOAuthClient(settings)
     return AuthService(
@@ -178,3 +192,10 @@ async def get_chat_template_service() -> ChatTemplateService:
     if _template_service is None:
         _template_service = ChatTemplateService()
     return _template_service
+
+
+async def get_feedback_service(
+    session: AsyncSession = Depends(get_db_session),
+) -> PilotFeedbackService:
+    """Provide PilotFeedbackService for UAT feedback flows."""
+    return PilotFeedbackService(session)

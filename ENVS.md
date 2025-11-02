@@ -42,6 +42,10 @@ The backend reads configuration from environment variables via `AppSettings` (`s
 - `BEDROCK_REGION`: AWS region hosting the Bedrock fallback model.
 - `BEDROCK_MODEL_ID`: Model identifier used when invoking AWS Bedrock as an LLM fallback.
 - `SMS_SENDER_ID`: Sender identifier registered with the SMS provider (defaults to provider-specific value when omitted).
+- `TWILIO_ACCOUNT_SID`: Twilio account identifier used when sending OTP messages via Twilio.
+- `TWILIO_AUTH_TOKEN`: Twilio authentication token paired with `TWILIO_ACCOUNT_SID`.
+- `TWILIO_FROM_NUMBER`: Verified Twilio phone number in E.164 format used as the SMS sender.
+- `TWILIO_MESSAGING_SERVICE_SID`: Twilio Messaging Service SID if using a messaging service instead of a single phone number.
 - `GOOGLE_OAUTH_REDIRECT_URI`: Redirect URI registered for web/mobile Google OAuth flows.
 - `AZURE_SPEECH_KEY`: Subscription key for Azure Cognitive Services Speech, enabling server-side audio transcription.
 - `AZURE_SPEECH_REGION`: Azure region hosting the Speech resource (e.g. `eastasia`) used by the ASR integration.
@@ -62,6 +66,7 @@ The backend reads configuration from environment variables via `AppSettings` (`s
 - `MONITORING_ERROR_RATE_THRESHOLD`: Maximum acceptable application error rate expressed as a decimal (default `0.05` for 5%).
 - `MONITORING_COST_THRESHOLD_USD`: Daily cloud spend threshold in USD that triggers alerts when exceeded (default `500`).
 - `MONITORING_COST_LOOKBACK_DAYS`: Number of trailing days the Monitoring Agent evaluates when computing spend (default `1`).
+- `MONITORING_METRICS_PATH`: Absolute or relative path where the Monitoring Agent writes the latest metrics snapshot as JSON for downstream ingestion. Accepts either a file (`/var/log/mindwell/monitoring.json`) or directory (`/var/log/mindwell/`) path.
 - `ALERT_WEBHOOK_URL`: Optional HTTPS webhook endpoint (e.g. Slack, Teams) that receives Monitoring Agent alert payloads.
 - `ALERT_CHANNEL`: Optional channel or room override supplied with alert webhook payloads.
 

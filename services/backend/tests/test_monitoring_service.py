@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from dataclasses import dataclass
 from datetime import date
 
@@ -133,3 +134,61 @@ async def test_monitoring_service_skips_checks_when_not_configured() -> None:
     assert status_map["latency_p95_ms"] == "skipped"
     assert status_map["error_rate"] == "skipped"
     assert status_map["cloud_cost_usd"] == "skipped"
+
+
+@pytest.mark.asyncio
+async def test_monitoring_service_records_metrics_file(tmp_path) -> None:
+    metrics_path = tmp_path / "metrics.json"
+    settings = AppSettings(
+        APP_ENV="test",
+        MONITORING_LATENCY_THRESHOLD_MS=1000.0,
+        MONITORING_ERROR_RATE_THRESHOLD=0.02,
+        MONITORING_COST_THRESHOLD_USD=200.0,
+        MONITORING_COST_LOOKBACK_DAYS=1,
+        AWS_REGION="us-east-1",
+        MONITORING_METRICS_PATH=str(metrics_path),
+    )
+    dispatcher = RecordingDispatcher()
+    service = MonitoringService(
+        settings,
+        app_insights_client=FakeAppInsightsClient(latency_ms=800.0, error_rate=0.01),
+        cost_client=FakeCostClient(value=150.0),
+        alert_dispatcher=dispatcher,
+    )
+
+    alerts = await service.run(dispatch=True)
+
+    assert metrics_path.exists(), "Expected monitoring metrics JSON file to be written."
+    payload = json.loads(metrics_path.read_text(encoding="utf-8"))
+    assert payload["alerts"], "Expected metrics payload to contain alerts."
+    metric_names = {alert["metric"] for alert in payload["alerts"]}
+    assert metric_names == {"latency_p95_ms", "error_rate", "cloud_cost_usd"}
+
+    status_map = {alert.metric: alert.status for alert in alerts}
+    assert status_map == {
+        "latency_p95_ms": "ok",
+        "error_rate": "ok",
+        "cloud_cost_usd": "ok",
+    }
+
+    metrics_dir = tmp_path / "metrics_dir"
+    dir_settings = AppSettings(
+        APP_ENV="test",
+        MONITORING_LATENCY_THRESHOLD_MS=1000.0,
+        MONITORING_ERROR_RATE_THRESHOLD=0.02,
+        MONITORING_COST_THRESHOLD_USD=200.0,
+        MONITORING_COST_LOOKBACK_DAYS=1,
+        AWS_REGION="us-east-1",
+        MONITORING_METRICS_PATH=str(metrics_dir),
+    )
+    dir_service = MonitoringService(
+        dir_settings,
+        app_insights_client=FakeAppInsightsClient(latency_ms=800.0, error_rate=0.01),
+        cost_client=FakeCostClient(value=150.0),
+        alert_dispatcher=RecordingDispatcher(),
+    )
+
+    await dir_service.run(dispatch=False)
+
+    dir_payload_path = metrics_dir / "monitoring_metrics.json"
+    assert dir_payload_path.exists()

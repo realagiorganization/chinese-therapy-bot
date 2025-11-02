@@ -65,7 +65,7 @@
 
 ## **4. Development Log**
 
-**Status:** Up to date as of 2025-01-24 — mirror entries with `PROGRESS.md` for granular milestone tracking.
+**Status:** Up to date as of 2025-11-02 — mirror entries with `PROGRESS.md` for granular milestone tracking (latest backend regression run: `pytest`, 57 passed).
 
 ### **Business Logic & Backend**
 
@@ -89,8 +89,12 @@
 #### **Model Integration**
 
 - Static model response ✅ *(deprecated before launch)*
-- Debug-stage raw model integration *(tentatively AWS Bedrock)*
-- Intelligent agent integration
+- Debug-stage raw model integration ✅ *(Azure-first orchestrator with AWS Bedrock fallback now covered by `tests/test_llm_orchestrator.py`.)*
+- Intelligent agent integration ✅ *(Conversation memory, recommendations, and evaluation guardrails wired into chat orchestration.)*
+
+#### **Pilot Feedback**
+
+- Structured intake ✅ *(`PilotFeedback` persistence + `/api/feedback/pilot` endpoints with regression tests `test_feedback_service.py` / `test_feedback_api.py` capture cohort sentiment and blockers.)*
 
 #### **Therapist Data**
 

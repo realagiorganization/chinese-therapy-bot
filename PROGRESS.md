@@ -3,16 +3,19 @@
 ### Verification Snapshot
 - Confirmed referenced Phase 0/1 design artifacts exist under `docs/` (e.g., `docs/phase0_foundations.md`, `docs/phase1_product_design.md`) and align with completed checkboxes.
 - Validated Terraform modules for remote state, AKS, observability, and secret management under `infra/terraform/`, matching Phase 2 completed tasks.
-- Installed backend dependencies (`pip install .[dev]`) and ran `pytest` to verify the 52-unit suite passes after recent service additions.
+- Installed backend dependencies (`pip install .[dev]`) and ran `pytest` to verify the 62-test suite passes after recent service additions (latest run: `pytest`, 62 passed).
 - Spot-checked backend services (chat, summaries, feature flags) to ensure the implementations cited in Phase 3 are present and wired into FastAPI dependencies.
 - Verified automatic locale detection end-to-end (`services/backend/app/services/language_detection.py:1`, `services/backend/app/services/chat.py:28`, `clients/web/src/hooks/useChatSession.ts:134`, `clients/mobile/src/screens/ChatScreen.tsx:134`), including new unit coverage in `services/backend/tests/test_language_detection.py:1`.
 - Revalidated streaming chat and guardrail tooling align with Phase 4/5 milestones (`clients/web/src/hooks/useChatSession.ts:1`, `services/backend/app/services/evaluation.py:1`).
 - Added regression coverage + FastAPI routing for `/api/chat/stream` and legacy `/therapy/chat/stream` SSE endpoints to close Phase 7 bug tracker item (`services/backend/app/api/routes/chat.py:1`, `services/backend/tests/test_chat_api.py:1`).
 - Ensured chat template dataset loads from packaged resources or local fallback, keeping Phase 5 template tooling functional (`services/backend/app/services/templates.py:1`, `services/backend/tests/test_template_service.py:1`).
 - Implemented Expo Speech voice playback with adjustable rate/pitch preferences and a disable toggle in the mobile chat experience (`clients/mobile/src/context/VoiceSettingsContext.tsx:1`, `clients/mobile/src/hooks/useVoicePlayback.ts:1`, `clients/mobile/src/screens/ChatScreen.tsx:600`).
+- Delivered pilot feedback intake persistence + API to capture pilot cohort sentiment for Phase 6 UAT tracking (`services/backend/app/models/entities.py:381`, `services/backend/app/api/routes/feedback.py:1`, `services/backend/tests/test_feedback_service.py:1`, `services/backend/tests/test_feedback_api.py:1`).
 - Confirmed infrastructure automation and CI coverage for mobile clients match Phase 2/7 claims (`infra/terraform/azure_postgres.tf:1`, `.github/workflows/ci.yml:1`).
 - README now documents end-to-end frontend/mobile setup workflows as required by DEV_PLAN (`README.md:70`, `README.md:90`).
 - Ran `terraform init`/`validate` against `infra/terraform/environments/dev` to remove provider incompatibilities (default node pool mode attribute, AKS SKU tier, dashboard resource deprecation) and generated a reproducible `.terraform.lock.hcl`.
+- Hardened AWS Bedrock fallback integration to use `aioboto3.Session().client` and added regression coverage capturing Bedrock + heuristic streaming behavior (`services/backend/app/integrations/llm.py`, `services/backend/tests/test_llm_orchestrator.py`).
+- 2025-11-02: Re-audited completed milestones against repository state and updated test counts; no additional discrepancies found.
 
 ## Phase 0 – Foundations
 - [x] Review DEV_PLAN.md and existing documentation to align on scope and priorities.
@@ -54,6 +57,7 @@
 - [x] Define SQLAlchemy persistence layer covering users, therapists, chat sessions/messages, and summary tables.
 - [x] Integrate async database access for chat, therapist directory, and reports services with graceful seed fallbacks.
 - [x] Implement SMS OTP challenge persistence with expiration, throttling, and SMS provider abstraction.
+  - [x] Added Twilio-backed SMS provider for production OTP delivery with automated tests covering request/response handling.
 - [x] Implement token issuance with JWT access/refresh tokens, rotation, and token renewal endpoint.
 - [x] Integrate Google OAuth code verification stub and user identity linking.
 - [x] Build chat service for message ingestion, streaming responses, and persistence to database/S3. *(FastAPI endpoint now supports SSE streaming with transcript archival.)*
@@ -112,6 +116,7 @@
 ## Phase 6 – Quality Assurance & Compliance
 - [x] Create automated testing suites (unit, integration, end-to-end) and load testing scenarios.
   - [x] Expand backend coverage (auth edge cases, streaming chat, S3 persistence). *(pytest suites under `services/backend/tests/` cover AuthService OTP limits, ChatService streaming flow, S3 transcript/summary storage stubs, locale detection in `test_language_detection.py`, and therapist price filter parity in `test_therapist_service.py`.)*
+  - [x] Added LLM orchestrator regression tests covering Bedrock fallback handling and streaming heuristics (`services/backend/tests/test_llm_orchestrator.py`).
   - [x] Add summary generation unit tests covering daily pipeline behavior, heuristic fallback, and mood scoring. *(see `services/backend/tests/test_summaries.py`.)*
   - [x] Modernize FastAPI lifespan management and Pydantic settings metadata to eliminate test-time deprecation warnings surfaced by the backend suite.
 - [x] Add frontend unit/component tests for chat, therapist flows, and localization. *(Vitest suites in `clients/web/src/App.test.tsx`, `clients/web/src/hooks/__tests__/useTherapistDirectory.test.tsx`, and `clients/web/src/api/therapists.test.ts` validate locale switching, therapist filtering, and API fallback logic.)*
@@ -125,7 +130,7 @@
   - [x] Ship SAR CLI tooling and automated tests for export/deletion flows. *(New `DataSubjectService` + CLI scripts under `services/backend/scripts/` with coverage in `services/backend/tests/test_data_subject_service.py`.)*
 - [ ] Run user acceptance testing with pilot users and collect feedback for iteration.
   - [x] Draft pilot UAT plan, cohort targets, and success criteria. *(See `docs/uat_plan.md`.)*
-  - [ ] Recruit pilot cohort, capture structured feedback, and prioritize iteration backlog.
+  - [ ] Recruit pilot cohort, capture structured feedback, and prioritize iteration backlog. *(`PilotFeedback` storage + `/api/feedback/pilot` endpoints now live; cohort recruitment + synthesis still pending.)*
 
 ## Phase 7 – Deployment & Operations
 - [x] Finalize CI/CD pipelines for backend, frontend, and mobile releases.
@@ -136,10 +141,10 @@
   - [x] Integrate Terraform apply stages with manual approval gates. *(New workflow `.github/workflows/infra-apply.yml` consumes signed plan artifacts and requires environment approval before invoking `infra/scripts/run_terraform_apply.sh`.)*
 - [x] Prepare release management process for App Store/TestFlight and Android beta.
   - [x] Document release branching, semantic versioning, and store metadata checklists. *(See `docs/release_management.md` for branching strategy, submission workflows, and platform-specific checklists.)*
-  - [x] Provide agent lifecycle controls so on-call engineers can pause/resume automation quickly. *(New `scripts/agent-control.sh` manages Summary Scheduler/Data Sync/Retention agents with start/stop/status commands writing logs under `.mindwell/`.)*
+  - [x] Provide agent lifecycle controls so on-call engineers can pause/resume automation quickly. *(Updated `scripts/agent-control.sh` manages Summary Scheduler/Data Sync/Retention/Monitoring agents with start/stop/status commands writing logs under `.mindwell/`.)*
 - [x] Establish customer support workflows and incident response playbooks.
   - [x] Define escalation matrix, paging channels, and runbook templates. *(Documented in `docs/operations/incident_response.md` tying Monitoring/CIRunner/Data Sync agents into a single escalation process.)*
-- [x] Monitor production metrics post-launch and iterate based on telemetry. *(New `MonitoringService` + `mindwell-monitoring-agent` poll Azure App Insights & AWS Cost Explorer with alert dispatch + coverage in `tests/test_monitoring_service.py`.)*
+- [x] Monitor production metrics post-launch and iterate based on telemetry. *(New `MonitoringService` + `mindwell-monitoring-agent` poll Azure App Insights & AWS Cost Explorer with alert dispatch, emit structured JSON snapshots when `MONITORING_METRICS_PATH` is set, and have coverage in `services/backend/tests/test_monitoring_service.py`.)*
   - [x] Instrument product analytics (journey engagement, conversion funnels) and feed into growth roadmap. *(New `analytics_events` schema + service/API/agent: see `services/backend/app/services/analytics.py`, `/api/analytics`, CLI `mindwell-analytics-agent`, and doc `docs/product_analytics.md`.)*
 
 ## Phase 8 – Documentation & Launch Readiness

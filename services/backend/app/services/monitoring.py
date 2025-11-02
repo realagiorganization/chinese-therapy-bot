@@ -3,8 +3,10 @@ from __future__ import annotations
 import logging
 import math
 import re
+import json
 from dataclasses import dataclass
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta, timezone
+from pathlib import Path
 from typing import Any, Callable, Iterable, Literal, Sequence
 
 import aioboto3
@@ -199,9 +201,11 @@ requests
         if not self._cost_client and settings.aws_region:
             self._cost_client = CostExplorerClient(settings)
         self._dispatcher = alert_dispatcher or AlertDispatcher(settings)
+        self._metrics_path = Path(settings.monitoring_metrics_path) if settings.monitoring_metrics_path else None
 
     async def run(self, *, dispatch: bool = True) -> list[MetricAlert]:
         alerts = await self.evaluate()
+        self._record_metrics(alerts)
         if dispatch:
             await self._dispatcher.dispatch(alerts)
         return alerts
@@ -211,6 +215,39 @@ requests
         error_rate = await self._check_error_rate()
         cost = await self._check_cost()
         return [latency, error_rate, cost]
+
+    def _record_metrics(self, alerts: Sequence[MetricAlert]) -> None:
+        if not self._metrics_path:
+            return
+
+        payload = {
+            "generated_at": datetime.now(timezone.utc).isoformat(),
+            "alerts": [
+                {
+                    "metric": alert.metric,
+                    "status": alert.status,
+                    "unit": alert.unit,
+                    "value": alert.value,
+                    "threshold": alert.threshold,
+                    "message": alert.message,
+                    "details": alert.details,
+                }
+                for alert in alerts
+            ],
+        }
+
+        try:
+            if self._metrics_path.suffix:
+                target_path = self._metrics_path
+            else:
+                target_path = self._metrics_path / "monitoring_metrics.json"
+            target_path.parent.mkdir(parents=True, exist_ok=True)
+            target_path.write_text(
+                json.dumps(payload, ensure_ascii=False, indent=2),
+                encoding="utf-8",
+            )
+        except Exception as exc:  # pragma: no cover - defensive logging
+            logger.debug("Failed to persist monitoring metrics: %s", exc, exc_info=exc)
 
     async def _check_latency(self) -> MetricAlert:
         threshold = self._settings.monitoring_latency_threshold_ms

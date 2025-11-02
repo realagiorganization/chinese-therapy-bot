@@ -58,6 +58,7 @@ web client, infrastructure-as-code, and the supporting automation services descr
    pip install -e .[dev]
    ```
 2. Configure environment variables (e.g. export locally or use a `.env` file).
+   > For production SMS delivery supply `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, and either `TWILIO_FROM_NUMBER` or `TWILIO_MESSAGING_SERVICE_SID`. Without these the OTP provider logs codes to the console.
 3. Apply database migrations:
    ```bash
    alembic upgrade head
@@ -151,6 +152,8 @@ Use `mindwell-monitoring-agent --dry-run` to verify telemetry access without dis
 - Monitoring Agent raises alerts when thresholds or budget guardrails (defined in Terraform) are breached.
 - Configure `APP_INSIGHTS_APP_ID`, `APP_INSIGHTS_API_KEY`, and spend thresholds before scheduling
   `mindwell-monitoring-agent` in production.
+- Optionally point `MONITORING_METRICS_PATH` to a writable location so each run emits a JSON snapshot
+  (`{"generated_at": "...", "alerts": [...]}`) for downstream ingestion or dashboards.
 - S3 versioning and lifecycle policies guard conversation transcripts, summaries, and therapist media.
 
 ### Product Analytics

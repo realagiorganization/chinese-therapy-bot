@@ -51,6 +51,7 @@ and capture feedback to close Phase 6 of the development roadmap.
 - **Week 4 Day 8:** Debrief synthesis workshop (product + therapists + engineering).
 - Tooling:
   - **Feedback capture:** Linear board `UAT-2025` with issue templates (bug, UX, suggestion).
+  - **Feedback intake API:** Submit structured entries via `POST /api/feedback/pilot` (see §9) so facilitator notes land in the PilotFeedback table for analytics exports.
   - **Session recordings:** Optional FullStory in web pilot environment; disable PII capture per `docs/data_governance.md`.
   - **Surveys:** Post-session Google Form capturing satisfaction, trust score, feature gaps.
 
@@ -86,5 +87,31 @@ and capture feedback to close Phase 6 of the development roadmap.
 3. Configure Monitoring Agent thresholds specific to pilot traffic (error rate 5%, latency 1.5s).
 4. Publish bug triage SLA (critical: 12h, high: 24h, medium: 72h).
 
-Update this document as the pilot progresses; archive the final version with outcomes appended.
+## 9. Feedback Intake Workflow
 
+1. **Tag every entry** with the active cohort code (e.g., `pilot-2025w4`) so exports align with the reporting cadence.
+2. **Submit structured notes** from facilitators or QA observers using the authenticated API:
+   ```bash
+   curl -X POST "$API_BASE/api/feedback/pilot" \
+     -H "Authorization: Bearer $ACCESS_TOKEN" \
+     -H "Content-Type: application/json" \
+     -d '{
+       "cohort": "pilot-2025w4",
+       "channel": "mobile",
+       "role": "participant",
+       "scenario": "chat-session",
+       "sentiment_score": 4,
+       "trust_score": 5,
+       "usability_score": 3,
+       "tags": ["latency", "voice-input"],
+       "highlights": "Voice playback feels natural.",
+       "blockers": "Transcription lagged once when switching networks.",
+       "follow_up_needed": true,
+       "metadata": {"device": "Redmi Note 11"}
+     }'
+   ```
+   The request stores data in the `pilot_feedback` table via the new `PilotFeedback` model.
+3. **Review aggregated feedback** with `GET /api/feedback/pilot?cohort=pilot-2025w4&minimum_trust_score=4` to filter by cohort, participant role, or trust score thresholds before copying items into the Linear board.
+4. **Synthesize insights** by exporting the JSON response and attaching key takeaways to the Week 4 Day 8 debrief.
+
+Update this document as the pilot progresses; archive the final version with outcomes appended.

@@ -86,9 +86,11 @@ tests/test_data_sync_agent.py
 tests/test_evaluation.py
 tests/test_explore_service.py
 tests/test_language_detection.py
+tests/test_llm_orchestrator.py
 tests/test_monitoring_service.py
 tests/test_recommendations.py
 tests/test_retention_cleanup_agent.py
+tests/test_sms_provider.py
 tests/test_storage.py
 tests/test_summaries.py
 tests/test_template_service.py

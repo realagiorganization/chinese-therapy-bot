@@ -210,17 +210,9 @@ class ChatOrchestrator:
         max_tokens: int,
     ) -> str | None:
         prompt = self._serialize_history(history, language)
-        session_kwargs: dict[str, Any] = {"region_name": self._settings.bedrock_region}
-        if self._settings.aws_access_key_id and self._settings.aws_secret_access_key:
-            session_kwargs.update(
-                {
-                    "aws_access_key_id": self._settings.aws_access_key_id.get_secret_value(),
-                    "aws_secret_access_key": self._settings.aws_secret_access_key.get_secret_value(),
-                }
-            )
 
         try:
-            async with aioboto3.client("bedrock-runtime", **session_kwargs) as client:
+            async with self._bedrock_client() as client:
                 body = json.dumps(
                     {
                         "inputText": prompt,
@@ -449,17 +441,8 @@ class ChatOrchestrator:
         return value.strip()
 
     async def _invoke_bedrock_prompt(self, prompt: str, *, max_tokens: int) -> str | None:
-        session_kwargs: dict[str, Any] = {"region_name": self._settings.bedrock_region}
-        if self._settings.aws_access_key_id and self._settings.aws_secret_access_key:
-            session_kwargs.update(
-                {
-                    "aws_access_key_id": self._settings.aws_access_key_id.get_secret_value(),
-                    "aws_secret_access_key": self._settings.aws_secret_access_key.get_secret_value(),
-                }
-            )
-
         try:
-            async with aioboto3.client("bedrock-runtime", **session_kwargs) as client:
+            async with self._bedrock_client() as client:
                 body = json.dumps(
                     {
                         "inputText": prompt,
@@ -485,3 +468,16 @@ class ChatOrchestrator:
             logger.warning("Bedrock summarization failed", exc_info=exc)
 
         return None
+
+    def _bedrock_client(self):
+        session_kwargs: dict[str, Any] = {"region_name": self._settings.bedrock_region}
+        if self._settings.aws_access_key_id and self._settings.aws_secret_access_key:
+            session_kwargs.update(
+                {
+                    "aws_access_key_id": self._settings.aws_access_key_id.get_secret_value(),
+                    "aws_secret_access_key": self._settings.aws_secret_access_key.get_secret_value(),
+                }
+            )
+
+        session = aioboto3.Session()
+        return session.client("bedrock-runtime", **session_kwargs)
