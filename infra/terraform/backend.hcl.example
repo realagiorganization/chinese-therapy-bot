@@ -1,0 +1,18 @@
+// Copy this file to backend.hcl and update the values before running `terraform init`.
+// The Azure AD application (service principal) used for Terraform should have
+// storage blob contributor permissions on the state storage account.
+
+resource_group_name  = "rg-mindwell-terraform"
+storage_account_name = "stmindwelltfstate"
+container_name       = "tfstate"
+key                  = "mindwell-dev.tfstate"
+
+subscription_id = "00000000-0000-0000-0000-000000000000"
+tenant_id       = "11111111-1111-1111-1111-111111111111"
+
+# When using a service principal, provide client_id and client_secret or rely on Azure CLI authentication.
+# client_id     = "22222222-2222-2222-2222-222222222222"
+# client_secret = "replace-with-client-secret"
+
+# Set to true if authenticating with Azure CLI / Managed Identity.
+use_azuread_auth = true

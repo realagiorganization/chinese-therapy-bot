@@ -6,6 +6,8 @@
 
 ### **a. Main User Scenarios**
 
+**Status:** Completed — see `docs/phase1_product_design.md` for detailed user journeys, data flow diagrams, and retention policy references.
+
 | **Priority** | **Task Description** |
 | --- | --- |
 | High | **Chatbot–Therapist Integration:** Define the logic connecting chatbot responses with therapist recommendations. |
@@ -13,6 +15,8 @@
 | High | **Conversation History Management:** Design how past sessions, chat summaries, and psychological state analyses are displayed and managed. |
 
 ### **b. Chat Experience Optimization**
+
+**Status:** Implemented — template-driven chat scenes, response evaluation heuristics, and conversation memory are live with regression coverage.
 
 | **Priority** | **Task Description** |
 | --- | --- |
@@ -22,6 +26,8 @@
 ---
 
 ## **2. Cost Estimate**
+
+**Status:** Completed — financial modeling captured in `docs/cost_controls.md` with guardrails mirrored in monitoring alerts.
 
 ### **Infrastructure (Approx. USD 162/month)**
 
@@ -47,6 +53,8 @@
 
 ## **3. Development Timeline (Rankang)**
 
+**Status:** Tracking — Weeks 1–4 scope shipped (chat core, auth, therapist management). Release processes for Weeks 5–7 documented in `docs/release_management.md` and `docs/changelog.md` now seeds cadence notes.
+
 | **Week** | **Milestone** | **Details** |
 | --- | --- | --- |
 | Weeks 1–4 | **Core Scene Development** | - Model Integration - Account Management (SMS login, Google/third-party login) - Therapist Data Management - Frontend prototype for early testing |
@@ -57,40 +65,53 @@
 
 ## **4. Development Log**
 
+**Status:** Up to date as of 2025-11-02 — mirror entries with `PROGRESS.md` for granular milestone tracking (latest backend regression run: `pytest`, 57 passed).
+
 ### **Business Logic & Backend**
 
 #### **Account Management**
 
 - Username/password login ✅ *(deprecated before launch)*
-- SMS login (planned)
-- Third-party account integration (Google, etc.)
+- SMS login ✅ *(OTP challenge + verification shipped in `services/backend/app/services/auth.py` with mobile/web flows.)*
+- Third-party account integration (Google, etc.) ✅ *(Google OAuth stub client + token exchange live across backend/web/mobile.)*
 - Token renewal ✅
 
 #### **Chat System**
 
 - Persistent conversation storage
-  - Real-time chat logging ⌛️
-  - Daily chat snapshot storage ⌛️
+  - Real-time chat logging ✅ *(message-level S3 persistence via ChatTranscriptStorage)*
+  - Daily chat snapshot storage ✅ *(persisted to S3 via ChatTranscriptStorage)*
 - Summary generation
-  - Daily summaries
-  - Weekly summaries
+  - Daily summaries ✅ *(pipeline implemented via Summary Scheduler Agent)*
+  - Weekly summaries ✅ *(weekly aggregation + storage complete)*
+- Guided chat templates for common scenes ✅ *(curated dataset `chat_templates.json`, `/api/chat/templates`, and web quick-start chips).*
 
 #### **Model Integration**
 
 - Static model response ✅ *(deprecated before launch)*
-- Debug-stage raw model integration *(tentatively AWS Bedrock)*
-- Intelligent agent integration
+- Debug-stage raw model integration ✅ *(Azure-first orchestrator with AWS Bedrock fallback now covered by `tests/test_llm_orchestrator.py`.)*
+- Intelligent agent integration ✅ *(Conversation memory, recommendations, and evaluation guardrails wired into chat orchestration.)*
+
+#### **Pilot Feedback**
+
+- Structured intake ✅ *(`PilotFeedback` persistence + `/api/feedback/pilot` endpoints with regression tests `test_feedback_service.py` / `test_feedback_api.py` capture cohort sentiment and blockers.)*
 
 #### **Therapist Data**
 
 - list/get API ✅
-- Script for scraping therapist data and injecting into database
-- Internationalization (i18n) of therapist information
+- Script for scraping therapist data and injecting into database ✅ *(Data Sync agent `mindwell-data-sync` publishes normalized profiles to `S3_BUCKET_THERAPISTS`.)*
+- Internationalization (i18n) of therapist information ✅
+
+#### **Data Governance & Privacy**
+
+- Retention automation ✅ *(Summary Scheduler + `mindwell-retention-cleanup` enforce S3/database purge windows.)*
+- Subject access/export tooling ✅ *(SAR scripts in `services/backend/scripts/` backed by `DataSubjectService` and tests.)*
+- PII deletion/redaction flow ✅ *(`delete_user_data.py` scrubs chat content, revokes tokens, and anonymises analytics/summary artefacts.)*
 
 #### **AWS Integration**
 
-- RDS
-- EC2 instances
+- RDS ✅ *(Terraform modules `infra/terraform/aws_network.tf` + `aws_rds.tf` provision an optional PostgreSQL replica with Secrets Manager credentials seeding.)*
+- EC2 instances ✅ *(Automation agent host defined in `infra/terraform/aws_ec2_agents.tf` runs Data Sync/Summary Scheduler workloads with controlled SSH ingress.)*
 
 ---
 
@@ -128,11 +149,13 @@
 ### **Chat Functionality**
 
 - Streamed response integration ✅
+- Offline transcript caching ✅ *(AsyncStorage-backed restore in the Expo client.)*
+- Push notification scaffolding ✅ *(Expo Notifications registration with device token caching.)*
 - **Input Methods:**
   - Text input
   - Voice input via local system model (iOS ✅ / Android pending)
   - WeChat-style “hold to speak” voice input ✅
-  - Auto language detection
+  - Auto language detection ✅ *(LanguageDetector service auto-resolves locale -> shared across web/mobile states.)*
   - Server-side ASR (speech recognition)
 - **Output (Voice Playback):**
   - RN-TTS integration ✅
@@ -145,11 +168,11 @@
 
 - Therapist overview ✅
 - Therapist detail page ✅
-- Therapist filtering functionality (planned)
+- Therapist filtering functionality ✅ *(Web/mobile directories expose specialty, language, price, and recommendation filters.)*
 
 ### **Explore Page**
 
-- To be defined
+- Explore modules for breathing exercises, psychoeducation resources, and trending themes delivered via feature flags and personalized data pipelines. (✅ prototype shipped)
 
 ### **Journey Page**
 
@@ -159,6 +182,7 @@
   - Detail View:
     - **Tab 1:** Date, Title, Spotlight, Summary
     - **Tab 2:** Chat Records
+- ✅ Expo Journey dashboard implements the flows above with locale-aware summaries, transcript toggles, and manual refresh (`JourneyScreen`, `useJourneyReports`, `services/reports`).
 
 ### **Localization**
 
@@ -167,23 +191,29 @@
 ### **Platform Adaptation**
 
 - iOS optimization
+  - Static checklist captured in `docs/mobile_performance.md` (gesture/safe-area audit). Simulator validation still pending scheduling.
 - Android optimization
+  - Baseline bundle profile generated on 2025-11-02 via `npm run profile:android` (see `docs/mobile_performance.md` Validation Log).
 
 ---
 
 ## **7. Deployment & Operations**
 
+**Status:** Release management handbook published (`docs/release_management.md`) with changelog (`docs/changelog.md`) seeded; automation agents documented in `AGENTS.md`.
+
 ### **Bug Tracker**
 
 | **Issue** | **Description** | **Status** |
 | --- | --- | --- |
-| /therapy/chat/stream triggers “access denied” | Does not affect pre-request validation but returns error post-request | Unresolved |
+| /therapy/chat/stream triggers “access denied” | Does not affect pre-request validation but returns error post-request | Resolved – added `/api/chat/stream` endpoint + legacy `/therapy/chat/stream` alias with SSE error handling |
 
 ---
 
 ## **8. Additional Notes**
 
 - Integration with Google and other third-party account management platforms in progress.
+- Release artefact pipeline `.github/workflows/release.yml` produces backend wheels plus web/mobile bundles for tag builds and manual dispatch.
+- Investor/partner summary brief lives in `docs/investor_partner_brief.md` for fundraising and partnership outreach.
 
 ---
 
