@@ -18,7 +18,7 @@ from app.services.auth import AuthService
 from app.services.chat import ChatService
 from app.services.evaluation import ResponseEvaluator
 from app.services.feature_flags import FeatureFlagService
-from app.services.feedback import PilotFeedbackService
+from app.services.feedback import PilotFeedbackService, PilotParticipantService
 from app.services.language_detection import LanguageDetector
 from app.services.memory import ConversationMemoryService
 from app.services.recommendations import TherapistRecommendationService
@@ -199,3 +199,10 @@ async def get_feedback_service(
 ) -> PilotFeedbackService:
     """Provide PilotFeedbackService for UAT feedback flows."""
     return PilotFeedbackService(session)
+
+
+async def get_pilot_participant_service(
+    session: AsyncSession = Depends(get_db_session),
+) -> PilotParticipantService:
+    """Provide PilotParticipantService for pilot recruitment management."""
+    return PilotParticipantService(session)

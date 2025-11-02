@@ -17,3 +17,4 @@
 - Queries Azure Application Insights for p95 latency and error rate, and AWS Cost Explorer for daily spend.
 - Raises alerts when thresholds (`MONITORING_LATENCY_THRESHOLD_MS`, `MONITORING_ERROR_RATE_THRESHOLD`, `MONITORING_COST_THRESHOLD_USD`) are breached.
 - Dispatches actionable alerts to the configured webhook (`ALERT_WEBHOOK_URL` / `ALERT_CHANNEL`) after logging structured metrics.
+- Supports environment-specific guardrails via `MONITORING_THRESHOLD_OVERRIDES_PATH` and `MONITORING_THRESHOLD_PROFILE`; see `infra/monitoring/threshold_profiles.json` for pilot-ready defaults.

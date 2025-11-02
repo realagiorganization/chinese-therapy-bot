@@ -54,5 +54,8 @@ These notes capture evidence that the completed checklist items in `PROGRESS.md`
 - Terraform apply automation with manual approval gates is codified in `.github/workflows/infra-apply.yml:1-213`, leveraging the new helper script `infra/scripts/run_terraform_apply.sh:1-170` to reuse signed plan artifacts.
 - Customer support and incident response workflows are documented in `docs/operations/incident_response.md:1-123`, aligning with the requirement to establish escalation playbooks.
 
+## Pilot Feedback & UAT Support
+- Web client now visualizes pilot backlog insights, follow-up queues, and latest feedback through `clients/web/src/components/PilotFeedbackDashboard.tsx`, powered by the reusable hook/API pair (`clients/web/src/hooks/usePilotFeedback.ts`, `clients/web/src/api/feedback.ts`). Vitest coverage (`clients/web/src/hooks/__tests__/usePilotFeedback.test.tsx`, `clients/web/src/App.test.tsx`) confirms data normalization and fallback behaviour.
+
 ## Outstanding Areas
 - Tasks still unchecked in `PROGRESS.md` (e.g., Terraform apply execution, security review actions, data governance runbooks) remain pending and are not evidenced in the repository.

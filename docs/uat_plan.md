@@ -84,7 +84,7 @@ and capture feedback to close Phase 6 of the development roadmap.
 
 1. Finalize recruitment list and send invites (Owner: Product, Due: Week 4 Day 1).
 2. Prepare pilot environment (feature flags, summary scheduling frequency).
-3. Configure Monitoring Agent thresholds specific to pilot traffic (error rate 5%, latency 1.5s).
+3. Configure Monitoring Agent thresholds specific to pilot traffic (error rate 5%, latency 1.5s) by pointing `MONITORING_THRESHOLD_OVERRIDES_PATH` to `infra/monitoring/threshold_profiles.json` and setting `MONITORING_THRESHOLD_PROFILE=pilot`.
 4. Publish bug triage SLA (critical: 12h, high: 24h, medium: 72h).
 
 ## 9. Feedback Intake Workflow

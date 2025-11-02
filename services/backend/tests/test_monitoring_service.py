@@ -192,3 +192,65 @@ async def test_monitoring_service_records_metrics_file(tmp_path) -> None:
 
     dir_payload_path = metrics_dir / "monitoring_metrics.json"
     assert dir_payload_path.exists()
+
+
+@pytest.mark.asyncio
+async def test_monitoring_service_uses_threshold_profile_overrides(tmp_path) -> None:
+    overrides = {
+        "default": {
+            "latency_p95_ms": 1800,
+            "error_rate": 0.05,
+            "cloud_cost_usd": 450,
+            "cost_lookback_days": 2,
+        },
+        "profiles": {
+            "pilot": {
+                "latency_p95_ms": 1500,
+                "error_rate": 0.04,
+                "cloud_cost_usd": 400,
+                "cost_lookback_days": 3,
+            }
+        },
+    }
+    overrides_path = tmp_path / "monitoring_thresholds.json"
+    overrides_path.write_text(json.dumps(overrides), encoding="utf-8")
+
+    settings = AppSettings(
+        APP_ENV="pilot",
+        MONITORING_LATENCY_THRESHOLD_MS=2000.0,
+        MONITORING_ERROR_RATE_THRESHOLD=0.1,
+        MONITORING_COST_THRESHOLD_USD=600.0,
+        MONITORING_COST_LOOKBACK_DAYS=5,
+        MONITORING_THRESHOLD_OVERRIDES_PATH=str(overrides_path),
+        MONITORING_THRESHOLD_PROFILE="pilot",
+        AWS_REGION="us-east-1",
+    )
+    service = MonitoringService(
+        settings,
+        app_insights_client=FakeAppInsightsClient(latency_ms=1600.0, error_rate=0.03),
+        cost_client=FakeCostClient(value=420.0),
+        alert_dispatcher=RecordingDispatcher(),
+    )
+
+    alerts = await service.evaluate()
+    status_map = {alert.metric: alert.status for alert in alerts}
+    assert status_map["latency_p95_ms"] == "alert"
+    assert status_map["error_rate"] == "ok"
+    assert status_map["cloud_cost_usd"] == "alert"
+
+    latency_alert = next(alert for alert in alerts if alert.metric == "latency_p95_ms")
+    assert latency_alert.details
+    assert latency_alert.details["threshold_source"] == "profile"
+    assert latency_alert.details["profile"] == "pilot"
+
+    error_alert = next(alert for alert in alerts if alert.metric == "error_rate")
+    assert error_alert.details
+    assert error_alert.details["threshold_source"] == "profile"
+    assert error_alert.details["profile"] == "pilot"
+
+    cost_alert = next(alert for alert in alerts if alert.metric == "cloud_cost_usd")
+    assert cost_alert.details
+    assert cost_alert.details["lookback_days"] == 3
+    assert cost_alert.details["threshold_source"] == "profile"
+    assert cost_alert.details["lookback_source"] == "profile"
+    assert cost_alert.details["profile"] == "pilot"

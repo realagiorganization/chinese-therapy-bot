@@ -112,6 +112,12 @@ class AppSettings(BaseSettings):
     monitoring_metrics_path: Optional[str] = Field(
         default=None, alias="MONITORING_METRICS_PATH"
     )
+    monitoring_threshold_overrides_path: Optional[str] = Field(
+        default=None, alias="MONITORING_THRESHOLD_OVERRIDES_PATH"
+    )
+    monitoring_threshold_profile: Optional[str] = Field(
+        default=None, alias="MONITORING_THRESHOLD_PROFILE"
+    )
     alert_webhook_url: Optional[SecretStr] = Field(default=None, alias="ALERT_WEBHOOK_URL")
     alert_channel: Optional[str] = Field(default=None, alias="ALERT_CHANNEL")
 

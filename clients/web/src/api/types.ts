@@ -198,6 +198,65 @@ export type ExploreModulesResponse = {
   evaluatedFlags: Record<string, boolean>;
 };
 
+export type PilotParticipant = {
+  id: string;
+  cohort: string;
+  fullName: string | null;
+  preferredName: string | null;
+  displayName: string;
+  status: string;
+  channel: string;
+  tags: string[];
+  requiresFollowUp: boolean;
+  lastContactAt: string | null;
+  followUpNotes: string | null;
+  updatedAt: string;
+};
+
+export type PilotFeedbackEntry = {
+  id: string;
+  cohort: string;
+  scenario: string | null;
+  participantAlias: string | null;
+  channel: string;
+  highlights: string | null;
+  blockers: string | null;
+  tags: string[];
+  sentimentScore: number;
+  trustScore: number;
+  usabilityScore: number;
+  followUpNeeded: boolean;
+  severity: string | null;
+  submittedAt: string;
+};
+
+export type PilotBacklogItem = {
+  label: string;
+  tag: string | null;
+  scenario: string | null;
+  cohorts: string[];
+  frequency: number;
+  participantCount: number;
+  followUpCount: number;
+  averageSentiment: number;
+  averageTrust: number;
+  averageUsability: number;
+  priorityScore: number;
+  representativeSeverity: string | null;
+  lastSubmittedAt: string;
+  highlights: string[];
+  blockers: string[];
+};
+
+export type PilotFeedbackSnapshotSource = "api" | "fallback";
+
+export type PilotFeedbackSnapshot = {
+  source: PilotFeedbackSnapshotSource;
+  backlog: PilotBacklogItem[];
+  participants: PilotParticipant[];
+  recentFeedback: PilotFeedbackEntry[];
+};
+
 export type ChatTemplate = {
   id: string;
   topic: string;

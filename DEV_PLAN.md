@@ -95,6 +95,9 @@
 #### **Pilot Feedback**
 
 - Structured intake ✅ *(`PilotFeedback` persistence + `/api/feedback/pilot` endpoints with regression tests `test_feedback_service.py` / `test_feedback_api.py` capture cohort sentiment and blockers.)*
+- Cohort recruitment tracking ✅ *(New `PilotParticipant` model/service + `/api/feedback/pilot/participants` endpoints with regression coverage manage invitations, follow-ups, and status updates.)*
+- Backlog prioritization automation ✅ *(`/api/feedback/pilot/backlog` aggregates severity, follow-ups, and sentiment to produce ranked iteration themes with coverage in `test_feedback_service.py` / `test_feedback_api.py`.)*
+- Pilot feedback dashboard ✅ *(Web client surfaces backlog insights, participant follow-up queues, and most recent feedback via `PilotFeedbackDashboard` with supporting hook/API and Vitest coverage.)*
 
 #### **Therapist Data**
 

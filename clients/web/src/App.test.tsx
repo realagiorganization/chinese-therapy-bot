@@ -137,6 +137,70 @@ describe("App", () => {
       ]
     };
 
+    const pilotBacklogResponse = {
+      total: 1,
+      items: [
+        {
+          label: "语音播报偶发卡顿",
+          tag: "voice",
+          scenario: "mobile-chat",
+          cohorts: ["pilot-2025w4"],
+          frequency: 3,
+          participant_count: 2,
+          follow_up_count: 1,
+          average_sentiment: 3.6,
+          average_trust: 3.2,
+          average_usability: 2.8,
+          priority_score: 0.74,
+          representative_severity: "medium",
+          last_submitted_at: "2025-01-21T09:00:00Z",
+          highlights: ["语音播放总体舒缓。"],
+          blockers: ["部分用户反馈播放偶尔中断。"]
+        }
+      ]
+    };
+
+    const pilotParticipantsResponse = {
+      total: 1,
+      items: [
+        {
+          id: "pilot-participant-1",
+          cohort: "pilot-2025w4",
+          full_name: "Lin An",
+          preferred_name: "安安",
+          status: "active",
+          channel: "mobile",
+          tags: ["voice"],
+          requires_follow_up: true,
+          last_contact_at: "2025-01-21T08:30:00Z",
+          follow_up_notes: "等待语音补丁发布后回访。",
+          updated_at: "2025-01-21T08:40:00Z"
+        }
+      ]
+    };
+
+    const pilotFeedbackResponse = {
+      total: 1,
+      items: [
+        {
+          id: "pilot-feedback-1",
+          cohort: "pilot-2025w4",
+          scenario: "mobile-chat",
+          participant_alias: "安安",
+          channel: "mobile",
+          highlights: "语音播放让我更容易放松。",
+          blockers: "播放 3 分钟后偶尔卡住。",
+          tags: ["voice"],
+          sentiment_score: 4,
+          trust_score: 3,
+          usability_score: 2,
+          follow_up_needed: true,
+          severity: "high",
+          submitted_at: "2025-01-21T08:45:00Z"
+        }
+      ]
+    };
+
     const future = Date.now() + 60 * 60 * 1000;
     window.localStorage.setItem(
       "mindwell:auth",
@@ -176,6 +240,27 @@ describe("App", () => {
           json: async () => templatesResponse
         } as Response;
       }
+      if (url.includes("/api/feedback/pilot/backlog")) {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => pilotBacklogResponse
+        } as Response;
+      }
+      if (url.includes("/api/feedback/pilot/participants")) {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => pilotParticipantsResponse
+        } as Response;
+      }
+      if (url.includes("/api/feedback/pilot?")) {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => pilotFeedbackResponse
+        } as Response;
+      }
       return {
         ok: false,
         status: 404,
@@ -195,7 +280,7 @@ describe("App", () => {
     expect(await screen.findByText(/支持语音输入/)).toBeInTheDocument();
     expect(await screen.findByText(/疗愈陪伴对话/)).toBeInTheDocument();
     expect(await screen.findByText(/旅程报告/)).toBeInTheDocument();
-    expect(globalThis.fetch).toHaveBeenCalledTimes(4);
+    expect(globalThis.fetch).toHaveBeenCalledTimes(7);
   });
 
   it("switches to English locale", async () => {

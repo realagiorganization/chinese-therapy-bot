@@ -202,6 +202,7 @@ requests
             self._cost_client = CostExplorerClient(settings)
         self._dispatcher = alert_dispatcher or AlertDispatcher(settings)
         self._metrics_path = Path(settings.monitoring_metrics_path) if settings.monitoring_metrics_path else None
+        self._threshold_overrides, self._threshold_profile = self._load_threshold_overrides(settings)
 
     async def run(self, *, dispatch: bool = True) -> list[MetricAlert]:
         alerts = await self.evaluate()
@@ -250,7 +251,9 @@ requests
             logger.debug("Failed to persist monitoring metrics: %s", exc, exc_info=exc)
 
     async def _check_latency(self) -> MetricAlert:
-        threshold = self._settings.monitoring_latency_threshold_ms
+        threshold, threshold_source = self._resolve_threshold(
+            "latency_p95_ms", self._settings.monitoring_latency_threshold_ms
+        )
         if not self._app_insights_client:
             return MetricAlert(
                 metric="latency_p95_ms",
@@ -258,6 +261,7 @@ requests
                 unit="ms",
                 threshold=threshold,
                 message="Application Insights credentials not configured; skipping latency check.",
+                details=self._augment_details({"threshold_source": threshold_source}),
             )
 
         try:
@@ -275,6 +279,7 @@ requests
                 value=value,
                 threshold=threshold,
                 message=message,
+                details=self._augment_details({"threshold_source": threshold_source}),
             )
         except Exception as exc:  # pragma: no cover - defensive logging
             logger.warning("Latency check failed", exc_info=exc)
@@ -284,10 +289,13 @@ requests
                 unit="ms",
                 threshold=threshold,
                 message=f"Latency check failed: {exc}",
+                details=self._augment_details({"threshold_source": threshold_source}),
             )
 
     async def _check_error_rate(self) -> MetricAlert:
-        threshold = self._settings.monitoring_error_rate_threshold
+        threshold, threshold_source = self._resolve_threshold(
+            "error_rate", self._settings.monitoring_error_rate_threshold
+        )
         if not self._app_insights_client:
             return MetricAlert(
                 metric="error_rate",
@@ -295,6 +303,7 @@ requests
                 unit="",
                 threshold=threshold,
                 message="Application Insights credentials not configured; skipping error rate check.",
+                details=self._augment_details({"threshold_source": threshold_source}),
             )
 
         try:
@@ -314,6 +323,7 @@ requests
                 value=value,
                 threshold=threshold,
                 message=message,
+                details=self._augment_details({"threshold_source": threshold_source}),
             )
         except Exception as exc:  # pragma: no cover - defensive logging
             logger.warning("Error rate check failed", exc_info=exc)
@@ -323,11 +333,17 @@ requests
                 unit="",
                 threshold=threshold,
                 message=f"Error rate check failed: {exc}",
+                details=self._augment_details({"threshold_source": threshold_source}),
             )
 
     async def _check_cost(self) -> MetricAlert:
-        threshold = self._settings.monitoring_cost_threshold_usd
-        lookback_days = max(1, self._settings.monitoring_cost_lookback_days)
+        threshold, threshold_source = self._resolve_threshold(
+            "cloud_cost_usd", self._settings.monitoring_cost_threshold_usd
+        )
+        lookback_days, lookback_source = self._resolve_int_override(
+            "cost_lookback_days", self._settings.monitoring_cost_lookback_days
+        )
+        lookback_days = max(1, lookback_days)
         if threshold <= 0:
             return MetricAlert(
                 metric="cloud_cost_usd",
@@ -335,7 +351,13 @@ requests
                 unit="USD",
                 threshold=threshold,
                 message="Cost threshold disabled; skipping cost guardrail.",
-                details={"lookback_days": lookback_days},
+                details=self._augment_details(
+                    {
+                        "lookback_days": lookback_days,
+                        "threshold_source": threshold_source,
+                        "lookback_source": lookback_source,
+                    }
+                ),
             )
         if not self._cost_client:
             return MetricAlert(
@@ -344,7 +366,13 @@ requests
                 unit="USD",
                 threshold=threshold,
                 message="AWS Cost Explorer not configured; skipping cost guardrail.",
-                details={"lookback_days": lookback_days},
+                details=self._augment_details(
+                    {
+                        "lookback_days": lookback_days,
+                        "threshold_source": threshold_source,
+                        "lookback_source": lookback_source,
+                    }
+                ),
             )
 
         end_date = date.today()
@@ -366,7 +394,13 @@ requests
                 value=value,
                 threshold=threshold,
                 message=message,
-                details={"lookback_days": lookback_days},
+                details=self._augment_details(
+                    {
+                        "lookback_days": lookback_days,
+                        "threshold_source": threshold_source,
+                        "lookback_source": lookback_source,
+                    }
+                ),
             )
         except Exception as exc:  # pragma: no cover - defensive logging
             logger.warning("Cost check failed", exc_info=exc)
@@ -376,8 +410,114 @@ requests
                 unit="USD",
                 threshold=threshold,
                 message=f"Cost check failed: {exc}",
-                details={"lookback_days": lookback_days},
+                details=self._augment_details(
+                    {
+                        "lookback_days": lookback_days,
+                        "threshold_source": threshold_source,
+                        "lookback_source": lookback_source,
+                    }
+                ),
             )
+
+    def _load_threshold_overrides(
+        self, settings: AppSettings
+    ) -> tuple[dict[str, Any], str | None]:
+        path = settings.monitoring_threshold_overrides_path
+        profile = settings.monitoring_threshold_profile
+        if not path:
+            return {}, None
+
+        file_path = Path(path)
+        try:
+            payload = json.loads(file_path.read_text(encoding="utf-8"))
+        except FileNotFoundError:
+            logger.warning(
+                "Monitoring threshold overrides file not found: %s", file_path
+            )
+            return {}, None
+        except json.JSONDecodeError as exc:
+            logger.warning(
+                "Failed to parse monitoring threshold overrides file %s: %s",
+                file_path,
+                exc,
+            )
+            return {}, None
+
+        profiles: dict[str, dict[str, Any]] = {}
+        if isinstance(payload, dict):
+            nested = payload.get("profiles")
+            if isinstance(nested, dict):
+                profiles.update(
+                    {name: value for name, value in nested.items() if isinstance(value, dict)}
+                )
+            for name, value in payload.items():
+                if name == "profiles":
+                    continue
+                if isinstance(value, dict):
+                    profiles[name] = value
+
+            if not profiles and all(not isinstance(v, dict) for v in payload.values()):
+                profiles["default"] = {k: v for k, v in payload.items() if isinstance(k, str)}
+
+        if not profiles:
+            return {}, None
+
+        selected_name = profile if profile and profile in profiles else None
+        if not selected_name and "default" in profiles:
+            selected_name = "default"
+        if not selected_name:
+            selected_name = next(iter(profiles))
+
+        overrides = profiles.get(selected_name, {})
+        allowed_keys = {"latency_p95_ms", "error_rate", "cloud_cost_usd", "cost_lookback_days"}
+        sanitized = {
+            key: overrides[key]
+            for key in allowed_keys
+            if key in overrides
+        }
+
+        if sanitized:
+            logger.info(
+                "Loaded monitoring threshold overrides profile '%s' from %s",
+                selected_name,
+                file_path,
+            )
+            return sanitized, selected_name
+        return {}, None
+
+    def _resolve_threshold(self, key: str, fallback: float) -> tuple[float, str]:
+        raw = self._threshold_overrides.get(key)
+        if raw is None:
+            return fallback, "settings"
+        try:
+            return float(raw), "profile"
+        except (TypeError, ValueError):
+            logger.debug(
+                "Ignoring invalid override for %s: %r (falling back to settings value)",
+                key,
+                raw,
+            )
+            return fallback, "settings"
+
+    def _resolve_int_override(self, key: str, fallback: int) -> tuple[int, str]:
+        raw = self._threshold_overrides.get(key)
+        if raw is None:
+            return fallback, "settings"
+        try:
+            return int(raw), "profile"
+        except (TypeError, ValueError):
+            logger.debug(
+                "Ignoring invalid integer override for %s: %r (falling back to settings value)",
+                key,
+                raw,
+            )
+            return fallback, "settings"
+
+    def _augment_details(self, details: dict[str, Any]) -> dict[str, Any]:
+        enriched = dict(details)
+        if self._threshold_profile:
+            enriched["profile"] = self._threshold_profile
+        return enriched
 
     def _extract_single_value(self, payload: dict[str, Any], column_name: str) -> float:
         tables = payload.get("tables") or []

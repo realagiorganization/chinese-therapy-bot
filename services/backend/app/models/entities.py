@@ -340,6 +340,61 @@ class TherapistLocalization(Base):
     )
 
 
+class PilotParticipant(Base):
+    """Pilot cohort participant recruitment + lifecycle tracking."""
+
+    __tablename__ = "pilot_participants"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
+    cohort: Mapped[str] = mapped_column(String(64))
+    full_name: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    preferred_name: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    contact_email: Mapped[str | None] = mapped_column(String(254), nullable=True)
+    contact_phone: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    locale: Mapped[str] = mapped_column(String(16), default="zh-CN")
+    timezone: Mapped[str | None] = mapped_column(String(40), nullable=True)
+    channel: Mapped[str] = mapped_column(String(32), default="web")
+    organization: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    status: Mapped[str] = mapped_column(String(32), default="prospect")
+    requires_follow_up: Mapped[bool] = mapped_column(Boolean, default=False)
+    invited_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    consent_signed_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    onboarded_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    last_contact_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    follow_up_notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    tags: Mapped[list[str]] = mapped_column(MutableList.as_mutable(JSON), default=list)
+    metadata_json: Mapped[dict[str, Any] | None] = mapped_column(
+        "metadata", MutableDict.as_mutable(JSON), default=dict, nullable=True
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=datetime.utcnow
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=datetime.utcnow, onupdate=datetime.utcnow
+    )
+
+    feedback_entries: Mapped[list["PilotFeedback"]] = relationship(
+        back_populates="participant"
+    )
+
+    __table_args__ = (
+        Index("ix_pilot_participants_cohort", "cohort"),
+        Index("ix_pilot_participants_status", "status"),
+        Index("ix_pilot_participants_follow_up", "requires_follow_up"),
+        UniqueConstraint("cohort", "contact_email", name="uq_pilot_participants_cohort_email"),
+    )
+
+
 class AnalyticsEvent(Base):
     """Product analytics events captured from user interactions."""
 
@@ -392,6 +447,11 @@ class PilotFeedback(Base):
         nullable=True,
     )
     cohort: Mapped[str] = mapped_column(String(64))
+    participant_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("pilot_participants.id", ondelete="set null"),
+        nullable=True,
+    )
     participant_alias: Mapped[str | None] = mapped_column(String(64), nullable=True)
     contact_email: Mapped[str | None] = mapped_column(String(254), nullable=True)
     role: Mapped[str] = mapped_column(String(32), default="participant")
@@ -413,10 +473,14 @@ class PilotFeedback(Base):
     )
 
     user: Mapped[User | None] = relationship("User")
+    participant: Mapped["PilotParticipant | None"] = relationship(
+        "PilotParticipant", back_populates="feedback_entries"
+    )
 
     __table_args__ = (
         Index("ix_pilot_feedback_cohort", "cohort"),
         Index("ix_pilot_feedback_channel", "channel"),
         Index("ix_pilot_feedback_role", "role"),
+        Index("ix_pilot_feedback_participant", "participant_id"),
         Index("ix_pilot_feedback_submitted_at", "submitted_at"),
     )

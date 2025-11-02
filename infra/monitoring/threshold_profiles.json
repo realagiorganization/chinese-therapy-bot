@@ -1,0 +1,16 @@
+{
+  "default": {
+    "latency_p95_ms": 1200,
+    "error_rate": 0.05,
+    "cloud_cost_usd": 500,
+    "cost_lookback_days": 1
+  },
+  "profiles": {
+    "pilot": {
+      "latency_p95_ms": 1500,
+      "error_rate": 0.05,
+      "cloud_cost_usd": 350,
+      "cost_lookback_days": 1
+    }
+  }
+}

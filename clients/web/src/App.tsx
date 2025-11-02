@@ -8,6 +8,7 @@ import { LoginPanel } from "./components/LoginPanel";
 import { JourneyDashboard } from "./components/JourneyDashboard";
 import { LocaleSwitcher } from "./components/LocaleSwitcher";
 import { TherapistDirectory } from "./components/TherapistDirectory";
+import { PilotFeedbackDashboard } from "./components/PilotFeedbackDashboard";
 
 type HighlightCard = {
   id: string;
@@ -134,6 +135,7 @@ export default function App() {
 
         <JourneyDashboard locale={i18n.language} />
         <ExploreModules locale={i18n.language} />
+        <PilotFeedbackDashboard cohort="pilot-2025w4" />
 
         <section
           style={{
