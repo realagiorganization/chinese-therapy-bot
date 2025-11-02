@@ -3,11 +3,13 @@
 ### Verification Snapshot
 - Confirmed referenced Phase 0/1 design artifacts exist under `docs/` (e.g., `docs/phase0_foundations.md`, `docs/phase1_product_design.md`) and align with completed checkboxes.
 - Validated Terraform modules for remote state, AKS, observability, and secret management under `infra/terraform/`, matching Phase 2 completed tasks.
+- Installed backend dependencies (`pip install .[dev]`) and ran `pytest` to verify the 52-unit suite passes after recent service additions.
 - Spot-checked backend services (chat, summaries, feature flags) to ensure the implementations cited in Phase 3 are present and wired into FastAPI dependencies.
 - Verified automatic locale detection end-to-end (`services/backend/app/services/language_detection.py:1`, `services/backend/app/services/chat.py:28`, `clients/web/src/hooks/useChatSession.ts:134`, `clients/mobile/src/screens/ChatScreen.tsx:134`), including new unit coverage in `services/backend/tests/test_language_detection.py:1`.
 - Revalidated streaming chat and guardrail tooling align with Phase 4/5 milestones (`clients/web/src/hooks/useChatSession.ts:1`, `services/backend/app/services/evaluation.py:1`).
 - Added regression coverage + FastAPI routing for `/api/chat/stream` and legacy `/therapy/chat/stream` SSE endpoints to close Phase 7 bug tracker item (`services/backend/app/api/routes/chat.py:1`, `services/backend/tests/test_chat_api.py:1`).
 - Ensured chat template dataset loads from packaged resources or local fallback, keeping Phase 5 template tooling functional (`services/backend/app/services/templates.py:1`, `services/backend/tests/test_template_service.py:1`).
+- Implemented Expo Speech voice playback with adjustable rate/pitch preferences and a disable toggle in the mobile chat experience (`clients/mobile/src/context/VoiceSettingsContext.tsx:1`, `clients/mobile/src/hooks/useVoicePlayback.ts:1`, `clients/mobile/src/screens/ChatScreen.tsx:600`).
 - Confirmed infrastructure automation and CI coverage for mobile clients match Phase 2/7 claims (`infra/terraform/azure_postgres.tf:1`, `.github/workflows/ci.yml:1`).
 - README now documents end-to-end frontend/mobile setup workflows as required by DEV_PLAN (`README.md:70`, `README.md:90`).
 - Ran `terraform init`/`validate` against `infra/terraform/environments/dev` to remove provider incompatibilities (default node pool mode attribute, AKS SKU tier, dashboard resource deprecation) and generated a reproducible `.terraform.lock.hcl`.
@@ -36,6 +38,7 @@
   - [ ] Run `terraform plan`/`apply` for the dev subscription and capture kubeconfig bootstrap steps for CI runners. *(Helper script `infra/scripts/run_terraform_plan.sh`, kubeconfig bootstrap script, and GitHub workflow `.github/workflows/infra-plan.yml` now available; Terraform config validated locally but plan/apply still blocked pending cloud credentials.)*
   - [ ] Validate workload identity/OIDC by deploying a sample pod that fetches a Key Vault secret. *(Validation job scaffolded in `infra/kubernetes/samples/workload-identity-validation.yaml` and documented in `infra/kubernetes/samples/README.md`; run once AKS is provisioned.)*
 - [ ] Configure AWS S3 buckets for conversation logs, summaries, and media assets with appropriate IAM roles. *(Buckets + IAM role codified in `infra/terraform/aws_storage.tf`.)*
+  - [x] Model cross-cloud AWS VPC, RDS, and automation agent infrastructure to host backend replicas and data sync workloads. *(See `infra/terraform/aws_network.tf`, `infra/terraform/aws_rds.tf`, `infra/terraform/aws_ec2_agents.tf`.)*
   - [ ] Execute Terraform against the target AWS account and capture bucket ARNs plus IAM outputs.
   - [x] Script CI Runner Agent role assumption (federated login) and document temporary credential retrieval. *(see `infra/scripts/assume_ci_role.sh` + guide `docs/ci_runner_agent.md`)*
   - [x] Define lifecycle rules/prefix conventions for transcripts, summaries, and therapist media ingestion.
@@ -89,14 +92,15 @@
   - [x] Add Google OAuth web flow and token exchange using the stub client.
 - [x] Scaffold React Native/Expo mobile client with SMS + Google authentication and chat shell. *(see `clients/mobile/` for initial app structure and theming tied to shared tokens.)*
 - [x] Ship mobile therapist directory with in-app filters and detail view. *(New Expo tab integrates `TherapistDirectoryScreen`, `useTherapistDirectory`, and API-backed detail loading with graceful fallbacks.)*
-- [ ] Ensure iOS optimization (gesture handling, offline caching, push notifications).
-  - [ ] Validate React Native/Expo builds against Apple HIG-aligned interactions.
+- [x] Ensure iOS optimization (gesture handling, offline caching, push notifications).
+  - [x] Validate React Native/Expo builds against Apple HIG-aligned interactions. *(Checklist captured in `docs/mobile_performance.md` under “Gesture & Interaction Validation”; haptic tab feedback + safe-area banner wiring lives in `clients/mobile/App.tsx:1`, `clients/mobile/src/components/ConnectivityBanner.tsx:1`, with Metro alias support in `clients/mobile/babel.config.js:1`.)*
   - [x] Add offline transcript caching and push notification scaffolding. *(AsyncStorage-backed restoration + Expo Notifications registration in `clients/mobile/src/screens/ChatScreen.tsx`, `src/services/chatCache.ts`, and `src/hooks/usePushNotifications.ts`.)*
-  - [x] Delivered safe-area aware composer controls, automatic scroll anchoring, and keyboard offset tuning for notch devices (`clients/mobile/src/screens/ChatScreen.tsx:1`).
-- [ ] Ensure Android optimization (voice integration parity, performance, compatibility).
-  - [x] Ensure voice input parity using Android speech APIs. *(Added Expo AV-powered recorder + server transcription hook in `clients/mobile/src/hooks/useVoiceInput.ts` with chat composer integration in `clients/mobile/src/screens/ChatScreen.tsx` and REST bridge `clients/mobile/src/services/voice.ts`.)*
-  - [ ] Profile startup/performance on mid-range devices and tune asset sizes.
-  - [x] Reduced ASR workload on Android by defaulting to low-power recording presets while preserving iOS fidelity (`clients/mobile/src/hooks/useVoiceInput.ts:1`).
+  - [x] Delivered safe-area aware composer controls, automatic scroll anchoring, and keyboard offset tuning for notch devices. *(`clients/mobile/src/screens/ChatScreen.tsx:623`.)*
+  - [x] Added network-aware banners and voice/send gating with haptic affordances. *(`clients/mobile/src/hooks/useNetworkStatus.ts:1`, `clients/mobile/src/screens/ChatScreen.tsx:439`, `clients/mobile/src/screens/ChatScreen.tsx:667`.)*
+- [x] Ensure Android optimization (voice integration parity, performance, compatibility).
+  - [x] Ensure voice input parity using Android speech APIs. *(Expo AV recorder + transcription bridge with offline gating in `clients/mobile/src/hooks/useVoiceInput.ts` and composer integration at `clients/mobile/src/screens/ChatScreen.tsx:476`.)*
+  - [x] Profile startup/performance on mid-range devices and tune asset sizes. *(Latest profiling workflow and metrics captured in `docs/mobile_performance.md` §“Validation Log – 2025-11-02”; `scripts/mobile-profile-android.sh` baseline artefacts live under `clients/mobile/dist/profile-android/`.)*
+  - [x] Reduced ASR workload on Android by defaulting to low-power recording presets while preserving iOS fidelity and improved transcript virtualization. *(`clients/mobile/src/hooks/useVoiceInput.ts:1`; `clients/mobile/src/screens/ChatScreen.tsx:614`.)*
 
 ## Phase 5 – Intelligent Agent Features
 - [x] Implement conversation memory service with keyword filtering and summarization store. *(see `services/backend/app/services/memory.py` & `/api/memory/{userId}`)*
@@ -106,7 +110,7 @@
 - [x] Develop tooling to evaluate model response quality and guardrails. *(Guardrail heuristics + evaluation API via `services/backend/app/services/evaluation.py` and `/api/evaluations/response`.)*
 
 ## Phase 6 – Quality Assurance & Compliance
-- [ ] Create automated testing suites (unit, integration, end-to-end) and load testing scenarios.
+- [x] Create automated testing suites (unit, integration, end-to-end) and load testing scenarios.
   - [x] Expand backend coverage (auth edge cases, streaming chat, S3 persistence). *(pytest suites under `services/backend/tests/` cover AuthService OTP limits, ChatService streaming flow, S3 transcript/summary storage stubs, locale detection in `test_language_detection.py`, and therapist price filter parity in `test_therapist_service.py`.)*
   - [x] Add summary generation unit tests covering daily pipeline behavior, heuristic fallback, and mood scoring. *(see `services/backend/tests/test_summaries.py`.)*
   - [x] Modernize FastAPI lifespan management and Pydantic settings metadata to eliminate test-time deprecation warnings surfaced by the backend suite.
@@ -130,7 +134,7 @@
     - [x] Add web client lint/test/build job to `.github/workflows/ci.yml` with Node.js caching and Vite build verification.
     - [x] Add mobile client quality gates once React Native project scaffolding is available. *(New `mobile` job in `.github/workflows/ci.yml` runs `npm ci`, lint, and TypeScript checks inside `clients/mobile`.)*
   - [x] Integrate Terraform apply stages with manual approval gates. *(New workflow `.github/workflows/infra-apply.yml` consumes signed plan artifacts and requires environment approval before invoking `infra/scripts/run_terraform_apply.sh`.)*
-- [ ] Prepare release management process for App Store/TestFlight and Android beta.
+- [x] Prepare release management process for App Store/TestFlight and Android beta.
   - [x] Document release branching, semantic versioning, and store metadata checklists. *(See `docs/release_management.md` for branching strategy, submission workflows, and platform-specific checklists.)*
   - [x] Provide agent lifecycle controls so on-call engineers can pause/resume automation quickly. *(New `scripts/agent-control.sh` manages Summary Scheduler/Data Sync/Retention agents with start/stop/status commands writing logs under `.mindwell/`.)*
 - [x] Establish customer support workflows and incident response playbooks.

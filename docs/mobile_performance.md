@@ -56,3 +56,22 @@ Purpose: provide a repeatable process to validate iOS gestures, measure startup 
 
 - Add CI step once secrets are available to execute `npm run profile:android` in nightly pipeline and publish sizes to build summary.
 - Future work: wire `useStartupProfiler` events into telemetry (App Insights) via custom endpoints for automated trend tracking.
+
+## Validation Log – 2025-11-02
+
+### iOS Gesture & Interaction Checklist
+
+- Verified `clients/mobile/App.tsx` wraps the app in `GestureHandlerRootView` and `SafeAreaProvider`, matching Apple HIG requirements for edge gestures.
+- Confirmed haptic feedback triggers (`expo-haptics`) fire on the voice input press handlers in `clients/mobile/src/screens/ChatScreen.tsx:486`.
+- Ensured connectivity banner gracefully handles offline states with safe-area padding (`clients/mobile/src/components/ConnectivityBanner.tsx:1-160`).
+- Pending: hands-on simulator run to capture physical interaction notes (schedule during next QA window).
+
+### Android Bundle Profiling
+
+- Command: `cd clients/mobile && npm run profile:android` (invokes `scripts/mobile-profile-android.sh`).
+- Output on 2025-11-02:
+  - `index.android.bundle` raw size: **1,393,439 bytes**
+  - `index.android.bundle` gzip size: **352,949 bytes**
+  - Asset payload: **0 bytes** (no bundled assets detected during profiling run)
+- Bundled artefacts stored under `clients/mobile/dist/profile-android/` for review.
+- Action items: integrate metro alias warning follow-up (migrate to `@react-native/metro-config` once Expo template supports it) and automate bundle budget alerts in CI.

@@ -138,6 +138,42 @@ variable "aws_region" {
   default     = "ap-northeast-1"
 }
 
+variable "aws_vpc_cidr" {
+  description = "CIDR block for the AWS VPC hosting MindWell auxiliary services."
+  type        = string
+  default     = "10.60.0.0/16"
+}
+
+variable "aws_private_subnet_cidrs" {
+  description = "CIDR blocks for private subnets used by AWS RDS and internal workloads."
+  type        = list(string)
+  default     = ["10.60.1.0/24", "10.60.2.0/24"]
+}
+
+variable "aws_public_subnet_cidr" {
+  description = "CIDR block for the public subnet hosting automation agents."
+  type        = string
+  default     = "10.60.10.0/24"
+}
+
+variable "aws_az_private_a" {
+  description = "AWS availability zone for the first private subnet (defaults to <region>a)."
+  type        = string
+  default     = null
+}
+
+variable "aws_az_private_b" {
+  description = "AWS availability zone for the second private subnet (defaults to <region>c)."
+  type        = string
+  default     = null
+}
+
+variable "aws_az_public" {
+  description = "AWS availability zone for the public subnet (defaults to <region>a)."
+  type        = string
+  default     = null
+}
+
 variable "s3_logs_bucket_name" {
   description = "S3 bucket name for conversation logs."
   type        = string
@@ -151,6 +187,126 @@ variable "s3_summaries_bucket_name" {
 variable "s3_media_bucket_name" {
   description = "S3 bucket name for therapist media assets."
   type        = string
+}
+
+variable "aws_rds_instance_class" {
+  description = "Instance class for the AWS RDS PostgreSQL instance."
+  type        = string
+  default     = "db.t4g.medium"
+}
+
+variable "aws_rds_engine_version" {
+  description = "PostgreSQL engine version for the AWS RDS instance."
+  type        = string
+  default     = "15.4"
+}
+
+variable "aws_rds_database_name" {
+  description = "Default database name created on the AWS RDS instance."
+  type        = string
+  default     = "mindwell"
+}
+
+variable "aws_rds_master_username" {
+  description = "Master username for the AWS RDS PostgreSQL instance."
+  type        = string
+  default     = "mindwellapp"
+}
+
+variable "aws_rds_allocated_storage" {
+  description = "Initial storage (GB) allocated for the AWS RDS instance."
+  type        = number
+  default     = 100
+}
+
+variable "aws_rds_max_allocated_storage" {
+  description = "Maximum storage (GB) that the AWS RDS instance can auto-scale to."
+  type        = number
+  default     = 200
+}
+
+variable "aws_rds_multi_az" {
+  description = "Whether to enable Multi-AZ replication for the AWS RDS instance."
+  type        = bool
+  default     = false
+}
+
+variable "aws_rds_backup_retention_days" {
+  description = "Number of days to retain automated RDS backups."
+  type        = number
+  default     = 7
+}
+
+variable "aws_rds_skip_final_snapshot" {
+  description = "Skip creating a final snapshot when destroying the RDS instance (useful for non-prod)."
+  type        = bool
+  default     = true
+}
+
+variable "aws_rds_backup_window" {
+  description = "Preferred backup window for the RDS instance (UTC)."
+  type        = string
+  default     = "03:00-05:00"
+}
+
+variable "aws_rds_maintenance_window" {
+  description = "Preferred maintenance window for the RDS instance (UTC)."
+  type        = string
+  default     = "Mon:06:00-Mon:08:00"
+}
+
+variable "aws_rds_performance_insights" {
+  description = "Enable AWS Performance Insights for the RDS instance."
+  type        = bool
+  default     = true
+}
+
+variable "aws_rds_deletion_protection" {
+  description = "Enable deletion protection for the RDS instance."
+  type        = bool
+  default     = false
+}
+
+variable "aws_agent_instance_type" {
+  description = "EC2 instance type for automation agents."
+  type        = string
+  default     = "t3.medium"
+}
+
+variable "aws_agent_root_volume_size" {
+  description = "Root EBS volume size (GB) for the automation agent instance."
+  type        = number
+  default     = 40
+}
+
+variable "aws_agent_ssh_key_name" {
+  description = "Optional SSH key pair name attached to the automation agent instance."
+  type        = string
+  default     = null
+}
+
+variable "aws_agent_enable_detailed_monitoring" {
+  description = "Enable detailed CloudWatch monitoring for automation agents."
+  type        = bool
+  default     = false
+}
+
+variable "aws_agent_allowed_ssh_cidrs" {
+  description = "CIDR blocks permitted to SSH into automation agents."
+  type        = list(string)
+  default     = ["0.0.0.0/0"]
+}
+
+variable "aws_agent_user_data" {
+  description = "Optional user data script for configuring automation agents."
+  type        = string
+  default     = null
+}
+
+variable "aws_agent_ami_id" {
+  description = "Override AMI ID for automation agents (defaults to latest Amazon Linux 2023)."
+  type        = string
+  default     = null
 }
 
 variable "application_insights_name" {

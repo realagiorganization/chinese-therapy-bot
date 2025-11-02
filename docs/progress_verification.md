@@ -1,6 +1,6 @@
 # PROGRESS.md Verification Notes
 
-These notes capture evidence that the completed checklist items in `PROGRESS.md` correspond to artifacts in the repository.
+These notes capture evidence that the completed checklist items in `PROGRESS.md` correspond to artifacts in the repository, and call out mismatches where the codebase does not yet satisfy the stated deliverable.
 
 ## Phase 0 – Foundations
 - Architecture, cloud target, and CI/CD workflows are codified in `docs/phase0_foundations.md:5-62`, matching the completed foundational tasks.
@@ -15,6 +15,7 @@ These notes capture evidence that the completed checklist items in `PROGRESS.md`
 - Observability stack and cost guardrails are modeled in `infra/terraform/observability.tf:1-150`.
 - GitHub Actions workflow `.github/workflows/infra-plan.yml` and helper script `infra/scripts/run_terraform_plan.sh` generate repeatable Terraform plans, while `infra/scripts/bootstrap_kubeconfig.sh` documents kubeconfig retrieval.
 - Workload identity validation manifest resides at `infra/kubernetes/samples/workload-identity-validation.yaml`, enabling the pending checklist item to be executed once AKS is live.
+- AWS cross-cloud scaffolding now covers VPC/subnet layout, RDS PostgreSQL, and automation agent EC2 hosts via `infra/terraform/aws_network.tf`, `infra/terraform/aws_rds.tf`, and `infra/terraform/aws_ec2_agents.tf`.
 
 ## Phase 3 – Backend Services
 - FastAPI services, router wiring, and modular architecture live under `services/backend/app/api/router.py:1-120`.
@@ -30,9 +31,10 @@ These notes capture evidence that the completed checklist items in `PROGRESS.md`
 - Therapist directory filtering, recommendations, and design-system adoption are provided in `clients/web/src/components/TherapistDirectory.tsx:1-220` and `clients/web/src/hooks/useTherapistDirectory.ts:1-200`.
 
 ## Mobile Client Scaffold
-- Expo-based React Native application lives under `clients/mobile/`, with app entry in `clients/mobile/App.tsx:1-54` wiring shared theming and auth context.
-- SMS + Google login flows are implemented in `clients/mobile/src/screens/LoginScreen.tsx:1-189` backed by context logic in `clients/mobile/src/context/AuthContext.tsx:1-238`.
-- Chat shell consuming the FastAPI backend exists at `clients/mobile/src/screens/ChatScreen.tsx:1-260`, delegating API interaction to `clients/mobile/src/services/chat.ts:1-72`.
+- Expo-based React Native application lives under `clients/mobile/`, with app entry in `clients/mobile/App.tsx:1-200` wiring shared theming and auth context.
+- SMS + Google login flows are implemented in `clients/mobile/src/screens/LoginScreen.tsx:1-200` backed by context logic in `clients/mobile/src/context/AuthContext.tsx:1-240`.
+- Chat shell consuming the FastAPI backend exists at `clients/mobile/src/screens/ChatScreen.tsx:1-960`, delegating API interaction to `clients/mobile/src/services/chat.ts:1-140`.
+- ✅ Mobile voice playback now matches the DEV_PLAN claims: Expo Speech–backed TTS with adjustable rate/pitch and a disable toggle lives in `clients/mobile/src/context/VoiceSettingsContext.tsx:1-200`, `clients/mobile/src/hooks/useVoicePlayback.ts:1-140`, and `clients/mobile/src/screens/ChatScreen.tsx:600-920`.
 
 ## Phase 5 – Intelligent Agent Features
 - Summary scheduler agent implementation exists at `services/backend/app/agents/summary_scheduler.py:1-120`.

@@ -68,6 +68,26 @@ output "s3_bucket_media" {
   value       = aws_s3_bucket.media.arn
 }
 
+output "aws_rds_endpoint" {
+  description = "Endpoint address for the AWS RDS PostgreSQL instance."
+  value       = aws_db_instance.mindwell.address
+}
+
+output "aws_rds_credentials_secret_arn" {
+  description = "Secrets Manager ARN storing AWS RDS master credentials."
+  value       = aws_secretsmanager_secret.rds_master_credentials.arn
+}
+
+output "automation_agent_public_ip" {
+  description = "Public IP address of the automation agent EC2 instance."
+  value       = aws_instance.automation_agent.public_ip
+}
+
+output "automation_agent_instance_id" {
+  description = "Instance ID of the automation agent EC2 instance."
+  value       = aws_instance.automation_agent.id
+}
+
 output "ci_runner_role_arn" {
   description = "IAM role ARN for CI Runner Agent workloads."
   value       = aws_iam_role.ci_runner.arn

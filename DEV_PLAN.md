@@ -6,6 +6,8 @@
 
 ### **a. Main User Scenarios**
 
+**Status:** Completed — see `docs/phase1_product_design.md` for detailed user journeys, data flow diagrams, and retention policy references.
+
 | **Priority** | **Task Description** |
 | --- | --- |
 | High | **Chatbot–Therapist Integration:** Define the logic connecting chatbot responses with therapist recommendations. |
@@ -13,6 +15,8 @@
 | High | **Conversation History Management:** Design how past sessions, chat summaries, and psychological state analyses are displayed and managed. |
 
 ### **b. Chat Experience Optimization**
+
+**Status:** Implemented — template-driven chat scenes, response evaluation heuristics, and conversation memory are live with regression coverage.
 
 | **Priority** | **Task Description** |
 | --- | --- |
@@ -22,6 +26,8 @@
 ---
 
 ## **2. Cost Estimate**
+
+**Status:** Completed — financial modeling captured in `docs/cost_controls.md` with guardrails mirrored in monitoring alerts.
 
 ### **Infrastructure (Approx. USD 162/month)**
 
@@ -47,6 +53,8 @@
 
 ## **3. Development Timeline (Rankang)**
 
+**Status:** Tracking — Weeks 1–4 scope shipped (chat core, auth, therapist management). Release processes for Weeks 5–7 documented in `docs/release_management.md` and `docs/changelog.md` now seeds cadence notes.
+
 | **Week** | **Milestone** | **Details** |
 | --- | --- | --- |
 | Weeks 1–4 | **Core Scene Development** | - Model Integration - Account Management (SMS login, Google/third-party login) - Therapist Data Management - Frontend prototype for early testing |
@@ -57,13 +65,15 @@
 
 ## **4. Development Log**
 
+**Status:** Up to date as of 2025-01-24 — mirror entries with `PROGRESS.md` for granular milestone tracking.
+
 ### **Business Logic & Backend**
 
 #### **Account Management**
 
 - Username/password login ✅ *(deprecated before launch)*
-- SMS login (planned)
-- Third-party account integration (Google, etc.)
+- SMS login ✅ *(OTP challenge + verification shipped in `services/backend/app/services/auth.py` with mobile/web flows.)*
+- Third-party account integration (Google, etc.) ✅ *(Google OAuth stub client + token exchange live across backend/web/mobile.)*
 - Token renewal ✅
 
 #### **Chat System**
@@ -96,8 +106,8 @@
 
 #### **AWS Integration**
 
-- RDS
-- EC2 instances
+- RDS ✅ *(Terraform modules `infra/terraform/aws_network.tf` + `aws_rds.tf` provision an optional PostgreSQL replica with Secrets Manager credentials seeding.)*
+- EC2 instances ✅ *(Automation agent host defined in `infra/terraform/aws_ec2_agents.tf` runs Data Sync/Summary Scheduler workloads with controlled SSH ingress.)*
 
 ---
 
@@ -177,11 +187,15 @@
 ### **Platform Adaptation**
 
 - iOS optimization
+  - Static checklist captured in `docs/mobile_performance.md` (gesture/safe-area audit). Simulator validation still pending scheduling.
 - Android optimization
+  - Baseline bundle profile generated on 2025-11-02 via `npm run profile:android` (see `docs/mobile_performance.md` Validation Log).
 
 ---
 
 ## **7. Deployment & Operations**
+
+**Status:** Release management handbook published (`docs/release_management.md`) with changelog (`docs/changelog.md`) seeded; automation agents documented in `AGENTS.md`.
 
 ### **Bug Tracker**
 

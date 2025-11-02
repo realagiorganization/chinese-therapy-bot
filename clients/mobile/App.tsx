@@ -1,4 +1,6 @@
+import { ConnectivityBanner } from "@components/ConnectivityBanner";
 import { AuthProvider, useAuth } from "@context/AuthContext";
+import { VoiceSettingsProvider } from "@context/VoiceSettingsContext";
 import { usePushNotifications } from "@hooks/usePushNotifications";
 import { useStartupProfiler } from "@hooks/useStartupProfiler";
 import { ChatScreen } from "@screens/ChatScreen";
@@ -6,10 +8,12 @@ import { JourneyScreen } from "@screens/JourneyScreen";
 import { LoginScreen } from "@screens/LoginScreen";
 import { TherapistDirectoryScreen } from "@screens/TherapistDirectoryScreen";
 import { ThemeProvider, useTheme } from "@theme/ThemeProvider";
+import * as Haptics from "expo-haptics";
 import { StatusBar as ExpoStatusBar } from "expo-status-bar";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
+  Platform,
   Pressable,
   SafeAreaView,
   StyleSheet,
@@ -24,6 +28,13 @@ type MobileTab = "chat" | "journey" | "therapists";
 function AuthenticatedShell() {
   const theme = useTheme();
   const [activeTab, setActiveTab] = useState<MobileTab>("chat");
+  const androidRipple = useMemo(
+    () =>
+      Platform.OS === "android"
+        ? { color: "rgba(37,99,235,0.12)", foreground: true }
+        : undefined,
+    [],
+  );
 
   const styles = useMemo(
     () =>
@@ -70,11 +81,27 @@ function AuthenticatedShell() {
     [theme],
   );
 
+  const handleTabChange = useCallback(
+    (tab: MobileTab) => {
+      if (activeTab === tab) {
+        return;
+      }
+      setActiveTab(tab);
+      if (Platform.OS === "ios" || Platform.OS === "android") {
+        Haptics.selectionAsync().catch(() => {
+          // Haptic feedback is a best-effort enhancement.
+        });
+      }
+    },
+    [activeTab],
+  );
+
   return (
     <View style={styles.container}>
       <View style={styles.tabBar}>
         <Pressable
-          onPress={() => setActiveTab("chat")}
+          android_ripple={androidRipple}
+          onPress={() => handleTabChange("chat")}
           style={[
             styles.tabButton,
             activeTab === "chat" && styles.tabButtonActive,
@@ -91,7 +118,8 @@ function AuthenticatedShell() {
           {activeTab === "chat" && <View style={styles.tabIndicator} />}
         </Pressable>
         <Pressable
-          onPress={() => setActiveTab("journey")}
+          android_ripple={androidRipple}
+          onPress={() => handleTabChange("journey")}
           style={[
             styles.tabButton,
             activeTab === "journey" && styles.tabButtonActive,
@@ -108,7 +136,8 @@ function AuthenticatedShell() {
           {activeTab === "journey" && <View style={styles.tabIndicator} />}
         </Pressable>
         <Pressable
-          onPress={() => setActiveTab("therapists")}
+          android_ripple={androidRipple}
+          onPress={() => handleTabChange("therapists")}
           style={[
             styles.tabButton,
             activeTab === "therapists" && styles.tabButtonActive,
@@ -173,6 +202,7 @@ function AppShell() {
 
   return (
     <SafeAreaView style={styles.container}>
+      <ConnectivityBanner placement="top" />
       {status === "authenticated" ? <AuthenticatedShell /> : <LoginScreen />}
     </SafeAreaView>
   );
@@ -183,10 +213,12 @@ export default function App() {
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaProvider>
         <ThemeProvider>
-          <AuthProvider>
-            <ExpoStatusBar style="dark" />
-            <AppShell />
-          </AuthProvider>
+          <VoiceSettingsProvider>
+            <AuthProvider>
+              <ExpoStatusBar style="dark" />
+              <AppShell />
+            </AuthProvider>
+          </VoiceSettingsProvider>
         </ThemeProvider>
       </SafeAreaProvider>
     </GestureHandlerRootView>

@@ -1,17 +1,23 @@
 import { useAuth } from "@context/AuthContext";
+import { useVoiceSettings } from "@context/VoiceSettingsContext";
+import { useNetworkStatus } from "@hooks/useNetworkStatus";
 import { markStartupEvent } from "@hooks/useStartupProfiler";
 import { useVoiceInput } from "@hooks/useVoiceInput";
+import { useVoicePlayback } from "@hooks/useVoicePlayback";
 import { sendMessage } from "@services/chat";
 import { loadChatState, persistChatState } from "@services/chatCache";
 import { useTheme } from "@theme/ThemeProvider";
+import * as Haptics from "expo-haptics";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   FlatList,
   KeyboardAvoidingView,
+  Modal,
   Platform,
   Pressable,
   StyleSheet,
+  Switch,
   Text,
   TextInput,
   View,
@@ -133,7 +139,11 @@ function RecommendationCard({
 function resolveVoiceStatusLabel(
   isRecording: boolean,
   isTranscribing: boolean,
+  isOffline: boolean,
 ): string {
+  if (isOffline) {
+    return "离线模式下暂不可用";
+  }
   if (isTranscribing) {
     return "语音识别中…";
   }
@@ -162,6 +172,20 @@ export function ChatScreen() {
     cancel: cancelVoiceInput,
     clearError: clearVoiceError,
   } = useVoiceInput(activeLocale, tokens?.accessToken ?? null);
+  const {
+    enabled: isVoicePlaybackEnabled,
+    setEnabled: setVoicePlaybackEnabled,
+    rate: voicePlaybackRate,
+    pitch: voicePlaybackPitch,
+    setRate: setVoicePlaybackRate,
+    setPitch: setVoicePlaybackPitch,
+    loading: voiceSettingsLoading,
+  } = useVoiceSettings();
+  const {
+    speak: speakVoiceResponse,
+    stop: stopVoicePlayback,
+    speaking: isVoicePlaybackActive,
+  } = useVoicePlayback();
   const [messages, setMessages] = useState<MessageWithId[]>([]);
   const [sessionId, setSessionId] = useState<string | undefined>();
   const [inputValue, setInputValue] = useState("");
@@ -174,12 +198,44 @@ export function ChatScreen() {
     { summary: string; keywords: string[] }[]
   >([]);
   const [isRestoring, setRestoring] = useState<boolean>(true);
+  const networkStatus = useNetworkStatus(12000);
+  const [voiceSettingsVisible, setVoiceSettingsVisible] = useState(false);
+  const ratePresets = useMemo(
+    () => [
+      { label: "慢速", value: 0.85 },
+      { label: "标准", value: 1 },
+      { label: "快速", value: 1.2 },
+    ],
+    [],
+  );
+  const pitchPresets = useMemo(
+    () => [
+      { label: "柔和", value: 0.9 },
+      { label: "标准", value: 1 },
+      { label: "明亮", value: 1.1 },
+    ],
+    [],
+  );
+  const voicePlaybackStateLabel = voiceSettingsLoading
+    ? "加载中"
+    : isVoicePlaybackEnabled
+      ? "开启"
+      : "关闭";
+  const isOffline =
+    !networkStatus.isConnected || !networkStatus.isInternetReachable;
   const composerPadding = useMemo(
     () => Math.max(insets.bottom, theme.spacing.sm),
     [insets.bottom, theme.spacing.sm],
   );
   const keyboardVerticalOffset =
     Platform.OS === "ios" ? insets.top + theme.spacing.lg : 0;
+  const androidRipple = useMemo(
+    () =>
+      Platform.OS === "android"
+        ? { color: "rgba(37,99,235,0.12)", foreground: true }
+        : undefined,
+    [],
+  );
 
   const styles = useMemo(
     () =>
@@ -254,10 +310,35 @@ export function ChatScreen() {
           borderColor: theme.colors.surfaceMuted,
           backgroundColor: theme.colors.surfaceCard,
         },
+        headerActions: {
+          flexDirection: "row",
+          alignItems: "center",
+          gap: theme.spacing.sm,
+        },
         headerTitle: {
           fontSize: 20,
           fontWeight: "600",
           color: theme.colors.textPrimary,
+        },
+        voiceSettingsButton: {
+          borderRadius: theme.radius.md,
+          borderWidth: 1,
+          borderColor: theme.colors.borderSubtle,
+          paddingHorizontal: theme.spacing.sm,
+          paddingVertical: theme.spacing.xs,
+          backgroundColor: theme.colors.surfaceMuted,
+        },
+        voiceSettingsLabel: {
+          fontSize: 12,
+          fontWeight: "600",
+          color: theme.colors.textSecondary,
+        },
+        voiceSettingsValue: {
+          fontSize: 14,
+          color: theme.colors.primary,
+        },
+        voiceSettingsValueDisabled: {
+          color: theme.colors.textSecondary,
         },
         logoutButton: {
           paddingHorizontal: theme.spacing.sm,
@@ -321,6 +402,93 @@ export function ChatScreen() {
           alignItems: "center",
           marginTop: theme.spacing.xs * 0.5,
         },
+        offlineNotice: {
+          color: theme.colors.warning,
+          textAlign: "center",
+          fontSize: 13,
+          paddingHorizontal: theme.spacing.md,
+          marginTop: theme.spacing.sm,
+        },
+        modalOverlay: {
+          flex: 1,
+          backgroundColor: "rgba(15,23,42,0.6)",
+          justifyContent: "center",
+          alignItems: "center",
+          padding: theme.spacing.lg,
+        },
+        modalBackdrop: {
+          ...StyleSheet.absoluteFillObject,
+        },
+        modalCard: {
+          width: "100%",
+          maxWidth: 360,
+          borderRadius: theme.radius.lg,
+          backgroundColor: theme.colors.surfaceCard,
+          padding: theme.spacing.lg,
+          gap: theme.spacing.md,
+        },
+        modalTitle: {
+          fontSize: 18,
+          fontWeight: "600",
+          color: theme.colors.textPrimary,
+        },
+        switchRow: {
+          flexDirection: "row",
+          alignItems: "center",
+          justifyContent: "space-between",
+        },
+        switchLabel: {
+          fontSize: 16,
+          color: theme.colors.textPrimary,
+        },
+        modalSection: {
+          gap: theme.spacing.sm,
+        },
+        modalSectionTitle: {
+          fontSize: 14,
+          fontWeight: "600",
+          color: theme.colors.textSecondary,
+        },
+        chipRow: {
+          flexDirection: "row",
+          flexWrap: "wrap",
+          gap: theme.spacing.sm,
+        },
+        chip: {
+          borderRadius: theme.radius.pill,
+          borderWidth: 1,
+          borderColor: theme.colors.borderSubtle,
+          paddingHorizontal: theme.spacing.md,
+          paddingVertical: theme.spacing.xs,
+          backgroundColor: theme.colors.surfaceMuted,
+        },
+        chipActive: {
+          borderColor: theme.colors.primary,
+          backgroundColor: "rgba(37,99,235,0.12)",
+        },
+        chipLabel: {
+          fontSize: 13,
+          color: theme.colors.textSecondary,
+        },
+        chipLabelActive: {
+          color: theme.colors.primary,
+          fontWeight: "600",
+        },
+        modalHint: {
+          fontSize: 12,
+          color: theme.colors.textSecondary,
+        },
+        modalClose: {
+          alignSelf: "flex-end",
+          paddingHorizontal: theme.spacing.md,
+          paddingVertical: theme.spacing.xs,
+          borderRadius: theme.radius.md,
+          backgroundColor: theme.colors.primary,
+        },
+        modalCloseLabel: {
+          color: "#fff",
+          fontWeight: "600",
+        },
       }),
     [theme],
   );
@@ -349,6 +517,13 @@ export function ChatScreen() {
       });
     };
   }, [cancelVoiceInput]);
+
+  useEffect(
+    () => () => {
+      stopVoicePlayback();
+    },
+    [stopVoicePlayback],
+  );
 
   useEffect(() => {
     if (!userId) {
@@ -414,6 +589,12 @@ export function ChatScreen() {
   ]);
 
   useEffect(() => {
+    if (!isOffline && error && error.includes("离线状态")) {
+      setError(null);
+    }
+  }, [isOffline, error]);
+
+  useEffect(() => {
     if (!isRestoring && !screenVisibleRef.current) {
       markStartupEvent("chat-screen-visible");
       screenVisibleRef.current = true;
@@ -445,11 +626,19 @@ export function ChatScreen() {
   );
 
   const handleVoiceStart = useCallback(() => {
+    if (isOffline) {
+      return;
+    }
     clearVoiceError();
+    if (Platform.OS === "ios" || Platform.OS === "android") {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {
+        // Haptic feedback may not be available on all devices.
+      });
+    }
     startVoiceInput(handleVoiceTranscript).catch((error) => {
       console.warn("Failed to start voice input", error);
     });
-  }, [clearVoiceError, startVoiceInput, handleVoiceTranscript]);
+  }, [clearVoiceError, startVoiceInput, handleVoiceTranscript, isOffline]);
 
   const handleVoiceStop = useCallback(() => {
     stopVoiceInput().catch((error) => {
@@ -463,18 +652,63 @@ export function ChatScreen() {
     });
   }, [cancelVoiceInput]);
 
+  const handleVoicePlaybackToggle = useCallback(
+    (value: boolean) => {
+      setVoicePlaybackEnabled(value);
+      if (!value) {
+        stopVoicePlayback();
+      }
+    },
+    [setVoicePlaybackEnabled, stopVoicePlayback],
+  );
+
+  const handleSelectVoiceRate = useCallback(
+    (value: number) => {
+      setVoicePlaybackRate(value);
+    },
+    [setVoicePlaybackRate],
+  );
+
+  const handleSelectVoicePitch = useCallback(
+    (value: number) => {
+      setVoicePlaybackPitch(value);
+    },
+    [setVoicePlaybackPitch],
+  );
+
+  const closeVoiceSettings = useCallback(() => {
+    setVoiceSettingsVisible(false);
+  }, []);
+
   const handleSend = useCallback(async () => {
-    if (!tokens || !userId || inputValue.trim().length === 0) {
+    const trimmed = inputValue.trim();
+    if (!tokens || !userId || trimmed.length === 0) {
+      return;
+    }
+    if (isOffline) {
+      setError("当前处于离线状态，请联网后再发送消息。");
+      if (Platform.OS === "ios" || Platform.OS === "android") {
+        Haptics.notificationAsync(
+          Haptics.NotificationFeedbackType.Warning,
+        ).catch(() => {
+          // Haptic feedback is best-effort.
+        });
+      }
       return;
     }
     const userMessage: MessageWithId = {
       id: `${Date.now()}-user`,
       role: "user",
-      content: inputValue.trim(),
+      content: trimmed,
       createdAt: new Date().toISOString(),
     };
     appendMessage(userMessage);
     setInputValue("");
+    if (Platform.OS === "ios" || Platform.OS === "android") {
+      Haptics.selectionAsync().catch(() => {
+        // Selection feedback missing support on some devices; ignore failures.
+      });
+    }
     setSending(true);
     setError(null);
     try {
@@ -493,6 +727,11 @@ export function ChatScreen() {
         createdAt: response.reply.createdAt,
       };
       appendMessage(assistantMessage);
+      const playbackLocale = response.resolvedLocale ?? activeLocale;
+      speakVoiceResponse({
+        text: assistantMessage.content,
+        locale: playbackLocale,
+      });
       setRecommendations(response.recommendations);
       setMemoryHighlights(response.memoryHighlights);
       if (response.resolvedLocale) {
@@ -510,7 +749,19 @@ export function ChatScreen() {
     } finally {
       setSending(false);
     }
-  }, [tokens, userId, inputValue, sessionId, activeLocale]);
+  }, [
+    tokens,
+    userId,
+    inputValue,
+    sessionId,
+    activeLocale,
+    isOffline,
+    appendMessage,
+    speakVoiceResponse,
+  ]);
+
+  const sendDisabled = isSending || isOffline || inputValue.trim().length === 0;
+  const voiceDisabled = isSending || isVoiceTranscribing || isOffline;
 
   return (
     <KeyboardAvoidingView
@@ -520,9 +771,37 @@ export function ChatScreen() {
     >
       <View style={styles.header}>
         <Text style={styles.headerTitle}>MindWell 对话</Text>
-        <Pressable onPress={logout} style={styles.logoutButton}>
-          <Text style={styles.logoutLabel}>退出</Text>
-        </Pressable>
+        <View style={styles.headerActions}>
+          <Pressable
+            android_ripple={androidRipple}
+            accessibilityRole="button"
+            accessibilityLabel="打开语音播报设置"
+            onPress={() => setVoiceSettingsVisible(true)}
+            disabled={voiceSettingsLoading}
+            style={[
+              styles.voiceSettingsButton,
+              voiceSettingsLoading && { opacity: 0.6 },
+            ]}
+          >
+            <Text style={styles.voiceSettingsLabel}>语音播报</Text>
+            <Text
+              style={[
+                styles.voiceSettingsValue,
+                (!isVoicePlaybackEnabled || voiceSettingsLoading) &&
+                  styles.voiceSettingsValueDisabled,
+              ]}
+            >
+              {voicePlaybackStateLabel}
+            </Text>
+          </Pressable>
+          <Pressable
+            android_ripple={androidRipple}
+            onPress={logout}
+            style={styles.logoutButton}
+          >
+            <Text style={styles.logoutLabel}>退出</Text>
+          </Pressable>
+        </View>
       </View>
 
       {error && <Text style={styles.errorText}>{error}</Text>}
@@ -550,9 +829,21 @@ export function ChatScreen() {
             { paddingBottom: composerPadding + theme.spacing.lg },
           ]}
           keyboardShouldPersistTaps="handled"
+          keyboardDismissMode={
+            Platform.OS === "ios" ? "interactive" : "on-drag"
+          }
           contentInset={{ bottom: composerPadding }}
+          contentInsetAdjustmentBehavior={
+            Platform.OS === "ios" ? "always" : "automatic"
+          }
           scrollIndicatorInsets={{ bottom: composerPadding }}
           initialNumToRender={12}
+          removeClippedSubviews={Platform.OS === "android"}
+          maintainVisibleContentPosition={
+            Platform.OS === "ios"
+              ? { minIndexForVisible: 0, autoscrollToTopThreshold: 20 }
+              : undefined
+          }
           onContentSizeChange={() => scrollToLatestMessage(false)}
         />
       )}
@@ -585,6 +876,12 @@ export function ChatScreen() {
         )}
       </View>
 
+      {isOffline && (
+        <Text style={styles.offlineNotice}>
+          当前离线，已切换到本地缓存模式。
+        </Text>
+      )}
+
       <View
         style={[
           styles.composer,
@@ -594,26 +891,31 @@ export function ChatScreen() {
         {voiceSupported && (
           <View style={styles.voiceContainer}>
             <Pressable
+              android_ripple={androidRipple}
               accessibilityRole="button"
               accessibilityLabel="按住进行语音输入"
               onPressIn={handleVoiceStart}
               onPressOut={handleVoiceStop}
               onTouchCancel={handleVoiceCancel}
-              disabled={isSending || isVoiceTranscribing}
+              disabled={voiceDisabled}
               style={[
                 styles.voiceButton,
                 isVoiceRecording && styles.voiceButtonActive,
-                (isSending || isVoiceTranscribing) &&
-                  styles.voiceButtonDisabled,
+                voiceDisabled && styles.voiceButtonDisabled,
               ]}
             >
               <Text
                 style={[
                   styles.voiceButtonLabel,
                   isVoiceRecording && styles.voiceButtonLabelActive,
+                  isOffline && { opacity: 0.7 },
                 ]}
               >
-                {isVoiceRecording ? "松开结束" : "按住语音"}
+                {isOffline
+                  ? "离线不可用"
+                  : isVoiceRecording
+                    ? "松开结束"
+                    : "按住语音"}
               </Text>
             </Pressable>
             <View style={styles.voiceStatusRow}>
@@ -626,7 +928,11 @@ export function ChatScreen() {
                   isVoiceTranscribing && { marginLeft: theme.spacing.xs * 0.5 },
                 ]}
               >
-                {resolveVoiceStatusLabel(isVoiceRecording, isVoiceTranscribing)}
+                {resolveVoiceStatusLabel(
+                  isVoiceRecording,
+                  isVoiceTranscribing,
+                  isOffline,
+                )}
               </Text>
             </View>
           </View>
@@ -640,9 +946,10 @@ export function ChatScreen() {
           editable={!isSending && !isVoiceRecording && !isVoiceTranscribing}
         />
         <Pressable
+          android_ripple={androidRipple}
           onPress={handleSend}
-          style={[styles.sendButton, { opacity: inputValue.trim() ? 1 : 0.5 }]}
-          disabled={inputValue.trim().length === 0 || isSending}
+          style={[styles.sendButton, { opacity: sendDisabled ? 0.5 : 1 }]}
+          disabled={sendDisabled}
         >
           <Text style={styles.sendLabel}>{isSending ? "发送中…" : "发送"}</Text>
         </Pressable>
@@ -657,6 +964,92 @@ export function ChatScreen() {
           {voiceError}
         </Text>
       )}
+      <Modal
+        visible={voiceSettingsVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={closeVoiceSettings}
+      >
+        <View style={styles.modalOverlay}>
+          <Pressable
+            style={styles.modalBackdrop}
+            onPress={closeVoiceSettings}
+            android_ripple={{ color: "transparent" }}
+          />
+          <View style={styles.modalCard}>
+            <Text style={styles.modalTitle}>语音播报设置</Text>
+            <View style={styles.switchRow}>
+              <Text style={styles.switchLabel}>启用语音播报</Text>
+              <Switch
+                value={isVoicePlaybackEnabled}
+                onValueChange={handleVoicePlaybackToggle}
+              />
+            </View>
+            <View style={styles.modalSection}>
+              <Text style={styles.modalSectionTitle}>语速</Text>
+              <View style={styles.chipRow}>
+                {ratePresets.map((preset) => {
+                  const isActive =
+                    Math.abs(voicePlaybackRate - preset.value) < 0.01;
+                  return (
+                    <Pressable
+                      key={preset.value}
+                      android_ripple={androidRipple}
+                      onPress={() => handleSelectVoiceRate(preset.value)}
+                      style={[styles.chip, isActive && styles.chipActive]}
+                    >
+                      <Text
+                        style={[
+                          styles.chipLabel,
+                          isActive && styles.chipLabelActive,
+                        ]}
+                      >
+                        {preset.label}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+            </View>
+            <View style={styles.modalSection}>
+              <Text style={styles.modalSectionTitle}>音色</Text>
+              <View style={styles.chipRow}>
+                {pitchPresets.map((preset) => {
+                  const isActive =
+                    Math.abs(voicePlaybackPitch - preset.value) < 0.01;
+                  return (
+                    <Pressable
+                      key={preset.value}
+                      android_ripple={androidRipple}
+                      onPress={() => handleSelectVoicePitch(preset.value)}
+                      style={[styles.chip, isActive && styles.chipActive]}
+                    >
+                      <Text
+                        style={[
+                          styles.chipLabel,
+                          isActive && styles.chipLabelActive,
+                        ]}
+                      >
+                        {preset.label}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+            </View>
+            {isVoicePlaybackActive && (
+              <Text style={styles.modalHint}>播报中…</Text>
+            )}
+            <Pressable
+              android_ripple={androidRipple}
+              style={styles.modalClose}
+              onPress={closeVoiceSettings}
+            >
+              <Text style={styles.modalCloseLabel}>完成</Text>
+            </Pressable>
+          </View>
+        </View>
+      </Modal>
     </KeyboardAvoidingView>
   );
 }

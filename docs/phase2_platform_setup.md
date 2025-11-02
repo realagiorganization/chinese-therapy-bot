@@ -10,14 +10,16 @@ This document records the baseline infrastructure design for Phase 2 of the Mind
 
 ## 2. Data Stores
 - **PostgreSQL Flexible Server** – Zone redundant deployment, private networking via delegated subnet + private DNS zone. Daily backups (14-day retention) with geo-redundant storage.
+- **AWS RDS PostgreSQL (optional replica / analytics node)** – Single-AZ by default with parameterised Multi-AZ toggle, gp3 storage (auto-scale), Performance Insights, and Secrets Manager seeding under `mindwell/<env>/rds/postgres`.
 - **Object Storage** – Three S3 buckets segmented by classification:
   - `conversation-logs` (sensitive transcripts, KMS encryption, versioned)
   - `summaries` (daily/weekly outputs, KMS + versioning)
   - `media` (therapist assets, AES256, selectively shareable)
-- **Secrets** – Azure Key Vault stores platform credentials (e.g., Postgres admin password). AWS Secrets Manager mirrors the OpenAI key for workloads running in AWS.
+- **Secrets** – Azure Key Vault stores platform credentials (e.g., Postgres admin password). AWS Secrets Manager mirrors the OpenAI key for workloads running in AWS alongside the RDS credentials secret.
 
 ## 3. IAM & Access Control
 - **CI Runner Role** – IAM role granting scoped read/write to S3 buckets for CI/CD, automation agents, and cross-cloud sync jobs.
+- **Automation Agent Security Group** – Limits SSH ingress to `aws_agent_allowed_ssh_cidrs` (override in non-dev environments) while permitting outbound access for Data Sync/Summary Scheduler workflows.
 - **Key Vault Policies** – Admin object ID granted full control; AKS kubelet identity and cluster managed identity both receive `Key Vault Secrets User` for CSI driver and GitHub OIDC workloads (see Terraform outputs for IDs).
 - **Network ACLs** – Key Vault restricted to explicit IP ranges. S3 buckets block public access (media bucket allows object-level ACLs for shareable assets).
 
@@ -40,14 +42,14 @@ This document records the baseline infrastructure design for Phase 2 of the Mind
 ## 6. Outstanding Work & Assumptions
 - Apply operations have **not** been run yet; cloud resources remain to be provisioned.
 - Production-grade setup will introduce additional node pools (GPU/inference) and dedicated subnets for private endpoints (OpenAI, Redis, etc.).
-- AWS IAM access patterns for Data Sync/Summary Scheduler agents will be expanded when their execution environments are finalized.
+- AWS IAM access patterns for Data Sync/Summary Scheduler agents will be expanded when their execution environments are finalized. The new automation agent subnet/Security Group lays the groundwork for this.
 - Observability dashboards currently focus on infrastructure; deep-dive workbooks (latency percentiles, conversation-level KPIs) will follow after service deployment.
 - Cost budget thresholds assume USD billing; revisit amounts when accurate Azure pricing projections are finalized.
 - Workload identity still requires an end-to-end dry run. A validation job manifest now lives in `infra/kubernetes/samples/workload-identity-validation.yaml` to exercise Key Vault access once the cluster is online.
 
 ## 7. Terraform Implementation Snapshot
 - **Source:** `infra/terraform/`
-- **Key Files:** `azure_core.tf`, `azure_aks.tf`, `azure_postgres.tf`, `azure_keyvault.tf`, `aws_storage.tf`, `observability.tf`, `secrets.tf`.
+- **Key Files:** `azure_core.tf`, `azure_aks.tf`, `azure_postgres.tf`, `azure_keyvault.tf`, `aws_network.tf`, `aws_storage.tf`, `aws_rds.tf`, `aws_ec2_agents.tf`, `observability.tf`, `secrets.tf`.
 - **Runtime Manifests:** `infra/kubernetes/backend/` hosts the base Kustomize overlay that mounts Key Vault secrets via the CSI driver and annotates the backend service account for workload identity. The `infra/kubernetes/samples/` folder adds a Key Vault retrieval job for quick validation.
-- **Highlights:** AKS workload identity enabled; PostgreSQL admin password seeded to Key Vault; three S3 buckets with encryption/versioning; CI Runner Agent IAM role; App Insights + AKS CPU & error alerts; Azure Portal dashboard and cost budget notifications.
+- **Highlights:** AKS workload identity enabled; cross-cloud AWS VPC with optional RDS replica and automation agent host; PostgreSQL admin password seeded to Key Vault; S3 buckets with encryption/versioning; CI Runner Agent IAM role; App Insights + AKS CPU & error alerts; Azure Portal dashboard and cost budget notifications.
 - **Next Steps:** Wire Terraform remote state, add database migration module, extend monitoring dashboards (Grafana/Workbook) once application metrics are defined, and automate apply stages with manual approval.
