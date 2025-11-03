@@ -255,43 +255,127 @@ class SummaryGenerationService:
         """Fallback summary leveraging keyword frequency analysis."""
         user_messages = [item["content"] for item in history if item["role"] == "user"]
         keywords = Counter()
+        tracked_tokens = (
+            "焦虑",
+            "压力",
+            "睡眠",
+            "关系",
+            "家庭",
+            "工作",
+            "放松",
+            "希望",
+            "anxiety",
+            "stress",
+            "sleep",
+            "relationship",
+            "family",
+            "work",
+            "relaxation",
+            "hope",
+            "тревога",
+            "стресс",
+            "сон",
+            "отношения",
+            "семья",
+            "работа",
+            "расслабление",
+            "надежда",
+        )
         for message in user_messages:
-            for token in ("焦虑", "压力", "睡眠", "关系", "家庭", "工作", "放松", "希望"):
-                if token in message:
+            lower_message = message.lower()
+            for token in tracked_tokens:
+                if token in message or token in lower_message:
                     keywords[token] += 1
 
         top_keywords = [token for token, _ in keywords.most_common(3)]
-        highlight = "、".join(top_keywords) if top_keywords else "情绪调整"
+
+        def localize_token(token: str) -> str:
+            mapping: dict[str, dict[str, str]] = {
+                "焦虑": {"zh": "焦虑", "en": "Anxiety", "ru": "Тревога"},
+                "压力": {"zh": "压力", "en": "Stress", "ru": "Стресс"},
+                "睡眠": {"zh": "睡眠", "en": "Sleep", "ru": "Сон"},
+                "关系": {"zh": "关系", "en": "Relationships", "ru": "Отношения"},
+                "家庭": {"zh": "家庭", "en": "Family", "ru": "Семья"},
+                "工作": {"zh": "工作", "en": "Work", "ru": "Работа"},
+                "放松": {"zh": "放松", "en": "Relaxation", "ru": "Расслабление"},
+                "希望": {"zh": "希望", "en": "Hope", "ru": "Надежда"},
+                "anxiety": {"zh": "焦虑", "en": "Anxiety", "ru": "Тревога"},
+                "stress": {"zh": "压力", "en": "Stress", "ru": "Стресс"},
+                "sleep": {"zh": "睡眠", "en": "Sleep", "ru": "Сон"},
+                "relationship": {"zh": "关系", "en": "Relationships", "ru": "Отношения"},
+                "family": {"zh": "家庭", "en": "Family", "ru": "Семья"},
+                "work": {"zh": "工作", "en": "Work", "ru": "Работа"},
+                "relaxation": {"zh": "放松", "en": "Relaxation", "ru": "Расслабление"},
+                "hope": {"zh": "希望", "en": "Hope", "ru": "Надежда"},
+                "тревога": {"zh": "焦虑", "en": "Anxiety", "ru": "Тревога"},
+                "стресс": {"zh": "压力", "en": "Stress", "ru": "Стресс"},
+                "сон": {"zh": "睡眠", "en": "Sleep", "ru": "Сон"},
+                "отношения": {"zh": "关系", "en": "Relationships", "ru": "Отношения"},
+                "семья": {"zh": "家庭", "en": "Family", "ru": "Семья"},
+                "работа": {"zh": "工作", "en": "Work", "ru": "Работа"},
+                "расслабление": {"zh": "放松", "en": "Relaxation", "ru": "Расслабление"},
+                "надежда": {"zh": "希望", "en": "Hope", "ru": "Надежда"},
+            }
+            entry = mapping.get(token) or mapping.get(token.lower())
+            if not entry:
+                return token
+            if locale.startswith("zh"):
+                return entry.get("zh", token)
+            if locale.startswith("ru"):
+                return entry.get("ru", token)
+            return entry.get("en", token)
+
+        localized_keywords = [localize_token(token) for token in top_keywords]
+        separator = "、" if locale.startswith("zh") else " · " if locale.startswith("ru") else ", "
+        default_highlight = (
+            "情绪调整"
+            if locale.startswith("zh")
+            else "Эмоциональная регуляция"
+            if locale.startswith("ru")
+            else "Emotion regulation"
+        )
+        highlight = separator.join(localized_keywords) if localized_keywords else default_highlight
 
         if summary_type == "daily":
-            title = f"{self._settings.app_env.upper()} 日常回顾" if locale.startswith("zh") else "MindWell Daily Reflection"
-            spotlight = f"今日关注：{highlight}" if locale.startswith("zh") else f"Focus today: {highlight}"
-            summary = (
-                "用户分享了持续关注的主题，建议安排一次呼吸练习并记录情绪变化。"
-                if locale.startswith("zh")
-                else "The user focused on emotional regulation. Suggest scheduling a breathing exercise and journaling."
-            )
+            if locale.startswith("zh"):
+                title = f"{self._settings.app_env.upper()} 日常回顾"
+                spotlight = f"今日关注：{highlight}"
+                summary = "用户分享了持续关注的主题，建议安排一次呼吸练习并记录情绪变化。"
+            elif locale.startswith("ru"):
+                title = "Ежедневная заметка MindWell"
+                spotlight = f"Сегодня в фокусе: {highlight}"
+                summary = "Пользователь сосредоточился на поддержке эмоций. Предложите запланировать дыхательную практику и записать наблюдения."
+            else:
+                title = "MindWell Daily Reflection"
+                spotlight = f"Focus today: {highlight}"
+                summary = "The user focused on emotional regulation. Suggest scheduling a breathing exercise and journaling."
             return {
                 "title": title,
                 "spotlight": spotlight,
                 "summary": summary,
             }
 
-        themes = top_keywords or ["情绪管理" if locale.startswith("zh") else "Emotional regulation"]
-        highlights = (
-            "本周持续练习正念，情绪起伏趋于稳定。"
-            if locale.startswith("zh")
-            else "Mindfulness practice continued this week, leading to steadier emotions."
+        localized_themes = localized_keywords or (
+            ["情绪管理"] if locale.startswith("zh") else ["Эмоциональная регуляция"] if locale.startswith("ru") else ["Emotional regulation"]
         )
-        action_items = [
-            "保持每日两次深呼吸练习" if locale.startswith("zh") else "Maintain twice-daily breathing practice",
-            "记录一次令你充电的活动" if locale.startswith("zh") else "Log one energizing activity",
-        ]
+        if locale.startswith("zh"):
+            highlights = "本周持续练习正念，情绪起伏趋于稳定。"
+            action_items = ["保持每日两次深呼吸练习", "记录一次令你充电的活动"]
+        elif locale.startswith("ru"):
+            highlights = "На этой неделе продолжались практики осознанности, и эмоциональные колебания стали мягче."
+            action_items = ["Сохраняйте две дыхательные практики в день", "Запишите одно занятие, которое вас подпитало"]
+        else:
+            highlights = "Mindfulness practice continued this week, leading to steadier emotions."
+            action_items = ["Maintain twice-daily breathing practice", "Log one energizing activity"]
+
+        elevated_tokens = {"焦虑", "anxiety", "тревога"}
+        risk_level = "medium" if any(token in top_keywords for token in elevated_tokens) else "low"
+
         return {
-            "themes": themes,
+            "themes": localized_themes,
             "highlights": highlights,
             "action_items": action_items,
-            "risk_level": "medium" if "焦虑" in top_keywords else "low",
+            "risk_level": risk_level,
         }
 
     def _estimate_mood_delta(self, messages: Iterable[ChatMessageModel]) -> int:

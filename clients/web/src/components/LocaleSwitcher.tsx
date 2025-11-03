@@ -6,7 +6,8 @@ import { Typography } from "../design-system";
 const supportedLocales = [
   { code: "zh-CN", labelKey: "locale.zh_cn" },
   { code: "zh-TW", labelKey: "locale.zh_tw" },
-  { code: "en-US", labelKey: "locale.en_us" }
+  { code: "en-US", labelKey: "locale.en_us" },
+  { code: "ru-RU", labelKey: "locale.ru_ru" }
 ] as const;
 
 type LocaleSwitcherProps = {

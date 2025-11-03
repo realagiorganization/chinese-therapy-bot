@@ -5,6 +5,7 @@ import { useTranslation } from "react-i18next";
 import { exchangeGoogleCode, exchangeSmsCode, requestSmsChallenge } from "../api/auth";
 import { useAuth } from "../auth/AuthContext";
 import { Button, Card, Typography } from "../design-system";
+import { LocaleSwitcher } from "./LocaleSwitcher";
 
 type SmsChallengeState = {
   challengeId: string;
@@ -18,7 +19,7 @@ function computeExpiry(expiresIn: number): number {
 }
 
 export function LoginPanel() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { setTokens } = useAuth();
 
   const [phoneNumber, setPhoneNumber] = useState("");
@@ -45,6 +46,8 @@ export function LoginPanel() {
     return t("auth.sms_pending", { seconds: remainingSeconds });
   }, [challenge, hasActiveChallenge, t]);
 
+  const resolvedLocale = i18n.resolvedLanguage ?? i18n.language ?? "zh-CN";
+
   const handleRequestSmsCode = useCallback(
     async (event?: FormEvent) => {
       event?.preventDefault();
@@ -59,7 +62,7 @@ export function LoginPanel() {
         const payload = await requestSmsChallenge({
           phoneNumber,
           countryCode,
-          locale: "zh-CN"
+          locale: resolvedLocale
         });
         const expiresAt = computeExpiry(payload.expiresIn);
         setChallenge({
@@ -74,7 +77,7 @@ export function LoginPanel() {
         setError(err instanceof Error ? err.message : t("auth.errors.sms_unknown"));
       }
     },
-    [phoneNumber, countryCode, t]
+    [phoneNumber, countryCode, resolvedLocale, t]
   );
 
   const handleVerifySmsCode = useCallback(
@@ -151,11 +154,22 @@ export function LoginPanel() {
         background: "linear-gradient(0deg, rgba(226,232,240,0.5) 0%, rgba(255,255,255,0.92) 80%)"
       }}
     >
-      <div style={{ display: "grid", gap: "var(--mw-spacing-xs)" }}>
-        <Typography variant="title">{t("auth.title")}</Typography>
-        <Typography variant="caption" style={{ color: "var(--text-secondary)" }}>
-          {t("auth.subtitle")}
-        </Typography>
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "flex-start",
+          gap: "var(--mw-spacing-sm)",
+          flexWrap: "wrap"
+        }}
+      >
+        <div style={{ display: "grid", gap: "var(--mw-spacing-xs)" }}>
+          <Typography variant="title">{t("auth.title")}</Typography>
+          <Typography variant="caption" style={{ color: "var(--text-secondary)" }}>
+            {t("auth.subtitle")}
+          </Typography>
+        </div>
+        <LocaleSwitcher compact />
       </div>
 
       <form

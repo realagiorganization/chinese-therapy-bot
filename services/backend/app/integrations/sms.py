@@ -115,6 +115,8 @@ class TwilioSMSProvider(SMSProvider):
         normalized_locale = (locale or "zh-CN").lower()
         if normalized_locale.startswith("zh"):
             return f"【{brand}】您的验证码是 {code}，5 分钟内有效。"
+        if normalized_locale.startswith("ru"):
+            return f"{brand}: ваш код {code}, он действителен 5 минут."
         return f"{brand} verification code: {code}. It expires in 5 minutes."
 
     def _extract_error(self, response: httpx.Response) -> str:

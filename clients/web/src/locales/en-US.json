@@ -124,7 +124,8 @@
   "locale": {
     "zh_cn": "Simplified Chinese",
     "zh_tw": "Traditional Chinese",
-    "en_us": "English"
+    "en_us": "English",
+    "ru_ru": "Russian"
   },
   "chat": {
     "title": "Therapy Companion",
@@ -147,9 +148,18 @@
     "auto_speak_enable": "Enable auto playback",
     "auto_speak_disable": "Disable auto playback",
     "speak_reply": "Speak last reply",
+    "stop_speaking": "Stop speaking",
     "memory_highlights": "Recent focus areas",
     "recommendations": "Therapist suggestions",
     "keywords": "Keywords: {{keywords}}",
+    "voice_errors": {
+      "unsupported": "Your browser doesn’t support voice recording.",
+      "recording_error": "We hit a recording error. Please try again.",
+      "no_audio": "We couldn’t capture any audio. Record once more.",
+      "no_transcript": "Nothing was recognized—try speaking again.",
+      "transcription_failed": "Speech recognition failed. Try later.",
+      "microphone_denied": "Microphone access is blocked. Check your browser permissions."
+    },
     "templates": {
       "heading": "Guided conversation starters",
       "subtitle": "Choose a curated opening when you’re unsure how to begin.",

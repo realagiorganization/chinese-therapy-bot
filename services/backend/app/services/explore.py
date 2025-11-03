@@ -78,6 +78,17 @@ class ExploreService:
             description = "快速缓和心率的放松练习，约 5 分钟即可完成。"
             frequency = "睡前或焦虑感上升时练习 2-3 轮。"
             cta_label = "开始 4-7-8 呼吸"
+        elif self._is_russian(locale):
+            steps = [
+                BreathingStep(label="Поза", instruction="Сядьте или встаньте прямо, опустите плечи и по желанию закройте глаза.", duration_seconds=10),
+                BreathingStep(label="Вдох на 4", instruction="Вдохните через нос, считая 1-2-3-4.", duration_seconds=16),
+                BreathingStep(label="Пауза на 7", instruction="Мягко задержите дыхание на семь счётов, не напрягая шею.", duration_seconds=28),
+                BreathingStep(label="Выдох на 8", instruction="Плавно выдыхайте через рот, чувствуя, как грудная клетка смягчается.", duration_seconds=32),
+            ]
+            cadence_label = "Ритм 4-7-8"
+            description = "Пятиминутная практика, которая выравнивает дыхание и помогает снять напряжение."
+            frequency = "Повторяйте 2–3 цикла перед сном или при всплеске тревоги."
+            cta_label = "Запустить дыхательную практику"
         else:
             steps = [
                 BreathingStep(label="Posture", instruction="Sit or stand tall, relax your shoulders, close your eyes.", duration_seconds=10),
@@ -92,7 +103,7 @@ class ExploreService:
 
         return BreathingExerciseModule(
             id="breathing-reset",
-            title=self._localize(locale, zh="今日呼吸练习", en="Guided Breathing Session"),
+            title=self._localize(locale, zh="今日呼吸练习", en="Guided Breathing Session", ru="Дыхательная практика дня"),
             description=description,
             cadence_label=cadence_label,
             steps=steps,
@@ -142,6 +153,34 @@ class ExploreService:
             ]
             title = "疗愈知识精选"
             cta_label = "查看完整资料"
+        elif self._is_russian(locale):
+            description = "Подборка материалов по психообразованию, которая отражает темы ваших недавних разговоров."
+            resources = [
+                PsychoeducationResource(
+                    id="micro-steps",
+                    title="Три микрошага против тревоги",
+                    summary="Как прервать тревожный круг с помощью дыхания, фиксации триггеров и поддерживающих фраз.",
+                    read_time_minutes=6,
+                    tags=[primary_theme, "саморегуляция"],
+                ),
+                PsychoeducationResource(
+                    id="sleep-hygiene",
+                    title="Восстанавливаем ритм сна",
+                    summary="Вечерний ритуал с управлением светом, заметками и расслаблением тела помогает мозгу перейти в отдых.",
+                    read_time_minutes=5,
+                    tags=["гигиена сна", "расслабление"],
+                ),
+                PsychoeducationResource(
+                    id="body-scan",
+                    title="Трёхминутное сканирование тела",
+                    summary="Короткое аудио, помогающее заметить зажимы, смягчить дыхание и вернуть внимание в тело.",
+                    read_time_minutes=3,
+                    tags=["осознанность"],
+                    resource_type="audio",
+                ),
+            ]
+            title = "Подборка знаний для поддержки"
+            cta_label = "Открыть подборку материалов"
         else:
             description = "Personalized psychoeducation picks that mirror your recent conversations."
             resources = [
@@ -195,15 +234,19 @@ class ExploreService:
         trend = "up" if average_mood > 0.4 else "down" if average_mood < -0.4 else "steady"
         base_momentum = 68 if trend == "up" else 48 if trend == "steady" else 36
 
+        is_chinese = self._is_chinese(locale)
+        is_russian = self._is_russian(locale)
+
         localized_topics: list[TrendingTopic] = []
         for index, topic in enumerate(topics[:3]):
             adjustment = max(-12, min(12, int(round(average_mood * 10))))
             momentum = max(20, min(95, base_momentum - index * 6 + adjustment))
-            summary = (
-                f"与你讨论「{topic}」的频率提升，本周可尝试搭配深呼吸或记忆提要。"
-                if self._is_chinese(locale)
-                else f"Discussions around “{topic}” are gaining traction; pair it with breathing or journaling."
-            )
+            if is_chinese:
+                summary = f"与你讨论「{topic}」的频率提升，本周可尝试搭配深呼吸或记忆提要。"
+            elif is_russian:
+                summary = f"Тема «{topic}» звучит всё чаще; можно дополнить её дыханием или заметками в дневник."
+            else:
+                summary = f"Discussions around “{topic}” are gaining traction; pair it with breathing or journaling."
             localized_topics.append(
                 TrendingTopic(
                     name=topic,
@@ -221,11 +264,12 @@ class ExploreService:
         if not insights:
             insights = self._fallback_insights(locale)
 
-        title = self._localize(locale, zh="当前关注焦点", en="Trending focus areas")
+        title = self._localize(locale, zh="当前关注焦点", en="Trending focus areas", ru="Актуальные темы внимания")
         description = self._localize(
             locale,
             zh="根据你的近期对话与总结，以下主题最值得继续跟进。",
             en="Based on your latest chats and summaries, these themes deserve extra attention.",
+            ru="С опорой на ваши недавние диалоги и сводки эти темы стоит исследовать дальше.",
         )
 
         return TrendingTopicsModule(
@@ -234,7 +278,7 @@ class ExploreService:
             description=description,
             topics=localized_topics,
             insights=insights[:3],
-            cta_label=self._localize(locale, zh="查看练习建议", en="View practice ideas"),
+            cta_label=self._localize(locale, zh="查看练习建议", en="View practice ideas", ru="Посмотреть идеи практик"),
             cta_action="/app/trends",
         )
 
@@ -260,28 +304,39 @@ class ExploreService:
         return themes
 
     def _fallback_themes(self, locale: str) -> list[str]:
-        return (
-            ["压力管理", "睡眠节律", "情绪调节"]
-            if self._is_chinese(locale)
-            else ["Stress management", "Sleep rhythm", "Emotion regulation"]
-        )
+        if self._is_chinese(locale):
+            return ["压力管理", "睡眠节律", "情绪调节"]
+        if self._is_russian(locale):
+            return ["Управление стрессом", "Режим сна", "Эмоциональная регуляция"]
+        return ["Stress management", "Sleep rhythm", "Emotion regulation"]
 
     def _fallback_insights(self, locale: str) -> list[str]:
-        return (
-            [
+        if self._is_chinese(locale):
+            return [
                 "保持每晚 10 分钟的放松仪式有助于缩短入睡时间。",
                 "记录触发点并练习 4-7-8 呼吸可以在 2 分钟内稳定心率。",
             ]
-            if self._is_chinese(locale)
-            else [
-                "A ten-minute wind-down ritual helps shorten sleep onset time.",
-                "Logging triggers plus a 4-7-8 breathing round steadies heart rate within minutes.",
+        if self._is_russian(locale):
+            return [
+                "Десятиминутный вечерний ритуал помогает быстрее засыпать.",
+                "Запись триггеров и один цикл дыхания 4-7-8 стабилизируют сердечный ритм за пару минут.",
             ]
-        )
+        return [
+            "A ten-minute wind-down ritual helps shorten sleep onset time.",
+            "Logging triggers plus a 4-7-8 breathing round steadies heart rate within minutes.",
+        ]
 
-    def _localize(self, locale: str, *, zh: str, en: str) -> str:
-        return zh if self._is_chinese(locale) else en
+    def _localize(self, locale: str, *, zh: str, en: str, ru: str | None = None) -> str:
+        if self._is_chinese(locale):
+            return zh
+        if self._is_russian(locale):
+            return ru or en
+        return en
 
     def _is_chinese(self, locale: str) -> bool:
         normalized = locale.lower()
         return normalized.startswith("zh")
+
+    def _is_russian(self, locale: str) -> bool:
+        normalized = locale.lower()
+        return normalized.startswith("ru")

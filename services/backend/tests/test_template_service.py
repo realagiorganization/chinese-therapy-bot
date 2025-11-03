@@ -22,6 +22,14 @@ def test_template_service_keyword_filter() -> None:
     assert any("sleep" in template.topic for template in templates)
 
 
+def test_template_service_supports_russian_locale() -> None:
+    service = ChatTemplateService()
+
+    templates = service.list_templates(locale="ru-RU", limit=3)
+    assert templates, "Expected Russian locale templates to be available."
+    assert templates[0].locale == "ru-RU"
+
+
 def test_chat_templates_endpoint_returns_payload() -> None:
     app = create_app()
     client = TestClient(app)
@@ -51,3 +59,16 @@ def test_chat_templates_endpoint_falls_back_for_unknown_locale() -> None:
     payload = response.json()
     assert payload["locale"] == "fr-FR"
     assert payload["templates"], "Fallback templates should be returned."
+
+
+def test_chat_templates_endpoint_returns_russian_payload() -> None:
+    app = create_app()
+    client = TestClient(app)
+
+    response = client.get("/api/chat/templates", params={"locale": "ru-RU", "limit": 2})
+    assert response.status_code == 200
+
+    payload = response.json()
+    assert payload["locale"] == "ru-RU"
+    assert payload["templates"], "Russian templates should be returned."
+    assert payload["templates"][0]["locale"] == "ru-RU"

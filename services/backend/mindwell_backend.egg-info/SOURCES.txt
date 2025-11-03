@@ -18,6 +18,7 @@ app/api/routes/chat.py
 app/api/routes/evaluations.py
 app/api/routes/explore.py
 app/api/routes/features.py
+app/api/routes/feedback.py
 app/api/routes/health.py
 app/api/routes/memory.py
 app/api/routes/reports.py
@@ -47,6 +48,7 @@ app/schemas/data_subject.py
 app/schemas/evaluation.py
 app/schemas/explore.py
 app/schemas/features.py
+app/schemas/feedback.py
 app/schemas/memory.py
 app/schemas/reports.py
 app/schemas/templates.py
@@ -61,6 +63,7 @@ app/services/data_subject.py
 app/services/evaluation.py
 app/services/explore.py
 app/services/feature_flags.py
+app/services/feedback.py
 app/services/language_detection.py
 app/services/memory.py
 app/services/monitoring.py
@@ -85,6 +88,8 @@ tests/test_data_subject_service.py
 tests/test_data_sync_agent.py
 tests/test_evaluation.py
 tests/test_explore_service.py
+tests/test_feedback_api.py
+tests/test_feedback_service.py
 tests/test_language_detection.py
 tests/test_llm_orchestrator.py
 tests/test_monitoring_service.py

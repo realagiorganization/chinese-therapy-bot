@@ -10,6 +10,7 @@ class LanguageDetector:
 
     _CJK_PATTERN: Final[re.Pattern[str]] = re.compile(r"[\u3400-\u4dbf\u4e00-\u9fff]")
     _LATIN_PATTERN: Final[re.Pattern[str]] = re.compile(r"[A-Za-z]")
+    _CYRILLIC_PATTERN: Final[re.Pattern[str]] = re.compile(r"[\u0400-\u04FF\u0500-\u052F\u2DE0-\u2DFF\uA640-\uA69F]")
     _CJK_PUNCT_PATTERN: Final[re.Pattern[str]] = re.compile(r"[，。！？、“”『』《》]")
     _TRADITIONAL_MARKERS: Final[set[str]] = {
         "體",
@@ -47,10 +48,12 @@ class LanguageDetector:
 
         cjk_matches = self._CJK_PATTERN.findall(normalized)
         latin_matches = self._LATIN_PATTERN.findall(normalized)
+        cyrillic_matches = self._CYRILLIC_PATTERN.findall(normalized)
         cjk_punct_matches = self._CJK_PUNCT_PATTERN.findall(normalized)
 
         cjk_count = len(cjk_matches)
         latin_count = len(latin_matches)
+        cyrillic_count = len(cyrillic_matches)
         punctuation_count = len(cjk_punct_matches)
         total_chars = len(normalized)
 
@@ -65,6 +68,11 @@ class LanguageDetector:
             if density >= 0.15:
                 return "zh-CN"
 
+        if cyrillic_count > 0:
+            density = cyrillic_count / max(total_chars - punctuation_count, 1)
+            if cyrillic_count >= 2 or density >= 0.2:
+                return "ru-RU"
+
         if latin_count > 0:
             density = latin_count / max(total_chars - punctuation_count, 1)
             if latin_count >= 4 or density >= 0.45:
@@ -77,6 +85,9 @@ class LanguageDetector:
         if hinted.lower().startswith("zh"):
             if cjk_count > 0 or punctuation_count > 0:
                 return "zh-CN"
+        if hinted.lower().startswith("ru"):
+            if cyrillic_count > 0:
+                return "ru-RU"
 
         if latin_count > 0 and cjk_count == 0:
             return "en-US"
