@@ -143,6 +143,8 @@ class ChatTemplateService:
             return f"zh-{region or 'CN'}"
         if language == "en":
             return f"en-{region or 'US'}"
+        if language == "ru":
+            return f"ru-{region or 'RU'}"
         if region:
             return f"{language}-{region}"
         return f"{language}-US"

@@ -63,6 +63,14 @@ web client, infrastructure-as-code, and the supporting automation services descr
    ```bash
    alembic upgrade head
    ```
+   If this command doesn't work, try to up DB through a container:
+   ```bash
+   docker run --name mindwell-db -e POSTGRES_USER=postgres -e POSTGRES_PASSWORD=pass -e POSTGRES_DB=mydb -p 5432:5432 postgres:16
+   ```
+   And then if the container has exited status:
+   ```bash
+   docker start mindwell-db
+   ```
 4. Launch the API:
    ```bash
    mindwell-api

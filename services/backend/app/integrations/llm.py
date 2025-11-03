@@ -186,15 +186,28 @@ class ChatOrchestrator:
         *,
         context_prompt: str | None = None,
     ) -> list[dict[str, str]]:
-        """Prepend a system prompt tailored for Chinese therapy support."""
-        system_prompt = (
-            "你是一名中文心理健康支持教练。提供温柔、结构化、务实的建议，并强调自我觉察。"
-            "保持简洁的段落，并在需要时给出可执行的小练习。"
-        )
-        if language.startswith("zh"):
-            system_prompt += " 回答请使用简体中文。"
+        """Prepend a system prompt tailored for the preferred locale."""
+        normalized = (language or "").lower()
+        is_chinese = normalized.startswith("zh")
+        is_russian = normalized.startswith("ru")
+
+        if is_chinese:
+            system_prompt = (
+                "你是一名中文心理健康支持教练。提供温柔、结构化、务实的建议，并强调自我觉察。"
+                "保持简洁的段落，并在需要时给出可执行的小练习。"
+                " 回答请使用简体中文。"
+            )
+        elif is_russian:
+            system_prompt = (
+                "Вы — эмпатичный русскоязычный ментальный помощник MindWell. "
+                "Поддерживайте клиента тёплым, структурированным тоном, предлагайте небольшие шаги "
+                "и напоминайте о заботе о себе. Отвечайте на чистом русском языке, с понятными абзацами и практичными рекомендациями."
+            )
         else:
-            system_prompt += " You may respond bilingually if the user prefers."
+            system_prompt = (
+                "You are a compassionate MindWell mental health coach. Offer gentle, structured, and pragmatic guidance "
+                "while nurturing self-awareness. Respond in clear English unless the user explicitly prefers another language."
+            )
 
         prompts = [{"role": "system", "content": system_prompt}]
         if context_prompt:
@@ -240,15 +253,40 @@ class ChatOrchestrator:
         return None
 
     def _serialize_history(self, history: list[dict[str, str]], language: str) -> str:
-        lines = [
-            "你是 MindWell 的虚拟治疗师助手，请根据对话记录给出下一句温和的回应。",
-            f"语言偏好: {language}",
-            "对话记录：",
-        ]
-        for message in history[-10:]:
-            role = "来访者" if message["role"] == "user" else "助手"
-            lines.append(f"{role}: {message['content']}")
-        lines.append("助手:")
+        normalized = (language or "").lower()
+        is_chinese = normalized.startswith("zh")
+        is_russian = normalized.startswith("ru")
+
+        if is_chinese:
+            lines = [
+                "你是 MindWell 的虚拟治疗师助手，请根据对话记录给出下一句温和的回应。",
+                f"语言偏好: {language}",
+                "对话记录：",
+            ]
+            for message in history[-10:]:
+                role = "来访者" if message["role"] == "user" else "助手"
+                lines.append(f"{role}: {message['content']}")
+            lines.append("助手:")
+        elif is_russian:
+            lines = [
+                "Вы — виртуальный помощник MindWell. Опираясь на контекст, предложите следующий поддерживающий ответ.",
+                f"Предпочтительный язык: {language}",
+                "Диалог:",
+            ]
+            for message in history[-10:]:
+                role = "Клиент" if message["role"] == "user" else "Ассистент"
+                lines.append(f"{role}: {message['content']}")
+            lines.append("Ассистент:")
+        else:
+            lines = [
+                "You are MindWell's therapeutic assistant. Provide the next compassionate, actionable reply.",
+                f"Preferred language: {language}",
+                "Transcript:",
+            ]
+            for message in history[-10:]:
+                role = "User" if message["role"] == "user" else "Assistant"
+                lines.append(f"{role}: {message['content']}")
+            lines.append("Assistant:")
         return "\n".join(lines)
 
     def _heuristic_reply(
@@ -264,19 +302,59 @@ class ChatOrchestrator:
             "",
         )
 
-        if "焦虑" in last_user_message:
-            response = "我听见你感到焦虑。先做三次腹式呼吸，观察身体的紧绷部位，然后写下触发情境。"
-        elif any(keyword in last_user_message for keyword in ("睡", "失眠")):
-            response = "睡眠的稳定离不开规律。我们可以一起建立放松流程，比如睡前30分钟远离屏幕。"
-        elif "压力" in last_user_message or "加班" in last_user_message:
-            response = "长期压力会消耗精力。试试番茄钟，将任务拆成25分钟的小块，并安排奖励性的休息。"
+        content_lower = last_user_message.lower()
+        normalized = (language or "").lower()
+        is_chinese = normalized.startswith("zh")
+        is_russian = normalized.startswith("ru")
+        is_english = normalized.startswith("en")
+
+        anxiety_keywords = ("焦虑", "恐慌", "anxiety", "panic", "тревог", "паник")
+        sleep_keywords = ("睡", "失眠", "sleep", "insom", "сон", "бессон")
+        stress_keywords = ("压力", "加班", "stress", "burnout", "pressure", "стресс", "выгор")
+
+        def _matches(keywords: tuple[str, ...]) -> bool:
+            return any(keyword in last_user_message for keyword in keywords) or any(
+                keyword in content_lower for keyword in keywords
+            )
+
+        if _matches(anxiety_keywords):
+            if is_chinese:
+                response = "我听见你感到焦虑。先做三次腹式呼吸，观察身体的紧绷部位，然后写下触发情境。"
+            elif is_russian:
+                response = "Я слышу, что тревога ощущается телом. Давайте попробуем три медленных цикла дыхания и отметим, где возникает напряжение, а затем запишем, что запускает волну."
+            else:
+                response = "I hear how anxiety is landing in your body. Let’s take three slow belly breaths, notice the tension points, and jot down what tends to trigger the surge."
+        elif _matches(sleep_keywords):
+            if is_chinese:
+                response = "睡眠的稳定离不开规律。我们可以一起建立放松流程，比如睡前30分钟远离屏幕。"
+            elif is_russian:
+                response = "Сон стабилизируется благодаря ритуалам. Давайте соберём спокойный вечерний сценарий, например, 30 минут без экранов перед сном и мягкое расслабление."
+            else:
+                response = "Sleep steadies when routines feel predictable. We can co-create a wind-down, like unplugging screens 30 minutes before bed and adding a short relaxation cue."
+        elif _matches(stress_keywords):
+            if is_chinese:
+                response = "长期压力会消耗精力。试试番茄钟，将任务拆成25分钟的小块，并安排奖励性的休息。"
+            elif is_russian:
+                response = "Длительное напряжение истощает. Попробуйте разбить задачи на 25-минутные отрезки с короткими приятными паузами, чтобы нервная система успевала восстанавливаться."
+            else:
+                response = "Sustained pressure drains energy. Consider 25-minute focus blocks with brief nourishing breaks so your nervous system can reset."
         else:
-            response = "谢谢你的分享。我在这里陪你，可以继续描述最困扰你的情绪或事件，我们一起找出下一个可行的行动。"
+            if is_chinese:
+                response = "谢谢你的分享。我在这里陪你，可以继续描述最困扰你的情绪或事件，我们一起找出下一个可行的行动。"
+            elif is_russian:
+                response = "Спасибо, что делитесь. Я рядом, можете продолжить рассказывать о том, что беспокоит сильнее всего, и мы вместе найдём следующий посильный шаг."
+            else:
+                response = "Thank you for opening up. I’m here with you—feel free to share what feels heaviest so we can co-create the next doable step."
 
         if context_prompt:
-            response += " 如果你愿意，也可以考虑与推荐的治疗师进一步交流。"
+            if is_chinese:
+                response += " 如果你愿意，也可以考虑与推荐的治疗师进一步交流。"
+            elif is_russian:
+                response += " Если почувствуете отклик, можно мягко рассмотреть контакт с рекомендованным терапевтом."
+            else:
+                response += " When it feels right, you could also consider connecting with one of the recommended therapists."
 
-        if not language.startswith("zh"):
+        if not (is_chinese or is_russian or is_english):
             response += " (Reply translated: I am here with you. Please tell me more so we can plan the next small step.)"
 
         return response
@@ -329,12 +407,19 @@ class ChatOrchestrator:
 
     def _summary_instructions(self, summary_type: str, language: str) -> str:
         zh = language.startswith("zh")
+        ru = language.startswith("ru")
         if summary_type == "memory":
             if zh:
                 return (
                     "你是一名中文心理健康教练。请根据用户与助手的对话记录，提炼一段简洁的记忆摘要。"
                     "返回 JSON，字段包括: memory (字符串，总结用户关注点)、keywords (字符串数组，列出核心主题)。"
                     "只输出有效 JSON。"
+                )
+            if ru:
+                return (
+                    "Вы — русскоязычный ментальный помощник. Проанализируйте диалог и верните JSON "
+                    "с полями memory (строка с фокусом клиента) и keywords (массив строк). "
+                    "Ответьте строго валидным JSON."
                 )
             return (
                 "You are a bilingual mental health coach. Review the transcript and return JSON "
@@ -350,6 +435,13 @@ class ChatOrchestrator:
                     "action_items (字符串数组), risk_level (low/medium/high)。"
                     "输出必须是有效 JSON，避免任何额外文本。"
                 )
+            if ru:
+                return (
+                    "Вы — русскоязычный ментальный помощник. Проанализируйте диалог и составьте JSON-отчёт за неделю. "
+                    "Обязательные поля: themes (массив строк), highlights (строка), "
+                    "action_items (массив строк), risk_level (low/medium/high). "
+                    "Верните только корректный JSON без дополнительного текста."
+                )
             return (
                 "You are a bilingual mental health coach. Review the transcript and produce a JSON summary for the week. "
                 "The JSON must contain: themes (array of strings), highlights (string), action_items (array of strings), "
@@ -361,6 +453,12 @@ class ChatOrchestrator:
                 "你是一名中文心理健康教练。请阅读以下对话记录，生成当天的 JSON 总结。"
                 "JSON 字段必须包含: title (字符串), spotlight (字符串), summary (字符串)。"
                 "输出必须是有效 JSON，避免额外文本。"
+            )
+        if ru:
+            return (
+                "Вы — русскоязычный ментальный помощник. На основе диалога создайте ежедневную сводку в формате JSON. "
+                "Обязательные поля: title (строка), spotlight (строка), summary (строка). "
+                "Ответьте строго валидным JSON без лишнего текста."
             )
         return (
             "You are a bilingual mental health coach. Review the transcript and create a JSON payload for today's summary. "
@@ -376,13 +474,31 @@ class ChatOrchestrator:
         max_messages: int = 40,
     ) -> str:
         if not history:
-            return "没有对话记录。"
+            if language.startswith("zh"):
+                return "没有对话记录。"
+            if language.startswith("ru"):
+                return "Диалогов пока нет."
+            return "No transcript available."
 
-        lines: list[str] = ["以下是按时间排序的对话记录：" if language.startswith("zh") else "Chronological transcript:"]
+        normalized = (language or "").lower()
+        is_chinese = normalized.startswith("zh")
+        is_russian = normalized.startswith("ru")
+
+        if is_chinese:
+            heading = "以下是按时间排序的对话记录："
+        elif is_russian:
+            heading = "Диалог в хронологическом порядке:"
+        else:
+            heading = "Chronological transcript:"
+
+        lines: list[str] = [heading]
         for message in history[-max_messages:]:
             role = message.get("role", "")
-            prefix = "来访者" if role == "user" else "助手"
-            if not language.startswith("zh"):
+            if is_chinese:
+                prefix = "来访者" if role == "user" else "助手"
+            elif is_russian:
+                prefix = "Клиент" if role == "user" else "Ассистент"
+            else:
                 prefix = "User" if role == "user" else "Assistant"
             content = message.get("content", "")
             timestamp = message.get("created_at")

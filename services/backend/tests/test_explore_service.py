@@ -115,3 +115,24 @@ async def test_disabled_feature_flag_excludes_module(session: AsyncSession) -> N
     assert ExploreModuleType.PSYCHOEDUCATION not in module_types
     assert payload.evaluated_flags["explore_psychoeducation"] is False
     assert payload.locale == "en-US"
+
+
+@pytest.mark.asyncio
+async def test_build_modules_localizes_russian_content(session: AsyncSession) -> None:
+    settings = AppSettings(
+        **{"FEATURE_FLAGS": '{"explore_breathing": true, "explore_psychoeducation": true, "explore_trending": true}'}
+    )
+    feature_flags = FeatureFlagService(session, settings)
+    reports_service = StubReportsService(make_reports_payload())
+    service = ExploreService(feature_flags, reports_service)
+
+    payload = await service.build_modules(user_id=str(uuid4()), locale="ru-RU")
+
+    assert payload.locale == "ru-RU"
+    breathing = next(module for module in payload.modules if module.module_type == ExploreModuleType.BREATHING_EXERCISE)
+    assert "Дыхательная практика дня" in breathing.title
+    assert "Ритм 4-7-8" in breathing.cadence_label
+
+    trending = next(module for module in payload.modules if module.module_type == ExploreModuleType.TRENDING_TOPICS)
+    assert trending.description.startswith("С опорой на ваши недавние диалоги")
+    assert "темы" in trending.description.lower()

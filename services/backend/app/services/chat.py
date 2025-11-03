@@ -339,27 +339,74 @@ class ChatService:
         locale: str,
     ) -> str | None:
         sections: list[str] = []
+        normalized = (locale or "").lower()
+        is_chinese = normalized.startswith("zh")
+        is_russian = normalized.startswith("ru")
 
         if recommendations:
-            rec_lines = ["以下是适合本次对话的治疗师推荐，请在回复中适时给出温和的转介建议："]
-            for recommendation in recommendations:
-                specialties = "、".join(recommendation.specialties[:3]) or "综合心理支持"
-                reason = recommendation.reason or "擅长相关主题。"
-                rec_lines.append(
-                    f"- {recommendation.name}（{recommendation.title}）：专长 {specialties}。{reason}"
-                )
+            if is_chinese:
+                rec_lines = ["以下是适合本次对话的治疗师推荐，请在回复中适时给出温和的转介建议："]
+                for recommendation in recommendations:
+                    specialties = "、".join(recommendation.specialties[:3]) or "综合心理支持"
+                    reason = recommendation.reason or "擅长相关主题。"
+                    rec_lines.append(
+                        f"- {recommendation.name}（{recommendation.title}）：专长 {specialties}。{reason}"
+                    )
+            elif is_russian:
+                rec_lines = [
+                    "Ниже перечислены терапевты, которые могут поддержать этот разговор. "
+                    "Если будет уместно, мягко предложите обратиться к ним:"
+                ]
+                for recommendation in recommendations:
+                    specialties = " · ".join(recommendation.specialties[:3]) or "психологическая поддержка"
+                    reason = recommendation.reason or "опыт в соответствующих темах."
+                    rec_lines.append(
+                        f"- {recommendation.name} ({recommendation.title}): специализации {specialties}. {reason}"
+                    )
+            else:
+                rec_lines = [
+                    "These therapists could complement the current session. "
+                    "Offer a gentle referral if it feels supportive:"
+                ]
+                for recommendation in recommendations:
+                    specialties = ", ".join(recommendation.specialties[:3]) or "integrative support"
+                    reason = recommendation.reason or "Experienced in related topics."
+                    rec_lines.append(
+                        f"- {recommendation.name} ({recommendation.title}): specialties {specialties}. {reason}"
+                    )
             sections.append("\n".join(rec_lines))
 
         if memories:
-            memory_heading = "用户近期重点关切：" if locale.startswith("zh") else "User focus areas:"
-            mem_lines = [memory_heading]
-            for memory in memories:
-                keywords = "、".join(memory.keywords)
-                summary = memory.summary
-                if keywords:
-                    mem_lines.append(f"- 关键词：{keywords}。摘要：{summary}")
-                else:
-                    mem_lines.append(f"- 摘要：{summary}")
+            if is_chinese:
+                memory_heading = "用户近期重点关切："
+                mem_lines = [memory_heading]
+                for memory in memories:
+                    keywords = "、".join(memory.keywords)
+                    summary = memory.summary
+                    if keywords:
+                        mem_lines.append(f"- 关键词：{keywords}。摘要：{summary}")
+                    else:
+                        mem_lines.append(f"- 摘要：{summary}")
+            elif is_russian:
+                memory_heading = "Недавние фокусы клиента:"
+                mem_lines = [memory_heading]
+                for memory in memories:
+                    keywords = " · ".join(memory.keywords)
+                    summary = memory.summary
+                    if keywords:
+                        mem_lines.append(f"- Ключевые слова: {keywords}. Кратко: {summary}")
+                    else:
+                        mem_lines.append(f"- Краткое содержание: {summary}")
+            else:
+                memory_heading = "Recent focus areas:"
+                mem_lines = [memory_heading]
+                for memory in memories:
+                    keywords = ", ".join(memory.keywords)
+                    summary = memory.summary
+                    if keywords:
+                        mem_lines.append(f"- Keywords: {keywords}. Summary: {summary}")
+                    else:
+                        mem_lines.append(f"- Summary: {summary}")
             sections.append("\n".join(mem_lines))
 
         if not sections:

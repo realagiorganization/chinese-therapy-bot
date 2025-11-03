@@ -30,6 +30,7 @@ type SpeechRecognitionEventLike = {
 type SpeechRecognitionLike = {
   lang: string;
   interimResults: boolean;
+  continuous: boolean;
   onresult: ((event: SpeechRecognitionEventLike) => void) | null;
   onerror: ((event?: unknown) => void) | null;
   onend: (() => void) | null;
@@ -46,6 +47,84 @@ type SpeechRecognitionWindow = Window &
     webkitSpeechRecognition?: SpeechRecognitionConstructorLike;
   };
 
+function normalizeChatContent(raw: string): string {
+  if (!raw) {
+    return "";
+  }
+
+  let text = raw.replace(/\r\n?/g, "\n");
+
+  // Remove fenced code block markers while keeping the content.
+  text = text.replace(/```([\s\S]*?)```/g, (_, code) => code.trim());
+  // Remove inline code markers.
+  text = text.replace(/`([^`]*)`/g, "$1");
+  // Unwrap markdown links and images, keeping the readable label.
+  text = text.replace(/!\[([^\]]*)]\([^)]+\)/g, "$1");
+  text = text.replace(/\[([^\]]+)]\([^)]+\)/g, "$1");
+  // Drop emphasis markers.
+  text = text.replace(/(\*\*|__)(.*?)\1/g, "$2");
+  text = text.replace(/(\*|_)(.*?)\1/g, "$2");
+  // Remove strikethrough markers.
+  text = text.replace(/~~(.*?)~~/g, "$1");
+  // Remove block quote indicators.
+  text = text.replace(/^\s{0,3}>\s?/gm, "");
+  // Remove heading markers.
+  text = text.replace(/^\s{0,3}#{1,6}\s+/gm, "");
+  // Replace ordered / unordered list markers with a plain bullet.
+  text = text.replace(/^\s{0,3}(?:[-*+]|\d+\.)\s+/gm, "• ");
+  // Unescape common escaped characters.
+  text = text.replace(/\\([\\`*_{}[\]()#+\-.!])/g, "$1");
+  // Collapse excessive blank lines.
+  text = text.replace(/\n{3,}/g, "\n\n");
+
+  return text.trim();
+}
+
+function scoreVoiceMatch(voice: SpeechSynthesisVoice, locale: string): number {
+  const target = locale.toLowerCase();
+  const base = target.split("-")[0] ?? target;
+  const voiceLang = voice.lang?.toLowerCase() ?? "";
+  const voiceName = voice.name?.toLowerCase() ?? "";
+
+  let score = 0;
+
+  if (voiceLang === target) {
+    score += 6;
+  } else if (voiceLang.startsWith(base)) {
+    score += 4;
+  } else if (voiceLang.includes(base)) {
+    score += 2;
+  }
+
+  if (voiceName.includes("neural") || voiceName.includes("natural")) {
+    score += 3;
+  } else if (voiceName.includes("online") || voiceName.includes("cloud")) {
+    score += 2;
+  }
+
+  if (!voice.localService) {
+    score += 1;
+  }
+
+  if (voice.default) {
+    score += 0.5;
+  }
+
+  return score;
+}
+
+function selectBestVoice(voices: SpeechSynthesisVoice[], locale: string): SpeechSynthesisVoice | null {
+  if (voices.length === 0) {
+    return null;
+  }
+
+  const scored = [...voices]
+    .map((voice) => ({ voice, score: scoreVoiceMatch(voice, locale) }))
+    .sort((a, b) => b.score - a.score);
+
+  return scored[0]?.voice ?? voices[0] ?? null;
+}
+
 function getSpeechRecognitionCtor(): SpeechRecognitionConstructorLike | undefined {
   if (typeof window === "undefined") {
     return undefined;
@@ -57,6 +136,7 @@ function getSpeechRecognitionCtor(): SpeechRecognitionConstructorLike | undefine
 function useSpeechRecognition(locale: string) {
   const [isListening, setIsListening] = useState(false);
   const recognitionRef = useRef<SpeechRecognitionLike | null>(null);
+  const shouldListenRef = useRef(false);
 
   const supported = useMemo(() => {
     return Boolean(getSpeechRecognitionCtor());
@@ -76,6 +156,7 @@ function useSpeechRecognition(locale: string) {
         const recognition = new RecognitionCtor();
         recognition.lang = locale;
         recognition.interimResults = false;
+        recognition.continuous = true;
 
         recognition.onresult = (event: SpeechRecognitionEventLike) => {
           let transcript = "";
@@ -93,19 +174,37 @@ function useSpeechRecognition(locale: string) {
         };
 
         recognition.onerror = () => {
+          shouldListenRef.current = false;
           setIsListening(false);
           recognition.stop();
         };
 
         recognition.onend = () => {
-          setIsListening(false);
+          if (!shouldListenRef.current) {
+            setIsListening(false);
+            if (recognitionRef.current === recognition) {
+              recognitionRef.current = null;
+            }
+            return;
+          }
+
+          try {
+            recognition.start();
+          } catch (restartError) {
+            console.warn("[Voice] Failed to restart speech recognition", restartError);
+            shouldListenRef.current = false;
+            setIsListening(false);
+          }
         };
 
         recognitionRef.current = recognition;
+        shouldListenRef.current = true;
         recognition.start();
         setIsListening(true);
       } catch (error) {
         console.warn("[Voice] Failed to start speech recognition", error);
+        shouldListenRef.current = false;
+        recognitionRef.current = null;
         setIsListening(false);
       }
     },
@@ -113,6 +212,7 @@ function useSpeechRecognition(locale: string) {
   );
 
   const stop = useCallback(() => {
+    shouldListenRef.current = false;
     try {
       recognitionRef.current?.stop();
     } catch {
@@ -125,6 +225,7 @@ function useSpeechRecognition(locale: string) {
 
   useEffect(() => {
     return () => {
+      shouldListenRef.current = false;
       try {
         recognitionRef.current?.abort?.();
         recognitionRef.current?.stop?.();
@@ -142,6 +243,57 @@ function useSpeechSynthesis(locale: string) {
     () => typeof window !== "undefined" && "speechSynthesis" in window && "SpeechSynthesisUtterance" in window,
     []
   );
+  const [voice, setVoice] = useState<SpeechSynthesisVoice | null>(null);
+  const [isSpeaking, setIsSpeaking] = useState(false);
+  const utteranceRef = useRef<SpeechSynthesisUtterance | null>(null);
+
+  const refreshVoice = useCallback(() => {
+    if (!supported) {
+      return;
+    }
+    const availableVoices = window.speechSynthesis.getVoices();
+    if (!availableVoices || availableVoices.length === 0) {
+      return;
+    }
+    const preferred = selectBestVoice(availableVoices, locale) ?? availableVoices[0] ?? null;
+    if (!preferred) {
+      return;
+    }
+    setVoice((current) => {
+      if (current && current.voiceURI === preferred.voiceURI) {
+        return current;
+      }
+      return preferred;
+    });
+  }, [locale, supported]);
+
+  useEffect(() => {
+    if (!supported) {
+      return;
+    }
+
+    refreshVoice();
+
+    const handleVoiceChange = () => {
+      refreshVoice();
+    };
+
+    const synthesis = window.speechSynthesis;
+    if ("addEventListener" in synthesis && typeof synthesis.addEventListener === "function") {
+      synthesis.addEventListener("voiceschanged", handleVoiceChange);
+      return () => {
+        synthesis.removeEventListener("voiceschanged", handleVoiceChange);
+      };
+    }
+
+    const previousHandler = synthesis.onvoiceschanged;
+    synthesis.onvoiceschanged = handleVoiceChange;
+    return () => {
+      if (synthesis.onvoiceschanged === handleVoiceChange) {
+        synthesis.onvoiceschanged = previousHandler ?? null;
+      }
+    };
+  }, [supported, refreshVoice]);
 
   const speak = useCallback(
     (text: string) => {
@@ -150,14 +302,45 @@ function useSpeechSynthesis(locale: string) {
       }
       try {
         window.speechSynthesis.cancel();
-        const utterance = new SpeechSynthesisUtterance(text);
+        const cleanText = normalizeChatContent(text);
+        if (!cleanText) {
+          setIsSpeaking(false);
+          return;
+        }
+        const utterance = new SpeechSynthesisUtterance(cleanText);
         utterance.lang = locale;
+        if (voice) {
+          utterance.voice = voice;
+        }
+        // Slow down synthetic delivery slightly for a more natural cadence.
+        utterance.rate = 0.95;
+        utterance.pitch = 1;
+        utterance.volume = 1;
+        utterance.onstart = () => {
+          setIsSpeaking(true);
+        };
+        const handleUtteranceDone = () => {
+          setIsSpeaking(false);
+          if (utteranceRef.current === utterance) {
+            utteranceRef.current = null;
+          }
+        };
+        utterance.onend = handleUtteranceDone;
+        utterance.onerror = handleUtteranceDone;
+        utterance.onpause = () => {
+          setIsSpeaking(false);
+        };
+        utterance.onresume = () => {
+          setIsSpeaking(true);
+        };
+        utteranceRef.current = utterance;
         window.speechSynthesis.speak(utterance);
       } catch (error) {
         console.warn("[Voice] Failed to speak text", error);
+        setIsSpeaking(false);
       }
     },
-    [locale, supported]
+    [locale, supported, voice]
   );
 
   const cancel = useCallback(() => {
@@ -168,6 +351,9 @@ function useSpeechSynthesis(locale: string) {
       window.speechSynthesis.cancel();
     } catch {
       // ignore cancel issues
+    } finally {
+      utteranceRef.current = null;
+      setIsSpeaking(false);
     }
   }, [supported]);
 
@@ -178,7 +364,7 @@ function useSpeechSynthesis(locale: string) {
     [cancel]
   );
 
-  return { supported, speak, cancel };
+  return { supported, speak, cancel, isSpeaking };
 }
 
 function renderTimestamp(date: string) {
@@ -206,8 +392,10 @@ export function ChatPanel({ className }: ChatPanelProps) {
     error,
     clearError,
     recommendations,
-    memoryHighlights
+    memoryHighlights,
+    resolvedLocale
   } = useChatSession(locale);
+  const sessionLocale = resolvedLocale || locale;
   const {
     status: templateStatus,
     templates: chatTemplates,
@@ -216,7 +404,7 @@ export function ChatPanel({ className }: ChatPanelProps) {
     selectedTopic: selectedTemplateTopic,
     setSelectedTopic: setSelectedTemplateTopic,
     refetch: refetchTemplates
-  } = useChatTemplates(locale);
+  } = useChatTemplates(sessionLocale);
   const {
     supported: serverVoiceSupported,
     isRecording: serverIsRecording,
@@ -225,12 +413,18 @@ export function ChatPanel({ className }: ChatPanelProps) {
     start: startServerRecording,
     stop: stopServerRecording,
     clearError: clearServerError
-  } = useServerTranscriber(locale);
+  } = useServerTranscriber(sessionLocale);
 
   const [input, setInput] = useState("");
   const [autoSpeak, setAutoSpeak] = useState(false);
-  const { supported: voiceSupported, isListening, start, stop } = useSpeechRecognition(locale);
-  const { supported: speechSupported, speak, cancel } = useSpeechSynthesis(locale);
+  const [manualSpeakEnabled, setManualSpeakEnabled] = useState(false);
+  const { supported: voiceSupported, isListening, start, stop } = useSpeechRecognition(sessionLocale);
+  const {
+    supported: speechSupported,
+    speak,
+    cancel,
+    isSpeaking: speechInProgress
+  } = useSpeechSynthesis(sessionLocale);
   const lastSpokenIdRef = useRef<string | null>(null);
   const transcriptContainerRef = useRef<HTMLDivElement | null>(null);
   const voiceError = useMemo(() => {
@@ -283,7 +477,7 @@ export function ChatPanel({ className }: ChatPanelProps) {
   }, [messages]);
 
   useEffect(() => {
-    if (!autoSpeak || !speechSupported) {
+    if (!speechSupported) {
       return;
     }
     const lastAssistant = [...messages]
@@ -292,12 +486,22 @@ export function ChatPanel({ className }: ChatPanelProps) {
     if (!lastAssistant) {
       return;
     }
+    if (!autoSpeak && !manualSpeakEnabled) {
+      return;
+    }
     if (lastSpokenIdRef.current === lastAssistant.id) {
       return;
     }
     lastSpokenIdRef.current = lastAssistant.id;
     speak(lastAssistant.content);
-  }, [messages, autoSpeak, speechSupported, speak]);
+  }, [messages, autoSpeak, manualSpeakEnabled, speechSupported, speak]);
+
+  useEffect(() => {
+    if (!speechSupported && manualSpeakEnabled) {
+      setManualSpeakEnabled(false);
+      cancel();
+    }
+  }, [speechSupported, manualSpeakEnabled, cancel]);
 
   const handleSubmit = useCallback(
     async (event?: FormEvent) => {
@@ -372,6 +576,10 @@ export function ChatPanel({ className }: ChatPanelProps) {
     if (!speechSupported) {
       return;
     }
+    if (manualSpeakEnabled) {
+      setManualSpeakEnabled(false);
+      cancel();
+    }
     setAutoSpeak((prev) => {
       const next = !prev;
       if (!next) {
@@ -379,19 +587,27 @@ export function ChatPanel({ className }: ChatPanelProps) {
       }
       return next;
     });
-  }, [speechSupported, cancel]);
+  }, [speechSupported, cancel, manualSpeakEnabled]);
 
   const handlePlayLastReply = useCallback(() => {
     if (!speechSupported) {
       return;
     }
+    if (manualSpeakEnabled) {
+      setManualSpeakEnabled(false);
+      cancel();
+      return;
+    }
+    lastSpokenIdRef.current = null;
+    setManualSpeakEnabled(true);
     const lastAssistant = [...messages]
       .reverse()
       .find((message) => message.role === "assistant" && !message.streaming && message.content.trim().length > 0);
     if (lastAssistant) {
+      lastSpokenIdRef.current = lastAssistant.id;
       speak(lastAssistant.content);
     }
-  }, [messages, speechSupported, speak]);
+  }, [messages, speechSupported, manualSpeakEnabled, cancel, speak]);
 
   const renderMessage = useCallback(
     (message: ChatTranscriptMessage) => {
@@ -418,7 +634,7 @@ export function ChatPanel({ className }: ChatPanelProps) {
           >
             <Typography variant="body" style={{ whiteSpace: "pre-wrap", color: textColor }}>
               {message.content.trim().length > 0
-                ? message.content
+                ? normalizeChatContent(message.content)
                 : message.streaming
                   ? t("chat.generating")
                   : ""}
@@ -762,8 +978,14 @@ export function ChatPanel({ className }: ChatPanelProps) {
               <Button type="button" variant="ghost" onClick={handleAutoSpeakToggle}>
                 {autoSpeak ? t("chat.auto_speak_disable") : t("chat.auto_speak_enable")}
               </Button>
-              <Button type="button" variant="ghost" onClick={handlePlayLastReply}>
-                {t("chat.speak_reply")}
+              <Button
+                type="button"
+                variant={manualSpeakEnabled ? "secondary" : "ghost"}
+                onClick={handlePlayLastReply}
+                aria-pressed={manualSpeakEnabled}
+                aria-busy={manualSpeakEnabled && speechInProgress}
+              >
+                {manualSpeakEnabled ? t("chat.stop_speaking") : t("chat.speak_reply")}
               </Button>
             </>
           )}

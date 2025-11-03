@@ -44,6 +44,21 @@ class ConversationMemoryService:
         "depression",
         "family",
         "relationship",
+        "тревога",
+        "стресс",
+        "бессонница",
+        "депрессия",
+        "паника",
+        "страх",
+        "одиночество",
+        "гнев",
+        "печаль",
+        "семья",
+        "отношения",
+        "работа",
+        "здоровье",
+        "самооценка",
+        "сон",
     )
 
     def __init__(
@@ -182,6 +197,8 @@ class ConversationMemoryService:
         keyword_text = ", ".join(keyword_hits)
         if locale.startswith("zh"):
             summary = f"用户多次提及 {keyword_text}。最近表达的重点：{truncated}"
+        elif locale.startswith("ru"):
+            summary = f"Пользователь неоднократно упоминал темы {keyword_text}. Последний фокус: {truncated}"
         else:
             summary = f"The user repeatedly mentioned {keyword_text}. Latest focus: {truncated}"
 

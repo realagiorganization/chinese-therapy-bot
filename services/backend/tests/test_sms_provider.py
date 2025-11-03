@@ -71,3 +71,22 @@ async def test_twilio_sms_provider_surfaces_error_payload() -> None:
 
     message = str(excinfo.value)
     assert "Twilio error 21211" in message or "Twilio error: " in message
+
+
+@pytest.mark.asyncio
+async def test_twilio_sms_provider_formats_russian_message() -> None:
+    response = httpx.Response(201, json={"sid": "SM456"})
+    client = DummyAsyncClient(response)
+    provider = TwilioSMSProvider(
+        account_sid="AC123456789",
+        auth_token="secret-token",
+        from_number="+12025550123",
+        client_factory=lambda: client,
+    )
+
+    await provider.send_otp("+79990000000", "654321", locale="ru-RU")
+
+    assert client.calls
+    body = client.calls[-1]["data"]["Body"]
+    assert "654321" in body
+    assert "действителен" in body.lower()

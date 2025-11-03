@@ -1,2 +1,0 @@
-This is a test file for verifying file creation during automated tasks.
-Includes simple ASCII text.

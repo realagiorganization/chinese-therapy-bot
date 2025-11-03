@@ -206,6 +206,21 @@ describe("App", () => {
     expect(await screen.findByText(/Therapy Companion/)).toBeInTheDocument();
   });
 
+  it("lists Russian locale option", async () => {
+    renderApp();
+    const [localeSelect] = screen.getAllByRole("combobox");
+    const options = Array.from(localeSelect.querySelectorAll("option")).map((option) => option.value);
+    expect(options).toContain("ru-RU");
+  });
+
+  it("switches to Russian locale", async () => {
+    renderApp();
+    const [localeSelect] = screen.getAllByRole("combobox");
+    fireEvent.change(localeSelect, { target: { value: "ru-RU" } });
+    expect(await screen.findByText(/MindWell Помощник/)).toBeInTheDocument();
+    expect(await screen.findByText(/Диалог с терапевтом/)).toBeInTheDocument();
+  });
+
   it("falls back gracefully to Traditional Chinese locale", async () => {
     renderApp();
     const [localeSelect] = screen.getAllByRole("combobox");

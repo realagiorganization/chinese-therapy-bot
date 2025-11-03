@@ -124,7 +124,8 @@
   "locale": {
     "zh_cn": "简体中文",
     "zh_tw": "繁體中文",
-    "en_us": "English"
+    "en_us": "English",
+    "ru_ru": "俄语"
   },
   "chat": {
     "title": "疗愈陪伴对话",
@@ -147,9 +148,18 @@
     "auto_speak_enable": "开启语音播报",
     "auto_speak_disable": "关闭语音播报",
     "speak_reply": "播报上一条回复",
+    "stop_speaking": "停止播报",
     "memory_highlights": "近期关注重点",
     "recommendations": "适配的治疗师",
     "keywords": "关键词：{{keywords}}",
+    "voice_errors": {
+      "unsupported": "当前浏览器不支持语音录制。",
+      "recording_error": "录音发生错误，请稍后再试。",
+      "no_audio": "未捕获到有效语音，请重新尝试。",
+      "no_transcript": "未识别到语音内容，请重新尝试。",
+      "transcription_failed": "语音识别失败，请稍后再试。",
+      "microphone_denied": "无法访问麦克风，请检查浏览器权限。"
+    },
     "templates": {
       "heading": "引导场景",
       "subtitle": "不知道怎么开口时，可以先从这些场景开始。",

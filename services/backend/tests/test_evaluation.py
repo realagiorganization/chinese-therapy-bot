@@ -55,3 +55,22 @@ def test_prohibited_claim_detected() -> None:
     codes = {issue.code for issue in result.issues}
     assert "prohibited_claim" in codes
     assert result.risk_level in {IssueSeverity.HIGH, IssueSeverity.CRITICAL}
+
+
+def test_russian_response_scores_empathy_and_disclaimer() -> None:
+    evaluator = ResponseEvaluator()
+    payload = ResponseEvaluationRequest(
+        user_message="Я очень тревожусь и почти не сплю.",
+        assistant_response=(
+            "Спасибо, что делитесь — я рядом. Попробуйте вечером дыхание 4-7-8 и запишите, что помогает успокаиваться. "
+            "Если станет тяжелее, обратитесь к специалисту: это не заменяет профессиональную помощь."
+        ),
+        locale="ru-RU",
+        require_disclaimer=True,
+    )
+
+    result = evaluator.evaluate(payload)
+    codes = {issue.code for issue in result.issues}
+    assert "missing_disclaimer" not in codes
+    assert "missing_actionable_guidance" not in codes
+    assert result.overall_score > 0.2

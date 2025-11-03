@@ -192,6 +192,23 @@ def test_heuristic_summary_falls_back_to_keywords(summary_session: AsyncSession)
     assert "焦虑" in summary["spotlight"]
 
 
+def test_heuristic_summary_supports_russian_locale(summary_session: AsyncSession) -> None:
+    orchestrator = StubOrchestrator()
+    storage = StubSummaryStorage()
+    settings = AppSettings(APP_ENV="test")
+
+    service = SummaryGenerationService(summary_session, settings, orchestrator, storage)
+
+    history = [
+        {"role": "user", "content": "Я переживаю сильный стресс и плохо сплю."},
+        {"role": "assistant", "content": "Попробуйте короткое дыхательное упражнение."},
+    ]
+
+    summary = service._heuristic_summary(history, summary_type="daily", locale="ru-RU")
+    assert summary["title"] == "Ежедневная заметка MindWell"
+    assert summary["spotlight"].startswith("Сегодня в фокусе")
+
+
 def test_estimate_mood_delta_clamps_range(summary_session: AsyncSession) -> None:
     orchestrator = StubOrchestrator()
     storage = StubSummaryStorage()
