@@ -18,11 +18,6 @@ output "aks_managed_identity_principal_id" {
   value       = azurerm_kubernetes_cluster.main.identity[0].principal_id
 }
 
-output "aks_managed_identity_client_id" {
-  description = "Client ID of the AKS cluster managed identity for GitHub OIDC federation."
-  value       = azurerm_kubernetes_cluster.main.identity[0].client_id
-}
-
 output "aks_kubelet_identity_object_id" {
   description = "Object ID of the AKS kubelet identity (nodes) granted access to Key Vault secrets."
   value       = azurerm_kubernetes_cluster.main.kubelet_identity[0].object_id
@@ -95,5 +90,5 @@ output "ci_runner_role_arn" {
 
 output "cost_budget_resource_id" {
   description = "Resource ID for the monthly Azure cost budget (null when disabled)."
-  value       = length(azurerm_cost_management_budget_subscription.monthly) > 0 ? azurerm_cost_management_budget_subscription.monthly[0].id : null
+  value       = length(azurerm_consumption_budget_subscription.monthly) > 0 ? azurerm_consumption_budget_subscription.monthly[0].id : null
 }

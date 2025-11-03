@@ -16,6 +16,7 @@ These notes capture evidence that the completed checklist items in `PROGRESS.md`
 - GitHub Actions workflow `.github/workflows/infra-plan.yml` and helper script `infra/scripts/run_terraform_plan.sh` generate repeatable Terraform plans, while `infra/scripts/bootstrap_kubeconfig.sh` documents kubeconfig retrieval.
 - Workload identity validation manifest resides at `infra/kubernetes/samples/workload-identity-validation.yaml`, enabling the pending checklist item to be executed once AKS is live.
 - AWS cross-cloud scaffolding now covers VPC/subnet layout, RDS PostgreSQL, and automation agent EC2 hosts via `infra/terraform/aws_network.tf`, `infra/terraform/aws_rds.tf`, and `infra/terraform/aws_ec2_agents.tf`.
+- 2025-11-03 UTC: `terraform init`/`validate` executed in `infra/terraform/` with provider azurerm 3.117.1; updated AKS monitor metrics, Key Vault retention, scheduled query alert, and consumption budget resources to reflect the latest schema and committed `infra/terraform/.terraform.lock.hcl`.
 
 ## Phase 3 – Backend Services
 - FastAPI services, router wiring, and modular architecture live under `services/backend/app/api/router.py:1-120`.

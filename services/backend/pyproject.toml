@@ -38,6 +38,8 @@ mindwell-data-sync = "app.agents.data_sync:main"
 mindwell-retention-cleanup = "app.agents.retention_cleanup:main"
 mindwell-monitoring-agent = "app.agents.monitoring:main"
 mindwell-analytics-agent = "app.agents.analytics:main"
+mindwell-pilot-feedback-report = "scripts.summarize_pilot_feedback:cli"
+mindwell-pilot-cohort = "scripts.manage_pilot_cohort:cli"
 
 [build-system]
 requires = ["setuptools>=61", "wheel"]
@@ -45,4 +47,4 @@ build-backend = "setuptools.build_meta"
 
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["app*"]
+include = ["app*", "scripts*"]

@@ -20,8 +20,8 @@ resource "azurerm_postgresql_flexible_server" "main" {
   geo_redundant_backup_enabled = true
 
   authentication {
-    password_auth_enabled          = true
-    active_directory_auth_enabled  = true
+    password_auth_enabled         = true
+    active_directory_auth_enabled = true
   }
 
   high_availability {

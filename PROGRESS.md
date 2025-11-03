@@ -3,7 +3,7 @@
 ### Verification Snapshot
 - Confirmed referenced Phase 0/1 design artifacts exist under `docs/` (e.g., `docs/phase0_foundations.md`, `docs/phase1_product_design.md`) and align with completed checkboxes.
 - Validated Terraform modules for remote state, AKS, observability, and secret management under `infra/terraform/`, matching Phase 2 completed tasks.
-- Installed backend dependencies (`pip install .[dev]`) and ran `pytest` to verify the 62-test suite passes after recent service additions (latest run: `pytest`, 62 passed).
+- Installed backend dependencies (`pip install .[dev]`) and ran `pytest` to verify the backend suite passes after recent service additions (latest run: `pytest`, 76 passed on 2025-11-03T13:40 UTC).
 - Spot-checked backend services (chat, summaries, feature flags) to ensure the implementations cited in Phase 3 are present and wired into FastAPI dependencies.
 - Verified automatic locale detection end-to-end (`services/backend/app/services/language_detection.py:1`, `services/backend/app/services/chat.py:28`, `clients/web/src/hooks/useChatSession.ts:134`, `clients/mobile/src/screens/ChatScreen.tsx:134`), including new unit coverage in `services/backend/tests/test_language_detection.py:1`.
 - Revalidated streaming chat and guardrail tooling align with Phase 4/5 milestones (`clients/web/src/hooks/useChatSession.ts:1`, `services/backend/app/services/evaluation.py:1`).
@@ -11,11 +11,12 @@
 - Ensured chat template dataset loads from packaged resources or local fallback, keeping Phase 5 template tooling functional (`services/backend/app/services/templates.py:1`, `services/backend/tests/test_template_service.py:1`).
 - Implemented Expo Speech voice playback with adjustable rate/pitch preferences and a disable toggle in the mobile chat experience (`clients/mobile/src/context/VoiceSettingsContext.tsx:1`, `clients/mobile/src/hooks/useVoicePlayback.ts:1`, `clients/mobile/src/screens/ChatScreen.tsx:600`).
 - Delivered pilot feedback intake persistence + API to capture pilot cohort sentiment for Phase 6 UAT tracking (`services/backend/app/models/entities.py:381`, `services/backend/app/api/routes/feedback.py:1`, `services/backend/tests/test_feedback_service.py:1`, `services/backend/tests/test_feedback_api.py:1`).
+- Added pilot cohort roster management model, service, API, CLI, and regression tests so recruitment can proceed with structured tracking (`services/backend/app/models/entities.py:414`, `services/backend/app/services/pilot_cohort.py:1`, `services/backend/app/api/routes/pilot_cohort.py:1`, `services/backend/scripts/manage_pilot_cohort.py:1`, `services/backend/tests/test_pilot_cohort_service.py:1`, `services/backend/tests/test_pilot_cohort_api.py:1`).
 - Confirmed infrastructure automation and CI coverage for mobile clients match Phase 2/7 claims (`infra/terraform/azure_postgres.tf:1`, `.github/workflows/ci.yml:1`).
 - README now documents end-to-end frontend/mobile setup workflows as required by DEV_PLAN (`README.md:70`, `README.md:90`).
-- Ran `terraform init`/`validate` against `infra/terraform/environments/dev` to remove provider incompatibilities (default node pool mode attribute, AKS SKU tier, dashboard resource deprecation) and generated a reproducible `.terraform.lock.hcl`.
+- Ran `terraform init`/`validate` against `infra/terraform` with azurerm 3.117 to resolve provider schema updates (AKS monitor metrics, Key Vault retention, scheduled query alerts, consumption budget) and generated a reproducible `.terraform.lock.hcl`.
 - Hardened AWS Bedrock fallback integration to use `aioboto3.Session().client` and added regression coverage capturing Bedrock + heuristic streaming behavior (`services/backend/app/integrations/llm.py`, `services/backend/tests/test_llm_orchestrator.py`).
-- 2025-11-02: Re-audited completed milestones against repository state and updated test counts; no additional discrepancies found.
+- 2025-11-03T13:40Z: Re-audited completed milestones against repository state, reran `pytest` (76 passed), and validated Terraform configuration with Terraform 1.6.6 (`terraform init -backend=false` + `terraform validate` via `./.bin/terraform`); no discrepancies found. New pilot cohort tooling verified through API + service tests.
 
 ## Phase 0 – Foundations
 - [x] Review DEV_PLAN.md and existing documentation to align on scope and priorities.
@@ -36,13 +37,13 @@
 - [x] Publish budget guardrails and alert thresholds for Finance/Monitoring teams in `docs/cost_controls.md`.
 
 ## Phase 2 – Platform & Infrastructure Setup
-- [ ] Provision Azure AKS cluster, configure node pools, and set up cluster networking. *(Terraform definitions in `infra/terraform/azure_*.tf`; apply pending.)*
+- [ ] Provision Azure AKS cluster, configure node pools, and set up cluster networking. *(Terraform definitions in `infra/terraform/azure_*.tf`; `terraform init`/`validate` succeeded locally on 2025-11-03 using Terraform 1.6.6, but plan/apply still pending cloud credentials.)*
   - [x] Configure remote Terraform state (Azure Storage/Key Vault) and document backend credentials.
   - [ ] Run `terraform plan`/`apply` for the dev subscription and capture kubeconfig bootstrap steps for CI runners. *(Helper script `infra/scripts/run_terraform_plan.sh`, kubeconfig bootstrap script, and GitHub workflow `.github/workflows/infra-plan.yml` now available; Terraform config validated locally but plan/apply still blocked pending cloud credentials.)*
   - [ ] Validate workload identity/OIDC by deploying a sample pod that fetches a Key Vault secret. *(Validation job scaffolded in `infra/kubernetes/samples/workload-identity-validation.yaml` and documented in `infra/kubernetes/samples/README.md`; run once AKS is provisioned.)*
 - [ ] Configure AWS S3 buckets for conversation logs, summaries, and media assets with appropriate IAM roles. *(Buckets + IAM role codified in `infra/terraform/aws_storage.tf`.)*
   - [x] Model cross-cloud AWS VPC, RDS, and automation agent infrastructure to host backend replicas and data sync workloads. *(See `infra/terraform/aws_network.tf`, `infra/terraform/aws_rds.tf`, `infra/terraform/aws_ec2_agents.tf`.)*
-  - [ ] Execute Terraform against the target AWS account and capture bucket ARNs plus IAM outputs.
+  - [ ] Execute Terraform against the target AWS account and capture bucket ARNs plus IAM outputs. *(Terraform validated locally on 2025-11-03; apply awaiting AWS credentials.)*
   - [x] Script CI Runner Agent role assumption (federated login) and document temporary credential retrieval. *(see `infra/scripts/assume_ci_role.sh` + guide `docs/ci_runner_agent.md`)*
   - [x] Define lifecycle rules/prefix conventions for transcripts, summaries, and therapist media ingestion.
 - [x] Set up managed database (Azure Postgres or AWS RDS) with schemas for users, therapists, sessions, and reports. *(Azure Flexible Server defined with private networking in `infra/terraform/azure_postgres.tf`; Alembic migrations under `services/backend/alembic/` bootstrap the schema.)*
@@ -131,6 +132,8 @@
 - [ ] Run user acceptance testing with pilot users and collect feedback for iteration.
   - [x] Draft pilot UAT plan, cohort targets, and success criteria. *(See `docs/uat_plan.md`.)*
   - [ ] Recruit pilot cohort, capture structured feedback, and prioritize iteration backlog. *(`PilotFeedback` storage + `/api/feedback/pilot` endpoints now live; cohort recruitment + synthesis still pending.)*
+    - [x] Build cohort roster management primitives (DB model, service, API, CLI) so Growth/UAT teams can stage recruitment and track status transitions (`services/backend/app/services/pilot_cohort.py`, `/api/pilot-cohort/*`, CLI `mindwell-pilot-cohort`).
+    - [x] Generate pilot feedback summary CLI to quantify sentiment/trust scores and tag themes for backlog prioritization. *(Run `mindwell-pilot-feedback-report --format json` to produce metrics.)*
 
 ## Phase 7 – Deployment & Operations
 - [x] Finalize CI/CD pipelines for backend, frontend, and mobile releases.

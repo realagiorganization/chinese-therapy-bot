@@ -10,6 +10,7 @@ from app.api.routes import (
     features,
     health,
     memory,
+    pilot_cohort,
     reports,
     therapists,
     voice,
@@ -29,3 +30,8 @@ api_router.include_router(voice.router, prefix="/voice", tags=["voice"])
 api_router.include_router(explore.router, prefix="/explore", tags=["explore"])
 api_router.include_router(analytics.router, prefix="/analytics", tags=["analytics"])
 api_router.include_router(feedback.router, prefix="/feedback", tags=["feedback"])
+api_router.include_router(
+    pilot_cohort.router,
+    prefix="/pilot-cohort",
+    tags=["pilot-cohort"],
+)

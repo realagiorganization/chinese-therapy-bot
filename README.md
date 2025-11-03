@@ -80,6 +80,8 @@ web client, infrastructure-as-code, and the supporting automation services descr
 Agent entry points are exposed as `mindwell-summary-scheduler`, `mindwell-data-sync`, and
 `mindwell-monitoring-agent`. Run them within the same virtual environment once credentials are configured.
 Use `mindwell-monitoring-agent --dry-run` to verify telemetry access without dispatching alerts.
+Use `mindwell-pilot-feedback-report --format human` to turn collected UAT feedback into sentiment/trust/usability summaries and top tag counts.
+Use `mindwell-pilot-cohort list --cohort pilot-2025w6` to review roster status, or `mindwell-pilot-cohort import roster.csv --cohort pilot-2025w6` to stage invites from a CSV.
 
 ### Frontend (Vite/React)
 1. Install dependencies:

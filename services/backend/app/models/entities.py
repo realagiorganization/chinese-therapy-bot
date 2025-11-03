@@ -420,3 +420,44 @@ class PilotFeedback(Base):
         Index("ix_pilot_feedback_role", "role"),
         Index("ix_pilot_feedback_submitted_at", "submitted_at"),
     )
+
+
+class PilotCohortParticipant(Base):
+    """Pilot cohort participant roster used to manage recruitment and engagement."""
+
+    __tablename__ = "pilot_cohort_participants"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
+    cohort: Mapped[str] = mapped_column(String(64))
+    participant_alias: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    contact_email: Mapped[str | None] = mapped_column(String(254), nullable=True)
+    contact_phone: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    channel: Mapped[str] = mapped_column(String(32), default="web")
+    locale: Mapped[str] = mapped_column(String(16), default="zh-CN")
+    status: Mapped[str] = mapped_column(String(24), default="invited")
+    source: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    tags: Mapped[list[str]] = mapped_column(MutableList.as_mutable(JSON), default=list)
+    invite_sent_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    onboarded_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    last_contacted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    consent_received: Mapped[bool] = mapped_column(Boolean, default=False)
+    notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    metadata_json: Mapped[dict[str, Any] | None] = mapped_column(
+        "metadata", MutableDict.as_mutable(JSON), nullable=True
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=datetime.utcnow
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=datetime.utcnow, onupdate=datetime.utcnow
+    )
+
+    __table_args__ = (
+        UniqueConstraint("cohort", "contact_email", name="uq_pilot_cohort_email"),
+        UniqueConstraint("cohort", "contact_phone", name="uq_pilot_cohort_phone"),
+        Index("ix_pilot_cohort_participants_cohort", "cohort"),
+        Index("ix_pilot_cohort_participants_status", "status"),
+        Index("ix_pilot_cohort_participants_channel", "channel"),
+    )

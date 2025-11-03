@@ -78,6 +78,11 @@ mindwell_backend.egg-info/dependency_links.txt
 mindwell_backend.egg-info/entry_points.txt
 mindwell_backend.egg-info/requires.txt
 mindwell_backend.egg-info/top_level.txt
+scripts/__init__.py
+scripts/delete_user_data.py
+scripts/export_user_data.py
+scripts/find_user.py
+scripts/summarize_pilot_feedback.py
 tests/test_analytics_service.py
 tests/test_app.py
 tests/test_asr_service.py

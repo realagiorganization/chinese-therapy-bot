@@ -64,3 +64,35 @@ class PilotFeedbackListResponse(BaseModel):
 
     total: int
     items: list[PilotFeedbackItem]
+
+
+class PilotFeedbackTagSummary(BaseModel):
+    """Aggregated tag frequency across pilot feedback entries."""
+
+    tag: str
+    count: int
+
+
+class PilotFeedbackGroupSummary(BaseModel):
+    """Aggregated score metrics for a specific cohort/channel/role grouping."""
+
+    key: str
+    total: int
+    average_sentiment: float | None
+    average_trust: float | None
+    average_usability: float | None
+    follow_up_needed: int
+
+
+class PilotFeedbackSummary(BaseModel):
+    """High-level aggregation of pilot feedback sentiment and themes."""
+
+    total_entries: int
+    average_sentiment: float | None
+    average_trust: float | None
+    average_usability: float | None
+    follow_up_needed: int
+    top_tags: list[PilotFeedbackTagSummary]
+    by_cohort: list[PilotFeedbackGroupSummary]
+    by_channel: list[PilotFeedbackGroupSummary]
+    by_role: list[PilotFeedbackGroupSummary]

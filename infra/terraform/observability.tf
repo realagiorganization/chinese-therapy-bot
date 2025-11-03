@@ -12,26 +12,26 @@ resource "azurerm_monitor_action_group" "oncall" {
 }
 
 resource "azurerm_application_insights" "platform" {
-  name                = coalesce(var.application_insights_name, "appi-mindwell-${var.environment}")
-  location            = azurerm_resource_group.main.location
-  resource_group_name = azurerm_resource_group.main.name
-  workspace_id        = azurerm_log_analytics_workspace.main.id
-  application_type    = "web"
-  retention_in_days   = 30
-  sampling_percentage = 100
+  name                 = coalesce(var.application_insights_name, "appi-mindwell-${var.environment}")
+  location             = azurerm_resource_group.main.location
+  resource_group_name  = azurerm_resource_group.main.name
+  workspace_id         = azurerm_log_analytics_workspace.main.id
+  application_type     = "web"
+  retention_in_days    = 30
+  sampling_percentage  = 100
   daily_data_cap_in_gb = 5
-  tags                = local.default_tags
+  tags                 = local.default_tags
 }
 
 resource "azurerm_monitor_metric_alert" "aks_cpu" {
-  name                = "aks-cpu-${var.environment}"
-  resource_group_name = azurerm_resource_group.main.name
-  scopes              = [azurerm_kubernetes_cluster.main.id]
-  description         = "Alerts when AKS node pool average CPU exceeds threshold."
-  severity            = 3
-  frequency           = "PT5M"
-  window_size         = "PT5M"
-  auto_mitigate       = true
+  name                 = "aks-cpu-${var.environment}"
+  resource_group_name  = azurerm_resource_group.main.name
+  scopes               = [azurerm_kubernetes_cluster.main.id]
+  description          = "Alerts when AKS node pool average CPU exceeds threshold."
+  severity             = 3
+  frequency            = "PT5M"
+  window_size          = "PT5M"
+  auto_mitigate        = true
   target_resource_type = "Microsoft.ContainerService/managedClusters"
 
   criteria {
@@ -39,7 +39,7 @@ resource "azurerm_monitor_metric_alert" "aks_cpu" {
     metric_name      = "cpuUsageNanoCores"
     aggregation      = "Average"
     operator         = "GreaterThan"
-    threshold        = 700000000  # ~70% utilization assuming 1 core = 1e9
+    threshold        = 700000000 # ~70% utilization assuming 1 core = 1e9
   }
 
   action {
@@ -54,21 +54,15 @@ resource "azurerm_monitor_scheduled_query_rules_alert" "app_errors" {
   description         = "Alerts when application traces log more than the allowed threshold of errors in a 5-minute window."
   severity            = 3
   enabled             = true
-
-  source {
-    data_source_id = azurerm_log_analytics_workspace.main.id
-    query_type     = "ResultCount"
-    query = <<-KQL
+  data_source_id      = azurerm_log_analytics_workspace.main.id
+  query_type          = "ResultCount"
+  query               = <<-KQL
       AppTraces
       | where SeverityLevel >= 3
       | summarize ErrorCount = count() by bin(TimeGenerated, 5m)
     KQL
-  }
-
-  schedule {
-    frequency_in_minutes  = 5
-    time_window_in_minutes = 5
-  }
+  frequency           = 5
+  time_window         = 5
 
   action {
     action_group = [azurerm_monitor_action_group.oncall.id]
@@ -89,8 +83,8 @@ locals {
         "parts" = {
           "0" = {
             "position" = {
-              "x" = 0
-              "y" = 0
+              "x"       = 0
+              "y"       = 0
               "rowSpan" = 3
               "colSpan" = 6
             }
@@ -114,8 +108,8 @@ locals {
           }
           "1" = {
             "position" = {
-              "x" = 0
-              "y" = 3
+              "x"       = 0
+              "y"       = 3
               "rowSpan" = 6
               "colSpan" = 12
             }
@@ -133,16 +127,16 @@ locals {
                       "resourceMetadata" = {
                         "id" = azurerm_application_insights.platform.id
                       }
-                      "name" = "requests/count"
-                      "namespace" = "Microsoft.Insights/components"
+                      "name"        = "requests/count"
+                      "namespace"   = "Microsoft.Insights/components"
                       "aggregation" = "Count"
                     },
                     {
                       "resourceMetadata" = {
                         "id" = azurerm_application_insights.platform.id
                       }
-                      "name" = "requests/failed"
-                      "namespace" = "Microsoft.Insights/components"
+                      "name"        = "requests/failed"
+                      "namespace"   = "Microsoft.Insights/components"
                       "aggregation" = "Count"
                     }
                   ]
@@ -174,14 +168,14 @@ locals {
 }
 
 resource "azurerm_portal_dashboard" "platform_overview" {
-  name                = "dash-mindwell-${var.environment}"
-  resource_group_name = azurerm_resource_group.main.name
-  location            = azurerm_resource_group.main.location
-  tags                = local.default_tags
+  name                 = "dash-mindwell-${var.environment}"
+  resource_group_name  = azurerm_resource_group.main.name
+  location             = azurerm_resource_group.main.location
+  tags                 = local.default_tags
   dashboard_properties = local.observability_dashboard_definition
 }
 
-resource "azurerm_cost_management_budget_subscription" "monthly" {
+resource "azurerm_consumption_budget_subscription" "monthly" {
   count           = var.monthly_cost_budget_amount > 0 && length(var.cost_budget_contact_emails) > 0 ? 1 : 0
   name            = "cost-budget-${var.environment}"
   subscription_id = "/subscriptions/${var.azure_subscription_id}"
@@ -194,16 +188,18 @@ resource "azurerm_cost_management_budget_subscription" "monthly" {
   }
 
   notification {
-    enabled         = true
-    threshold       = 80
-    operator        = "GreaterThan"
-    contact_emails  = var.cost_budget_contact_emails
+    enabled        = true
+    threshold      = 80
+    threshold_type = "Actual"
+    operator       = "GreaterThan"
+    contact_emails = var.cost_budget_contact_emails
   }
 
   notification {
-    enabled         = true
-    threshold       = 95
-    operator        = "GreaterThan"
-    contact_emails  = var.cost_budget_contact_emails
+    enabled        = true
+    threshold      = 95
+    threshold_type = "Actual"
+    operator       = "GreaterThan"
+    contact_emails = var.cost_budget_contact_emails
   }
 }

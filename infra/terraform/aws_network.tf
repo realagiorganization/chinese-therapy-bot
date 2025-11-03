@@ -29,7 +29,7 @@ resource "aws_subnet" "public" {
   tags = merge(
     local.default_tags,
     {
-      Name = "mindwell-${var.environment}-public"
+      Name  = "mindwell-${var.environment}-public"
       scope = "public"
     },
   )
@@ -42,7 +42,7 @@ resource "aws_subnet" "private_a" {
   tags = merge(
     local.default_tags,
     {
-      Name = "mindwell-${var.environment}-private-a"
+      Name  = "mindwell-${var.environment}-private-a"
       scope = "private"
     },
   )
@@ -55,7 +55,7 @@ resource "aws_subnet" "private_b" {
   tags = merge(
     local.default_tags,
     {
-      Name = "mindwell-${var.environment}-private-b"
+      Name  = "mindwell-${var.environment}-private-b"
       scope = "private"
     },
   )

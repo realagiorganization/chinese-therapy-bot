@@ -196,8 +196,8 @@ resource "aws_s3_bucket_lifecycle_configuration" "media" {
 
 data "aws_iam_policy_document" "conversation_logs_secure_transport" {
   statement {
-    sid     = "DenyInsecureTransport"
-    effect  = "Deny"
+    sid    = "DenyInsecureTransport"
+    effect = "Deny"
 
     principals {
       type        = "*"
@@ -226,8 +226,8 @@ resource "aws_s3_bucket_policy" "conversation_logs_secure_transport" {
 
 data "aws_iam_policy_document" "summaries_secure_transport" {
   statement {
-    sid     = "DenyInsecureTransport"
-    effect  = "Deny"
+    sid    = "DenyInsecureTransport"
+    effect = "Deny"
 
     principals {
       type        = "*"
@@ -256,8 +256,8 @@ resource "aws_s3_bucket_policy" "summaries_secure_transport" {
 
 data "aws_iam_policy_document" "media_secure_transport" {
   statement {
-    sid     = "DenyInsecureTransport"
-    effect  = "Deny"
+    sid    = "DenyInsecureTransport"
+    effect = "Deny"
 
     principals {
       type        = "*"

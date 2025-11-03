@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections import Counter, defaultdict
 from typing import Iterable
 
 from sqlalchemy import Select, func, select
@@ -11,6 +12,9 @@ from app.schemas.feedback import (
     PilotFeedbackFilters,
     PilotFeedbackItem,
     PilotFeedbackListResponse,
+    PilotFeedbackSummary,
+    PilotFeedbackGroupSummary,
+    PilotFeedbackTagSummary,
 )
 
 
@@ -70,6 +74,79 @@ class PilotFeedbackService:
         return PilotFeedbackListResponse(
             total=int(total or 0),
             items=[self._serialize(record) for record in records],
+        )
+
+    async def summarize_feedback(
+        self,
+        filters: PilotFeedbackFilters | None = None,
+        *,
+        top_tag_limit: int = 10,
+    ) -> PilotFeedbackSummary:
+        """Return aggregated scoring insights for pilot feedback entries."""
+        filters = filters or PilotFeedbackFilters()
+        stmt = select(PilotFeedback)
+        stmt = self._apply_filters(stmt, filters)
+        result = await self._session.execute(stmt)
+        entries = list(result.scalars().all())
+
+        total_entries = len(entries)
+
+        def _avg(values: Iterable[int]) -> float | None:
+            values = list(values)
+            if not values:
+                return None
+            return round(sum(values) / len(values), 2)
+
+        average_sentiment = _avg(entry.sentiment_score for entry in entries)
+        average_trust = _avg(entry.trust_score for entry in entries)
+        average_usability = _avg(entry.usability_score for entry in entries)
+        follow_up_needed = sum(1 for entry in entries if entry.follow_up_needed)
+
+        tag_counts: Counter[str] = Counter()
+        for entry in entries:
+            for tag in entry.tags or []:
+                if not tag:
+                    continue
+                tag_counts[tag] += 1
+
+        top_tags = [
+            PilotFeedbackTagSummary(tag=tag, count=count)
+            for tag, count in tag_counts.most_common(top_tag_limit)
+        ]
+
+        def _summaries_by(field: str) -> list[PilotFeedbackGroupSummary]:
+            buckets: dict[str, list[PilotFeedback]] = defaultdict(list)
+            for entry in entries:
+                raw_key = getattr(entry, field, None)
+                key = str(raw_key).strip() if raw_key else "unspecified"
+                buckets[key].append(entry)
+
+            summaries: list[PilotFeedbackGroupSummary] = []
+            for key, bucket in buckets.items():
+                summaries.append(
+                    PilotFeedbackGroupSummary(
+                        key=key,
+                        total=len(bucket),
+                        average_sentiment=_avg(item.sentiment_score for item in bucket),
+                        average_trust=_avg(item.trust_score for item in bucket),
+                        average_usability=_avg(item.usability_score for item in bucket),
+                        follow_up_needed=sum(1 for item in bucket if item.follow_up_needed),
+                    )
+                )
+
+            summaries.sort(key=lambda item: (-item.total, item.key.lower()))
+            return summaries
+
+        return PilotFeedbackSummary(
+            total_entries=total_entries,
+            average_sentiment=average_sentiment,
+            average_trust=average_trust,
+            average_usability=average_usability,
+            follow_up_needed=follow_up_needed,
+            top_tags=top_tags,
+            by_cohort=_summaries_by("cohort"),
+            by_channel=_summaries_by("channel"),
+            by_role=_summaries_by("role"),
         )
 
     def _apply_filters(

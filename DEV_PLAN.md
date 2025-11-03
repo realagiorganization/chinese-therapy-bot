@@ -65,7 +65,11 @@
 
 ## **4. Development Log**
 
-**Status:** Up to date as of 2025-11-02 — mirror entries with `PROGRESS.md` for granular milestone tracking (latest backend regression run: `pytest`, 57 passed).
+**Status:** Up to date as of 2025-11-03 — mirror entries with `PROGRESS.md` for granular milestone tracking (latest backend regression run: `pytest`, 70 passed at 13:21 UTC).
+
+### **Infrastructure & Platform**
+
+- Terraform baseline revalidated locally on 2025-11-03 with Terraform 1.6.6 (`terraform init -backend=false`, `terraform validate`). Execution of `run_terraform_plan.sh` / `run_terraform_apply.sh` stays blocked pending Azure service principal + AWS role credentials; once supplied, apply outputs (AKS kubeconfig, S3 bucket ARNs, IAM role ARN) will be captured for CI runners.
 
 ### **Business Logic & Backend**
 
@@ -95,6 +99,12 @@
 #### **Pilot Feedback**
 
 - Structured intake ✅ *(`PilotFeedback` persistence + `/api/feedback/pilot` endpoints with regression tests `test_feedback_service.py` / `test_feedback_api.py` capture cohort sentiment and blockers.)*
+- Feedback aggregation CLI ✅ *(`mindwell-pilot-feedback-report` summarizes sentiment/trust/usability scores and top tags to inform backlog triage.)*
+
+#### **Pilot Cohort Recruitment**
+
+- Participant roster management ✅ *(New `PilotCohortParticipant` model, service `/api/pilot-cohort`, and CLI `mindwell-pilot-cohort` track invites/onboarding with regression coverage in `test_pilot_cohort_service.py` / `test_pilot_cohort_api.py`.)*
+- Cohort engagement automation 🔄 *(Follow-up messaging templates + CRM sync pending pilot launch.)*
 
 #### **Therapist Data**
 

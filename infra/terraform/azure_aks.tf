@@ -7,13 +7,13 @@ resource "azurerm_kubernetes_cluster" "main" {
   kubernetes_version = var.aks_kubernetes_version
 
   default_node_pool {
-    name                = "system"
-    node_count          = var.aks_system_node_count
-    vm_size             = var.aks_system_node_vm_size
-    vnet_subnet_id      = azurerm_subnet.system.id
-    os_disk_size_gb     = 128
+    name                         = "system"
+    node_count                   = var.aks_system_node_count
+    vm_size                      = var.aks_system_node_vm_size
+    vnet_subnet_id               = azurerm_subnet.system.id
+    os_disk_size_gb              = 128
     only_critical_addons_enabled = true
-    orchestrator_version        = var.aks_kubernetes_version
+    orchestrator_version         = var.aks_kubernetes_version
   }
 
   identity {
@@ -24,17 +24,15 @@ resource "azurerm_kubernetes_cluster" "main" {
   workload_identity_enabled = true
 
   network_profile {
-    network_plugin    = "azure"
-    network_policy    = "calico"
-    dns_service_ip    = "10.2.0.10"
-    service_cidr      = "10.2.0.0/24"
-    docker_bridge_cidr = "172.17.0.1/16"
+    network_plugin = "azure"
+    network_policy = "calico"
+    dns_service_ip = "10.2.0.10"
+    service_cidr   = "10.2.0.0/24"
   }
 
   monitor_metrics {
-    annotations = {
-      "monitoring.mindwell.cloud/enabled" = "true"
-    }
+    annotations_allowed = true
+    labels_allowed      = true
   }
 
   oms_agent {
@@ -61,9 +59,9 @@ resource "azurerm_kubernetes_cluster_node_pool" "workload" {
 }
 
 resource "azurerm_role_assignment" "aks_acr_pull" {
-  scope                = azurerm_resource_group.main.id
-  role_definition_name = "AcrPull"
-  principal_id         = azurerm_kubernetes_cluster.main.kubelet_identity[0].object_id
+  scope                            = azurerm_resource_group.main.id
+  role_definition_name             = "AcrPull"
+  principal_id                     = azurerm_kubernetes_cluster.main.kubelet_identity[0].object_id
   skip_service_principal_aad_check = true
 }
 
