@@ -604,9 +604,12 @@ export function ChatScreen() {
   const handleInputChange = useCallback(
     (value: string) => {
       clearVoiceError();
+      if (isVoicePlaybackActive) {
+        stopVoicePlayback();
+      }
       setInputValue(value);
     },
-    [clearVoiceError],
+    [clearVoiceError, isVoicePlaybackActive, stopVoicePlayback],
   );
 
   const handleVoiceTranscript = useCallback(
@@ -630,6 +633,9 @@ export function ChatScreen() {
       return;
     }
     clearVoiceError();
+    if (isVoicePlaybackActive) {
+      stopVoicePlayback();
+    }
     if (Platform.OS === "ios" || Platform.OS === "android") {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {
         // Haptic feedback may not be available on all devices.
@@ -638,7 +644,14 @@ export function ChatScreen() {
     startVoiceInput(handleVoiceTranscript).catch((error) => {
       console.warn("Failed to start voice input", error);
     });
-  }, [clearVoiceError, startVoiceInput, handleVoiceTranscript, isOffline]);
+  }, [
+    clearVoiceError,
+    startVoiceInput,
+    handleVoiceTranscript,
+    isOffline,
+    isVoicePlaybackActive,
+    stopVoicePlayback,
+  ]);
 
   const handleVoiceStop = useCallback(() => {
     stopVoiceInput().catch((error) => {
@@ -695,6 +708,9 @@ export function ChatScreen() {
         });
       }
       return;
+    }
+    if (isVoicePlaybackActive) {
+      stopVoicePlayback();
     }
     const userMessage: MessageWithId = {
       id: `${Date.now()}-user`,
@@ -758,6 +774,8 @@ export function ChatScreen() {
     isOffline,
     appendMessage,
     speakVoiceResponse,
+    isVoicePlaybackActive,
+    stopVoicePlayback,
   ]);
 
   const sendDisabled = isSending || isOffline || inputValue.trim().length === 0;

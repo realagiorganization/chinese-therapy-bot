@@ -14,6 +14,7 @@ from app.schemas.feedback import (
     PilotParticipantItem,
     PilotParticipantListResponse,
     PilotParticipantUpdate,
+    PilotParticipantSummary,
 )
 from app.services.feedback import PilotFeedbackService, PilotParticipantService
 
@@ -153,6 +154,29 @@ async def list_pilot_participants(
         tag=tag,
     )
     return await service.list_participants(filters, limit=limit, offset=offset)
+
+
+@router.get(
+    "/pilot/participants/summary",
+    response_model=PilotParticipantSummary,
+    summary="Summarize pilot participant recruitment and follow-up state.",
+)
+async def summarize_pilot_participants(
+    cohort: str | None = Query(default=None, description="Optional cohort filter."),
+    status_filter: str | None = Query(default=None, alias="status", description="Optional status filter."),
+    requires_follow_up: bool | None = Query(
+        default=None, description="When true, only consider participants requiring follow-up."
+    ),
+    tag: str | None = Query(default=None, description="Filter to participants tagged with the supplied label."),
+    service: PilotParticipantService = Depends(get_pilot_participant_service),
+) -> PilotParticipantSummary:
+    filters = PilotParticipantFilters(
+        cohort=cohort,
+        status=status_filter,
+        requires_follow_up=requires_follow_up,
+        tag=tag,
+    )
+    return await service.summarize_participants(filters)
 
 
 @router.patch(

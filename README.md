@@ -11,6 +11,7 @@ web client, infrastructure-as-code, and the supporting automation services descr
 - Persistent conversation history with daily/weekly summaries and keyword memory.
 - Therapist discovery directory with recommendation rationales and locale-aware content.
 - Journey dashboard surfacing recent insights, highlight cards, and transcript drill-downs.
+- Mood check-ins with streak/trend analytics so users can visualise emotional progress over time.
 - Explore modules for breathing exercises, psychoeducation, and dynamic feature rollouts.
 - Voice input (browser and server ASR) plus optional text-to-speech playback.
 - SMS OTP and Google OAuth login flows with refresh-token rotation.
@@ -72,6 +73,13 @@ web client, infrastructure-as-code, and the supporting automation services descr
 Agent entry points are exposed as `mindwell-summary-scheduler`, `mindwell-data-sync`, and
 `mindwell-monitoring-agent`. Run them within the same virtual environment once credentials are configured.
 Use `mindwell-monitoring-agent --dry-run` to verify telemetry access without dispatching alerts.
+
+#### Mood Check-ins API
+- `POST /api/mood/{user_id}/check-ins` — record a new check-in with optional energy level, emotion tags, notes, and context metadata. Accepts an optional `check_in_at` timestamp; defaults to the user's timezone.
+- `GET /api/mood/{user_id}/check-ins?limit=30&window_days=14` — return recent check-ins together with summary analytics over the trailing window.
+- `GET /api/mood/{user_id}/summary?window_days=14` — fetch streak length, average score, and daily trend points without returning the raw entries.
+
+Check-ins persist to the `mood_check_ins` table (via Alembic migration `20250214_0005`) and power streak/trend calculations surfaced in the Journey experience.
 
 ### Frontend (Vite/React)
 1. Install dependencies:

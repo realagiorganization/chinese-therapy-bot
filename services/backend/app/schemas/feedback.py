@@ -94,6 +94,22 @@ class PilotParticipantListResponse(BaseModel):
     items: list[PilotParticipantItem]
 
 
+class PilotParticipantSummary(BaseModel):
+    """Aggregated snapshot of pilot participant recruitment status."""
+
+    cohort: str | None = None
+    total: int
+    status_breakdown: dict[str, int] = Field(default_factory=dict)
+    requires_follow_up: int
+    with_contact_methods: int
+    invited: int
+    consented: int
+    onboarded: int
+    pending_invites: int
+    last_activity_at: datetime | None
+    tag_totals: dict[str, int] = Field(default_factory=dict)
+
+
 class PilotFeedbackCreate(BaseModel):
     """Payload for recording pilot UAT feedback."""
 

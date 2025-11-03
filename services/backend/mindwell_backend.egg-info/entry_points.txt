@@ -3,5 +3,6 @@ mindwell-analytics-agent = app.agents.analytics:main
 mindwell-api = app.main:run
 mindwell-data-sync = app.agents.data_sync:main
 mindwell-monitoring-agent = app.agents.monitoring:main
+mindwell-pilot-recruitment = app.agents.pilot_recruitment:main
 mindwell-retention-cleanup = app.agents.retention_cleanup:main
 mindwell-summary-scheduler = app.agents.summary_scheduler:main

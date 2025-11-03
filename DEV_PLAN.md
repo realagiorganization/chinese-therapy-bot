@@ -65,7 +65,7 @@
 
 ## **4. Development Log**
 
-**Status:** Up to date as of 2025-11-02 — mirror entries with `PROGRESS.md` for granular milestone tracking (latest backend regression run: `pytest`, 57 passed).
+**Status:** Up to date as of 2025-11-03 — mirror entries with `PROGRESS.md` for granular milestone tracking (latest backend regression run: `pytest`, 82 passed).
 
 ### **Business Logic & Backend**
 
@@ -155,17 +155,17 @@
 - Offline transcript caching ✅ *(AsyncStorage-backed restore in the Expo client.)*
 - Push notification scaffolding ✅ *(Expo Notifications registration with device token caching.)*
 - **Input Methods:**
-  - Text input
-  - Voice input via local system model (iOS ✅ / Android pending)
+  - Text input ✅
+  - Voice input via local system model ✅ *(Parity across iOS/Android using Expo AV recorder + ASR bridge.)*
   - WeChat-style “hold to speak” voice input ✅
   - Auto language detection ✅ *(LanguageDetector service auto-resolves locale -> shared across web/mobile states.)*
-  - Server-side ASR (speech recognition)
+  - Server-side ASR (speech recognition) ✅ *(FastAPI `/api/voice/transcribe` endpoint + shared client integration.)*
 - **Output (Voice Playback):**
   - RN-TTS integration ✅
   - Sentence-level segmentation ✅
-  - Adjustable voice rate and tone
-  - Option to disable voice playback in Settings
-  - Interrupt voice output upon new input trigger
+  - Adjustable voice rate and tone ✅ *(VoiceSettingsContext + Expo Speech controls.)*
+  - Option to disable voice playback in Settings ✅
+  - Interrupt voice output upon new input trigger ✅ *(Chat screen stops playback when typing, recording, or sending.)*
 
 ### **Therapist Interface**
 

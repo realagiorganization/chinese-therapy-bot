@@ -1,8 +1,10 @@
 from __future__ import annotations
 
+from datetime import datetime
+from uuid import UUID
+
 import pytest
 import pytest_asyncio
-from uuid import UUID
 
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
@@ -193,6 +195,91 @@ async def test_update_participant_changes_status_and_metadata(feedback_session: 
     assert updated.status == "completed"
     assert updated.metadata == {"notes": "Completed final interview"}
     assert updated.tags == ["wrap-up"]
+
+
+@pytest.mark.asyncio
+async def test_upsert_participant_updates_existing_record(feedback_session: AsyncSession) -> None:
+    service = PilotParticipantService(feedback_session)
+    await service.create_participant(
+        PilotParticipantCreate(
+            cohort="pilot-2025w4",
+            full_name="Taylor",
+            contact_email="taylor@example.com",
+            status="prospect",
+            requires_follow_up=True,
+            tags=["priority"],
+        )
+    )
+
+    payload = PilotParticipantCreate(
+        cohort="pilot-2025w4",
+        full_name="Taylor Lee",
+        contact_email="taylor@example.com",
+        status="invited",
+        requires_follow_up=False,
+        tags=["priority", "demo"],
+    )
+    updated, created_flag = await service.upsert_participant(payload)
+
+    assert created_flag is False
+    assert updated.status == "invited"
+    assert updated.requires_follow_up is False
+    assert updated.tags == ["priority", "demo"]
+    assert updated.full_name == "Taylor Lee"
+
+
+@pytest.mark.asyncio
+async def test_summarize_participants_groups_by_status(feedback_session: AsyncSession) -> None:
+    service = PilotParticipantService(feedback_session)
+    await service.create_participant(
+        PilotParticipantCreate(
+            cohort="pilot-2025w4",
+            full_name="Alex",
+            contact_email="alex@example.com",
+            status="prospect",
+            invited_at=datetime.utcnow(),
+            tags=["android", "voice"],
+        )
+    )
+    await service.create_participant(
+        PilotParticipantCreate(
+            cohort="pilot-2025w4",
+            full_name="Jamie",
+            contact_email="jamie@example.com",
+            status="invited",
+            requires_follow_up=True,
+            tags=["voice"],
+        )
+    )
+    await service.create_participant(
+        PilotParticipantCreate(
+            cohort="pilot-2025w4",
+            full_name="Morgan",
+            contact_email="morgan@example.com",
+            status="onboarded",
+            onboarded_at=datetime.utcnow(),
+            consent_signed_at=datetime.utcnow(),
+            tags=["ios"],
+        )
+    )
+
+    summary = await service.summarize_participants(
+        PilotParticipantFilters(cohort="pilot-2025w4")
+    )
+
+    assert summary.cohort == "pilot-2025w4"
+    assert summary.total == 3
+    assert summary.status_breakdown["prospect"] == 1
+    assert summary.status_breakdown["invited"] == 1
+    assert summary.status_breakdown["onboarded"] == 1
+    assert summary.pending_invites == 2
+    assert summary.requires_follow_up == 1
+    assert summary.invited >= 1
+    assert summary.consented == 1
+    assert summary.onboarded == 1
+    assert summary.tag_totals["voice"] == 2
+    assert summary.with_contact_methods == 3
+    assert summary.last_activity_at is not None
 
 
 @pytest.mark.asyncio

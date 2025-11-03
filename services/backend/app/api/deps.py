@@ -21,6 +21,7 @@ from app.services.feature_flags import FeatureFlagService
 from app.services.feedback import PilotFeedbackService, PilotParticipantService
 from app.services.language_detection import LanguageDetector
 from app.services.memory import ConversationMemoryService
+from app.services.mood import MoodService
 from app.services.recommendations import TherapistRecommendationService
 from app.services.reports import ReportsService
 from app.services.templates import ChatTemplateService
@@ -199,6 +200,13 @@ async def get_feedback_service(
 ) -> PilotFeedbackService:
     """Provide PilotFeedbackService for UAT feedback flows."""
     return PilotFeedbackService(session)
+
+
+async def get_mood_service(
+    session: AsyncSession = Depends(get_db_session),
+) -> MoodService:
+    """Provide MoodService instance."""
+    return MoodService(session)
 
 
 async def get_pilot_participant_service(

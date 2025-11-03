@@ -69,6 +69,12 @@ Application settings are defined in `app/core/config.py` using `pydantic-setting
 - `SummaryGenerationService` (see `app/services/summaries.py`) aggregates recent chat transcripts, calls the LLM orchestrator for structured JSON, and stores daily/weekly summaries in Postgres plus `S3_SUMMARIES_BUCKET`.
 - Use the CLI entry point `mindwell-summary-scheduler [daily|weekly|both] --date YYYY-MM-DD` to run schedules or backfill summaries. The command bootstraps the database schema automatically before processing.
 
+## Pilot Recruitment Agent
+
+- `PilotRecruitmentAgent` (see `app/agents/pilot_recruitment.py`) imports pilot participant rosters from CSV/TSV/JSON sources, normalizes tags, and upserts cohort records using `PilotParticipantService`.
+- `mindwell-pilot-recruitment import path/to/candidates.csv --cohort pilot-2025w5 --dry-run` validates changes before writing to the database, while `mindwell-pilot-recruitment report --cohort pilot-2025w5 --notify` emits status breakdowns and optional Slack notifications via `ALERT_WEBHOOK_URL`.
+- The API route `GET /api/feedback/pilot/participants/summary` powers dashboards with aggregate counts (status breakdown, follow-up queue, contactable profiles) and is exercised in `tests/test_pilot_recruitment_agent.py`.
+
 ## Response Evaluation & Guardrails
 
 - `ResponseEvaluator` (see `app/services/evaluation.py`) applies heuristic checks for empathy, actionable guidance, disclaimers, and high-risk language to score assistant replies.

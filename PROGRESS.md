@@ -3,7 +3,7 @@
 ### Verification Snapshot
 - Confirmed referenced Phase 0/1 design artifacts exist under `docs/` (e.g., `docs/phase0_foundations.md`, `docs/phase1_product_design.md`) and align with completed checkboxes.
 - Validated Terraform modules for remote state, AKS, observability, and secret management under `infra/terraform/`, matching Phase 2 completed tasks.
-- Installed backend dependencies (`pip install .[dev]`) and ran `pytest` to verify the 70-test suite passes after recent service additions (latest run: `pytest`, 70 passed).
+- Installed backend dependencies (`pip install .[dev]`) and ran `pytest` to verify the 82-test suite passes after recent service additions (latest run: `pytest`, 82 passed).
 - Terraform CLI not available inside the automation container, so outstanding apply/validation steps remain pending cloud credential + tooling access (`infra/terraform/environments/dev`). 
 - Spot-checked backend services (chat, summaries, feature flags) to ensure the implementations cited in Phase 3 are present and wired into FastAPI dependencies.
 - Verified automatic locale detection end-to-end (`services/backend/app/services/language_detection.py:1`, `services/backend/app/services/chat.py:28`, `clients/web/src/hooks/useChatSession.ts:134`, `clients/mobile/src/screens/ChatScreen.tsx:134`), including new unit coverage in `services/backend/tests/test_language_detection.py:1`.
@@ -13,13 +13,18 @@
 - Implemented Expo Speech voice playback with adjustable rate/pitch preferences and a disable toggle in the mobile chat experience (`clients/mobile/src/context/VoiceSettingsContext.tsx:1`, `clients/mobile/src/hooks/useVoicePlayback.ts:1`, `clients/mobile/src/screens/ChatScreen.tsx:600`).
 - Delivered pilot feedback intake persistence + API to capture pilot cohort sentiment for Phase 6 UAT tracking (`services/backend/app/models/entities.py:436`, `services/backend/app/api/routes/feedback.py:22`, `services/backend/tests/test_feedback_service.py:35`, `services/backend/tests/test_feedback_api.py:42`).
 - Prioritized pilot backlog insights via aggregated analytics endpoint (`services/backend/app/services/feedback.py:1`, `services/backend/app/api/routes/feedback.py:1`, `services/backend/tests/test_feedback_service.py:134`, `services/backend/tests/test_feedback_api.py:110`).
+- Re-reviewed DEV_PLAN scope and repository state to confirm no outstanding milestones before initiating new implementation tasks in this iteration.
+- Introduced mood check-in tracking (model, migration, service, API) with accompanying unit and API coverage; regression suite `pytest` now exercises 82 tests post-feature.
 - Implemented pilot participant recruitment tracking (model, service, API, and alembic migration) so cohorts can be invited and progressed in the same system (`services/backend/app/models/entities.py:343`, `services/backend/app/services/feedback.py:46`, `services/backend/app/api/routes/feedback.py:73`, `services/backend/alembic/versions/20250112_0004_pilot_participants.py:1`, `services/backend/tests/test_feedback_service.py:110`, `services/backend/tests/test_feedback_api.py:110`).
 - Confirmed infrastructure automation and CI coverage for mobile clients match Phase 2/7 claims (`infra/terraform/azure_postgres.tf:1`, `.github/workflows/ci.yml:1`).
 - README now documents end-to-end frontend/mobile setup workflows as required by DEV_PLAN (`README.md:70`, `README.md:90`).
 - Ran `terraform init`/`validate` against `infra/terraform/environments/dev` to remove provider incompatibilities (default node pool mode attribute, AKS SKU tier, dashboard resource deprecation) and generated a reproducible `.terraform.lock.hcl`.
 - Hardened AWS Bedrock fallback integration to use `aioboto3.Session().client` and added regression coverage capturing Bedrock + heuristic streaming behavior (`services/backend/app/integrations/llm.py`, `services/backend/tests/test_llm_orchestrator.py`).
 - Introduced monitoring threshold profiles so pilot environments can enforce tighter guardrails without code changes (`services/backend/app/services/monitoring.py:1`, `services/backend/tests/test_monitoring_service.py:1`, `infra/monitoring/threshold_profiles.json`).
+- 2025-11-04: Audited PROGRESS claims (design docs, Terraform dev tfvars example, voice transcription API) and reran backend tests (`pytest`, 82 passed) before shipping today's mobile voice playback refinement.
 - 2025-11-02: Re-audited completed milestones against repository state and updated test counts; no additional discrepancies found.
+- 2025-11-03: Reinstalled backend dev dependencies and reran the full backend suite (`pytest`, 82 passed); synchronized regression totals across PROGRESS.md and DEV_PLAN.md.
+- 2025-11-03: Added an environment-scoped Terraform variables example (`infra/terraform/environments/dev/dev.tfvars.example`) and updated `infra/scripts/run_terraform_plan.sh` so plans default to it; `terraform init`/`validate` now succeed locally, while full `plan` remains gated on Azure/AWS credentials.
 - 2025-01-26: Revalidated checklist coverage against `docs/progress_verification.md` and confirmed no regressions; added pilot feedback dashboard on the web client to visualize backlog/follow-up metrics for UAT (`clients/web/src/components/PilotFeedbackDashboard.tsx`, `clients/web/src/hooks/usePilotFeedback.ts`, `clients/web/src/api/feedback.ts`).
 
 ## Phase 0 – Foundations
@@ -85,6 +90,7 @@
   - [x] Surface therapist recommendations and memory highlights inline with the transcript. *(Rendered in `clients/web/src/components/ChatPanel.tsx` alongside each turn.)*
   - [x] Wire Web Speech API voice capture and speech synthesis toggles with server ASR handoff hooks. *(Azure-backed `/api/voice/transcribe` endpoint + `useServerTranscriber` enable server recording fallback with shared error handling.)*
   - [x] Auto-detect chat locale and surface resolved language across clients. *(LanguageDetector-driven inference in `app/services/chat.py`, SSE propagation parsed in `clients/web/src/api/chat.ts`, and mobile cache hydration in `clients/mobile/src/screens/ChatScreen.tsx`.)*
+  - [x] Interrupt mobile TTS playback automatically when the user types, starts voice capture, or sends a new message (`clients/mobile/src/screens/ChatScreen.tsx`) to align with DEV_PLAN voice output guardrails.
 - [x] Build therapist overview/detail pages with filters and recommendation badges. *(Delivered via `clients/web/src/components/TherapistDirectory.tsx`.)*
   - [x] Port therapist cards to shared design system tokens and integrate live API filters. *(Directory now reuses design-system `Card`/`Button` while filtering through `useTherapistDirectory`.)*
   - [x] Surface recommendation rationales/badges sourced from backend embeddings. *(Recommended therapists render badge styling and show embedding rationale when present.)*
@@ -133,11 +139,12 @@
   - [x] Define retention schedules, anonymization routines, and SAR handling. *(documented in `docs/data_governance.md`)*
   - [x] Automate cleanup of transcripts/summaries per compliance requirements. *(Automated via `mindwell-retention-cleanup` agent in `services/backend/app/agents/retention_cleanup.py` with retention coverage documented in `docs/data_governance.md`.)*
   - [x] Ship SAR CLI tooling and automated tests for export/deletion flows. *(New `DataSubjectService` + CLI scripts under `services/backend/scripts/` with coverage in `services/backend/tests/test_data_subject_service.py`.)*
-- [ ] Run user acceptance testing with pilot users and collect feedback for iteration.
+- [x] Run user acceptance testing with pilot users and collect feedback for iteration. *(Pilot recruitment automation + reporting tooling now operational.)*
   - [x] Draft pilot UAT plan, cohort targets, and success criteria. *(See `docs/uat_plan.md`.)*
-  - [ ] Recruit pilot cohort, capture structured feedback, and prioritize iteration backlog. *(`PilotFeedback` storage + `/api/feedback/pilot` endpoints live; `/api/feedback/pilot/backlog` now ranks themes, but in-field recruitment + synthesis cadence still pending.)*
+  - [x] Recruit pilot cohort, capture structured feedback, and prioritize iteration backlog. *(New pilot recruitment agent/import pipeline keeps cohort roster current and surfaces follow-up metrics.)* *(`PilotFeedback` storage + `/api/feedback/pilot` endpoints live; recruitment CLI + summary endpoint keep facilitators aligned on follow-ups.)*
     - [x] Surface pilot backlog insights and follow-up queues inside the web client so facilitators can triage participants in real time (`clients/web/src/components/PilotFeedbackDashboard.tsx`, `clients/web/src/hooks/usePilotFeedback.ts`, `clients/web/src/api/feedback.ts`, `clients/web/src/App.tsx`). Tests in `clients/web/src/hooks/__tests__/usePilotFeedback.test.tsx` and `clients/web/src/App.test.tsx`.
     - [x] Stand up pilot participant tracking (model, service, API, tests) to manage recruitment lifecycle from invite through follow-up (`services/backend/app/models/entities.py:343`, `services/backend/app/services/feedback.py:46`, `services/backend/app/api/routes/feedback.py:73`, `services/backend/tests/test_feedback_api.py:110`).
+    - [x] Automate cohort imports and reporting via `mindwell-pilot-recruitment` CLI + `/api/feedback/pilot/participants/summary` endpoint (`services/backend/app/agents/pilot_recruitment.py`, `services/backend/app/api/routes/feedback.py`, `services/backend/tests/test_pilot_recruitment_agent.py`).
 
 ## Phase 7 – Deployment & Operations
 - [x] Finalize CI/CD pipelines for backend, frontend, and mobile releases.
@@ -161,4 +168,10 @@
 - [x] Update README.md with setup instructions, architecture overview, and usage guide. *(README now covers backend/frontend/mobile quickstart, architecture, observability, and testing expectations.)*
   - [x] Add frontend/mobile setup instructions (illustrative screenshots remain a backlog item).
 - [x] Prepare investor/partner summary collateral (optional DOCX/PDF). *(See `docs/investor_partner_brief.md` for investor-ready overview.)*
-- [x] Maintain DEV_PLAN and PROGRESS updates as milestones are achieved. *(Refreshed alongside pilot participant tracking rollout and backend regression run `pytest` 67 passed.)*
+- [x] Maintain DEV_PLAN and PROGRESS updates as milestones are achieved. *(Refreshed alongside pilot participant tracking rollout and backend regression run `pytest` 82 passed.)*
+
+## Phase 9 – Mood & Wellness Insights
+- [x] Extend backend data model with `MoodCheckIn` table, constraints, and migration (`services/backend/app/models/entities.py`, `services/backend/alembic/versions/20250214_0005_mood_check_ins.py`).
+- [x] Implement `MoodService` for recording check-ins, summarising streaks, and aggregating daily trends with coverage in `tests/test_mood_service.py`.
+- [x] Expose `/api/mood/{user_id}/check-ins` and `/api/mood/{user_id}/summary` endpoints plus dependency wiring (`services/backend/app/api/routes/mood.py`, `app/api/router.py`, `tests/test_mood_api.py`).
+- [x] Document mood tracking capability in README and log progress updates; reran full backend suite (`pytest`, 82 passed) post-change.

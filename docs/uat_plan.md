@@ -54,6 +54,7 @@ and capture feedback to close Phase 6 of the development roadmap.
   - **Feedback intake API:** Submit structured entries via `POST /api/feedback/pilot` (see §9) so facilitator notes land in the PilotFeedback table for analytics exports.
   - **Session recordings:** Optional FullStory in web pilot environment; disable PII capture per `docs/data_governance.md`.
   - **Surveys:** Post-session Google Form capturing satisfaction, trust score, feature gaps.
+  - **Recruitment automation:** Use `mindwell-pilot-recruitment import` to upsert cohort rosters from CSV/JSON and `mindwell-pilot-recruitment report --notify` for daily follow-up snapshots (leverages `/api/feedback/pilot/participants/summary`).
 
 ## 5. Success Criteria
 

@@ -38,6 +38,7 @@ mindwell-data-sync = "app.agents.data_sync:main"
 mindwell-retention-cleanup = "app.agents.retention_cleanup:main"
 mindwell-monitoring-agent = "app.agents.monitoring:main"
 mindwell-analytics-agent = "app.agents.analytics:main"
+mindwell-pilot-recruitment = "app.agents.pilot_recruitment:main"
 
 [build-system]
 requires = ["setuptools>=61", "wheel"]

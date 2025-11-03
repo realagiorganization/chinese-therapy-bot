@@ -1,0 +1,35 @@
+project_name              = "mindwell"
+environment               = "dev"
+
+# --- Azure ---
+azure_subscription_id     = "00000000-0000-0000-0000-000000000000"
+azure_tenant_id           = "11111111-1111-1111-1111-111111111111"
+azure_location            = "eastasia"
+aks_version               = "1.29.4"
+aks_service_cidr          = "10.40.0.0/16"
+aks_dns_service_ip        = "10.40.0.10"
+aks_docker_bridge_cidr    = "172.17.0.1/16"
+vnet_address_space        = ["10.20.0.0/16"]
+subnet_aks_system         = "10.20.1.0/24"
+subnet_aks_workload       = "10.20.2.0/24"
+subnet_postgres           = "10.20.3.0/24"
+oncall_email              = "platform@mindwell.dev"
+oncall_country_code       = "86"
+oncall_phone              = "13800000000"
+aks_admin_group_object_ids = [
+  "22222222-2222-2222-2222-222222222222",
+]
+api_server_allowed_ips    = ["203.0.113.0/24"]
+key_vault_admin_object_id = "33333333-3333-3333-3333-333333333333"
+key_vault_allowed_ips     = ["203.0.113.0/24"]
+postgres_sku_name         = "GP_Standard_D4s_v3"
+placeholder_openai_api_key = "replace-me-with-openai-key"
+
+# --- AWS ---
+aws_region = "ap-northeast-1"
+
+# Common resource tags applied to Azure and AWS assets.
+default_tags = {
+  owner       = "platform"
+  environment = "dev"
+}

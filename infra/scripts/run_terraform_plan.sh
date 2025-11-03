@@ -29,6 +29,7 @@ determine_var_file() {
   local candidates=(
     "${TERRAFORM_DIR}/${ENVIRONMENT}.tfvars"
     "${TERRAFORM_DIR}/${ENVIRONMENT}.auto.tfvars"
+    "${TERRAFORM_DIR}/${ENVIRONMENT}.tfvars.example"
     "${TERRAFORM_DIR}/../../${ENVIRONMENT}.tfvars"
     "${TERRAFORM_DIR}/../../${ENVIRONMENT}.auto.tfvars"
     "${TERRAFORM_DIR}/../../${ENVIRONMENT}.tfvars.example"

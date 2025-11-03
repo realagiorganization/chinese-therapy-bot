@@ -18,3 +18,8 @@
 - Raises alerts when thresholds (`MONITORING_LATENCY_THRESHOLD_MS`, `MONITORING_ERROR_RATE_THRESHOLD`, `MONITORING_COST_THRESHOLD_USD`) are breached.
 - Dispatches actionable alerts to the configured webhook (`ALERT_WEBHOOK_URL` / `ALERT_CHANNEL`) after logging structured metrics.
 - Supports environment-specific guardrails via `MONITORING_THRESHOLD_OVERRIDES_PATH` and `MONITORING_THRESHOLD_PROFILE`; see `infra/monitoring/threshold_profiles.json` for pilot-ready defaults.
+
+## Pilot Recruitment Agent
+- Runs `mindwell-pilot-recruitment` to import pilot participant rosters (CSV/JSON) and generate recruitment health summaries.
+- Supports dry-run validation, automated upsert of participants (cohort + email), and tag normalization so duplicates are avoided.
+- `mindwell-pilot-recruitment report` surfaces status breakdowns, follow-up counts, and top tags; `--notify` posts snapshots to the alert webhook when configured.

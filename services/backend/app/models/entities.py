@@ -54,6 +54,9 @@ class User(Base):
     tokens: Mapped[list["RefreshToken"]] = relationship(
         back_populates="user", cascade="all, delete-orphan"
     )
+    mood_check_ins: Mapped[list["MoodCheckIn"]] = relationship(
+        back_populates="user", cascade="all, delete-orphan"
+    )
 
     __table_args__ = (
         UniqueConstraint("phone_number", name="uq_users_phone"),
@@ -234,6 +237,46 @@ class ConversationMemory(Base):
         UniqueConstraint("session_id", name="uq_conversation_memory_session"),
         Index("ix_conversation_memories_user", "user_id"),
         Index("ix_conversation_memories_keywords", "keywords", postgresql_using="gin"),
+    )
+
+
+class MoodCheckIn(Base):
+    """Daily mood check-ins captured from user reflections."""
+
+    __tablename__ = "mood_check_ins"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="cascade"), nullable=False
+    )
+    score: Mapped[int] = mapped_column(Integer, nullable=False)
+    energy_level: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    emotion: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    tags: Mapped[list[str]] = mapped_column(MutableList.as_mutable(JSON), default=list)
+    note: Mapped[str | None] = mapped_column(Text, nullable=True)
+    context: Mapped[dict[str, Any] | None] = mapped_column(
+        MutableDict.as_mutable(JSON), default=dict, nullable=True
+    )
+    check_in_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=datetime.utcnow
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=datetime.utcnow, onupdate=datetime.utcnow
+    )
+
+    user: Mapped[User] = relationship(back_populates="mood_check_ins")
+
+    __table_args__ = (
+        CheckConstraint("score >= 1 AND score <= 5", name="ck_mood_check_ins_score"),
+        CheckConstraint(
+            "(energy_level IS NULL) OR (energy_level >= 1 AND energy_level <= 5)",
+            name="ck_mood_check_ins_energy",
+        ),
+        Index("ix_mood_check_ins_user", "user_id"),
+        Index("ix_mood_check_ins_user_check_in_at", "user_id", "check_in_at"),
     )
 
 

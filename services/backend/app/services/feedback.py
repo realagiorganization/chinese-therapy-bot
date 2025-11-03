@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from collections import Counter
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Iterable
 from uuid import UUID
 
@@ -23,6 +23,7 @@ from app.schemas.feedback import (
     PilotParticipantItem,
     PilotParticipantListResponse,
     PilotParticipantUpdate,
+    PilotParticipantSummary,
 )
 
 
@@ -46,6 +47,14 @@ def _strip_or_none(value: str | None) -> str | None:
         return None
     stripped = value.strip()
     return stripped or None
+
+
+def _ensure_utc(dt: datetime | None) -> datetime | None:
+    if dt is None:
+        return None
+    if dt.tzinfo is None:
+        return dt.replace(tzinfo=timezone.utc)
+    return dt.astimezone(timezone.utc)
 
 
 class PilotParticipantService:
@@ -101,6 +110,65 @@ class PilotParticipantService:
 
         await self._session.refresh(participant)
         return self._serialize(participant)
+
+    async def _get_participant_by_cohort_email(
+        self,
+        cohort: str,
+        contact_email: str | None,
+    ) -> PilotParticipant | None:
+        email = _strip_or_none(contact_email)
+        if not email:
+            return None
+        stmt = select(PilotParticipant).where(
+            PilotParticipant.cohort == cohort.strip(),
+            func.lower(PilotParticipant.contact_email) == email.lower(),
+        )
+        result = await self._session.execute(stmt)
+        return result.scalar_one_or_none()
+
+    async def find_participant_by_cohort_email(
+        self,
+        cohort: str,
+        contact_email: str,
+    ) -> PilotParticipantItem | None:
+        record = await self._get_participant_by_cohort_email(cohort, contact_email)
+        return self._serialize(record) if record else None
+
+    async def upsert_participant(
+        self,
+        payload: PilotParticipantCreate,
+    ) -> tuple[PilotParticipantItem, bool]:
+        existing = (
+            await self._get_participant_by_cohort_email(payload.cohort, payload.contact_email)
+            if payload.contact_email
+            else None
+        )
+
+        if existing:
+            update_payload = PilotParticipantUpdate(
+                full_name=payload.full_name,
+                preferred_name=payload.preferred_name,
+                contact_email=payload.contact_email,
+                contact_phone=payload.contact_phone,
+                channel=payload.channel,
+                locale=payload.locale,
+                timezone=payload.timezone,
+                organization=payload.organization,
+                status=payload.status,
+                requires_follow_up=payload.requires_follow_up,
+                invited_at=payload.invited_at,
+                consent_signed_at=payload.consent_signed_at,
+                onboarded_at=payload.onboarded_at,
+                last_contact_at=payload.last_contact_at,
+                follow_up_notes=payload.follow_up_notes,
+                tags=list(payload.tags),
+                metadata=payload.metadata,
+            )
+            updated = await self.update_participant(existing.id, update_payload)
+            return updated, False
+
+        created = await self.create_participant(payload)
+        return created, True
 
     async def update_participant(
         self,
@@ -197,6 +265,74 @@ class PilotParticipantService:
             total=total,
             items=[self._serialize(record) for record in paginated],
         )
+
+    async def summarize_participants(
+        self,
+        filters: PilotParticipantFilters | None = None,
+    ) -> PilotParticipantSummary:
+        filters = filters or PilotParticipantFilters()
+        stmt = select(PilotParticipant)
+        stmt = self._apply_filters(stmt, filters)
+        result = await self._session.execute(stmt)
+        records = result.scalars().all()
+
+        status_counts: Counter[str] = Counter()
+        tag_counts: Counter[str] = Counter()
+        requires_follow_up = 0
+        invited = 0
+        consented = 0
+        onboarded = 0
+        contactable = 0
+        pending_invites = 0
+        last_activity: datetime | None = None
+
+        for record in records:
+            status_counts[record.status] += 1
+            for tag in record.tags or []:
+                normalized = str(tag).strip()
+                if normalized:
+                    tag_counts[normalized] += 1
+
+            if record.requires_follow_up:
+                requires_follow_up += 1
+            if record.contact_email or record.contact_phone:
+                contactable += 1
+            if record.invited_at:
+                invited += 1
+            if record.consent_signed_at:
+                consented += 1
+            if record.onboarded_at:
+                onboarded += 1
+            if record.status.lower() in {"prospect", "invited"} and not record.onboarded_at:
+                pending_invites += 1
+
+            for candidate in (
+                record.last_contact_at,
+                record.updated_at,
+                record.invited_at,
+                record.consent_signed_at,
+                record.onboarded_at,
+            ):
+                candidate_utc = _ensure_utc(candidate)
+                if not candidate_utc:
+                    continue
+                if not last_activity or candidate_utc > last_activity:
+                    last_activity = candidate_utc
+
+        summary = PilotParticipantSummary(
+            cohort=filters.cohort,
+            total=len(records),
+            status_breakdown=dict(sorted(status_counts.items(), key=lambda item: item[0])),
+            requires_follow_up=requires_follow_up,
+            with_contact_methods=contactable,
+            invited=invited,
+            consented=consented,
+            onboarded=onboarded,
+            pending_invites=pending_invites,
+            last_activity_at=last_activity,
+            tag_totals=dict(sorted(tag_counts.items(), key=lambda item: (-item[1], item[0]))),
+        )
+        return summary
 
     def _apply_filters(
         self,

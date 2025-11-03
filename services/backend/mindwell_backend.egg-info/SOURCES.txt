@@ -6,6 +6,7 @@ app/agents/__init__.py
 app/agents/analytics.py
 app/agents/data_sync.py
 app/agents/monitoring.py
+app/agents/pilot_recruitment.py
 app/agents/retention_cleanup.py
 app/agents/summary_scheduler.py
 app/api/__init__.py
@@ -18,8 +19,10 @@ app/api/routes/chat.py
 app/api/routes/evaluations.py
 app/api/routes/explore.py
 app/api/routes/features.py
+app/api/routes/feedback.py
 app/api/routes/health.py
 app/api/routes/memory.py
+app/api/routes/mood.py
 app/api/routes/reports.py
 app/api/routes/therapists.py
 app/api/routes/voice.py
@@ -47,7 +50,9 @@ app/schemas/data_subject.py
 app/schemas/evaluation.py
 app/schemas/explore.py
 app/schemas/features.py
+app/schemas/feedback.py
 app/schemas/memory.py
+app/schemas/mood.py
 app/schemas/reports.py
 app/schemas/templates.py
 app/schemas/therapists.py
@@ -61,9 +66,11 @@ app/services/data_subject.py
 app/services/evaluation.py
 app/services/explore.py
 app/services/feature_flags.py
+app/services/feedback.py
 app/services/language_detection.py
 app/services/memory.py
 app/services/monitoring.py
+app/services/mood.py
 app/services/recommendations.py
 app/services/reports.py
 app/services/summaries.py
@@ -85,9 +92,14 @@ tests/test_data_subject_service.py
 tests/test_data_sync_agent.py
 tests/test_evaluation.py
 tests/test_explore_service.py
+tests/test_feedback_api.py
+tests/test_feedback_service.py
 tests/test_language_detection.py
 tests/test_llm_orchestrator.py
 tests/test_monitoring_service.py
+tests/test_mood_api.py
+tests/test_mood_service.py
+tests/test_pilot_recruitment_agent.py
 tests/test_recommendations.py
 tests/test_retention_cleanup_agent.py
 tests/test_sms_provider.py
