@@ -4,7 +4,7 @@ This overlay demonstrates how the FastAPI backend consumes secrets from Azure Ke
 
 ## Files
 
-- `secretproviderclass.yaml` – Maps Key Vault secrets (`postgres-admin-password`, `database-url`, `openai-api-key`, `sms-provider-api-key`) into the `mindwell-backend` Kubernetes secret.
+- `secretproviderclass.yaml` – Maps Key Vault secrets (`postgres-admin-password`, `database-url`, `openai-api-key`, `sms-provider-api-key`, `app-insights-api-key`, `alert-webhook-url`, `aws-access-key-id`, `aws-secret-access-key`) into the `mindwell-backend` Kubernetes secret.
 - `deployment.yaml` – Annotates the service account for Azure workload identity, mounts the CSI volume, and sources environment variables from the projected secret.
 - `service.yaml` – Internal ClusterIP service for the API pods.
 - `kustomization.yaml` – Applies the resources into the `mindwell` namespace.

@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from datetime import datetime, timedelta, timezone
+
 import pytest
 import pytest_asyncio
 from fastapi.testclient import TestClient
@@ -8,6 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 from app.api.deps import get_db_session
 from app.core.app import create_app
 from app.models.entities import PilotCohortParticipant
+from app.schemas.pilot_cohort import PilotParticipantStatus
 
 
 @pytest_asyncio.fixture()
@@ -108,3 +111,43 @@ def test_update_pilot_participant_allows_status_transition(cohort_client: TestCl
     assert payload["status"] == "active"
     assert payload["consent_received"] is True
     assert payload["tags"] == ["journey"]
+
+
+def test_followups_endpoint_returns_plan(cohort_client: TestClient) -> None:
+    invite_sent_at = (datetime.now(timezone.utc) - timedelta(days=5)).isoformat()
+    cohort_client.post(
+        "/api/pilot-cohort/participants",
+        json={
+            "cohort": "pilot-2025w11",
+            "participant_alias": "Elena",
+            "contact_email": "elena@example.com",
+            "status": "invited",
+            "locale": "en-US",
+            "channel": "email",
+            "invite_sent_at": invite_sent_at,
+        },
+    )
+    # Participant outside the filtered cohort should be ignored.
+    cohort_client.post(
+        "/api/pilot-cohort/participants",
+        json={
+            "cohort": "pilot-2025w12",
+            "participant_alias": "Ming",
+            "status": "invited",
+            "invite_sent_at": invite_sent_at,
+        },
+    )
+
+    response = cohort_client.get(
+        "/api/pilot-cohort/participants/followups",
+        params={"cohort": "pilot-2025w11", "horizon_days": 10},
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["total"] == 1
+    item = payload["items"][0]
+    assert item["cohort"] == "pilot-2025w11"
+    assert item["status"] == PilotParticipantStatus.INVITED.value
+    assert item["subject"] == "MindWell pilot invitation check-in"
+    assert item["urgency"] in {"due", "overdue"}

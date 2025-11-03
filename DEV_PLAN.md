@@ -100,11 +100,12 @@
 
 - Structured intake ✅ *(`PilotFeedback` persistence + `/api/feedback/pilot` endpoints with regression tests `test_feedback_service.py` / `test_feedback_api.py` capture cohort sentiment and blockers.)*
 - Feedback aggregation CLI ✅ *(`mindwell-pilot-feedback-report` summarizes sentiment/trust/usability scores and top tags to inform backlog triage.)*
+- Feedback summary API ✅ *(`/api/feedback/pilot/summary` unlocks dashboard integrations for backlog prioritization.)*
 
 #### **Pilot Cohort Recruitment**
 
 - Participant roster management ✅ *(New `PilotCohortParticipant` model, service `/api/pilot-cohort`, and CLI `mindwell-pilot-cohort` track invites/onboarding with regression coverage in `test_pilot_cohort_service.py` / `test_pilot_cohort_api.py`.)*
-- Cohort engagement automation 🔄 *(Follow-up messaging templates + CRM sync pending pilot launch.)*
+- Cohort engagement automation ✅ *(`plan_followups` heuristics, `/api/pilot-cohort/participants/followups`, and CLI `mindwell-pilot-followups` surface templated outreach and cadence planning.)*
 
 #### **Therapist Data**
 
@@ -163,10 +164,10 @@
 - Push notification scaffolding ✅ *(Expo Notifications registration with device token caching.)*
 - **Input Methods:**
   - Text input
-  - Voice input via local system model (iOS ✅ / Android pending)
+  - Voice input via local system model ✅ *(mobile app now uses on-device recognition through `@react-native-voice/voice` with automatic fallback to `/voice/transcribe` when unsupported.)*
   - WeChat-style “hold to speak” voice input ✅
   - Auto language detection ✅ *(LanguageDetector service auto-resolves locale -> shared across web/mobile states.)*
-  - Server-side ASR (speech recognition)
+  - Server-side ASR (speech recognition) ✅ *(FastAPI `/api/voice/transcribe` plus shared mobile/web integrations.)*
 - **Output (Voice Playback):**
   - RN-TTS integration ✅
   - Sentence-level segmentation ✅

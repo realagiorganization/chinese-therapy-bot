@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from datetime import datetime, timedelta, timezone
+
 import pytest
 import pytest_asyncio
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
@@ -10,6 +12,7 @@ from app.schemas.pilot_cohort import (
     PilotParticipantFilters,
     PilotParticipantStatus,
     PilotParticipantUpdate,
+    FollowUpUrgency,
 )
 from app.services.pilot_cohort import PilotCohortService
 
@@ -130,3 +133,62 @@ async def test_update_participant_adjusts_status_and_timestamps(cohort_session: 
     assert updated.onboarded_at is not None
     assert updated.tags == ["journey"]
     assert updated.consent_received is True
+
+
+@pytest.mark.asyncio
+async def test_plan_followups_returns_overdue_invite(cohort_session: AsyncSession) -> None:
+    service = PilotCohortService(cohort_session)
+    sent_at = datetime.now(timezone.utc) - timedelta(days=4)
+    participant = await service.create_participant(
+        PilotParticipantCreate(
+            cohort="pilot-2025w9",
+            participant_alias="Lily",
+            status=PilotParticipantStatus.INVITED,
+            invite_sent_at=sent_at,
+        )
+    )
+
+    plan = await service.plan_followups(horizon_days=7)
+
+    assert plan.total == 1
+    followup = plan.items[0]
+    assert followup.participant_id == participant.id
+    assert followup.urgency in {FollowUpUrgency.DUE, FollowUpUrgency.OVERDUE}
+    assert "Invitation was sent" in followup.reason
+    assert "MindWell 体验邀约提醒" in followup.subject
+
+
+@pytest.mark.asyncio
+async def test_plan_followups_respects_filters_and_localization(cohort_session: AsyncSession) -> None:
+    service = PilotCohortService(cohort_session)
+    last_contacted = datetime.now(timezone.utc) - timedelta(days=16)
+    await service.create_participant(
+        PilotParticipantCreate(
+            cohort="pilot-2025w10",
+            participant_alias="Ben",
+            status=PilotParticipantStatus.ACTIVE,
+            channel="mobile",
+            locale="en-US",
+            last_contacted_at=last_contacted,
+        )
+    )
+    await service.create_participant(
+        PilotParticipantCreate(
+            cohort="pilot-2025w10",
+            participant_alias="Claire",
+            status=PilotParticipantStatus.ACTIVE,
+            channel="web",
+            locale="zh-CN",
+            last_contacted_at=last_contacted,
+        )
+    )
+
+    filters = PilotParticipantFilters(channel="mobile")
+    plan = await service.plan_followups(filters, horizon_days=21)
+
+    assert plan.total == 1
+    followup = plan.items[0]
+    assert followup.channel == "mobile"
+    assert followup.locale == "en-US"
+    assert followup.subject == "MindWell wellness check-in"
+    assert followup.urgency == FollowUpUrgency.OVERDUE

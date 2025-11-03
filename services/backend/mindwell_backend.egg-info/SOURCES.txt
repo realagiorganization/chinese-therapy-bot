@@ -21,6 +21,7 @@ app/api/routes/features.py
 app/api/routes/feedback.py
 app/api/routes/health.py
 app/api/routes/memory.py
+app/api/routes/pilot_cohort.py
 app/api/routes/reports.py
 app/api/routes/therapists.py
 app/api/routes/voice.py
@@ -50,6 +51,7 @@ app/schemas/explore.py
 app/schemas/features.py
 app/schemas/feedback.py
 app/schemas/memory.py
+app/schemas/pilot_cohort.py
 app/schemas/reports.py
 app/schemas/templates.py
 app/schemas/therapists.py
@@ -67,6 +69,7 @@ app/services/feedback.py
 app/services/language_detection.py
 app/services/memory.py
 app/services/monitoring.py
+app/services/pilot_cohort.py
 app/services/recommendations.py
 app/services/reports.py
 app/services/summaries.py
@@ -82,6 +85,7 @@ scripts/__init__.py
 scripts/delete_user_data.py
 scripts/export_user_data.py
 scripts/find_user.py
+scripts/manage_pilot_cohort.py
 scripts/summarize_pilot_feedback.py
 tests/test_analytics_service.py
 tests/test_app.py
@@ -98,6 +102,8 @@ tests/test_feedback_service.py
 tests/test_language_detection.py
 tests/test_llm_orchestrator.py
 tests/test_monitoring_service.py
+tests/test_pilot_cohort_api.py
+tests/test_pilot_cohort_service.py
 tests/test_recommendations.py
 tests/test_retention_cleanup_agent.py
 tests/test_sms_provider.py

@@ -104,3 +104,35 @@ class PilotParticipantListResponse(BaseModel):
 
     total: int
     items: list[PilotParticipantResponse]
+
+
+class FollowUpUrgency(str, Enum):
+    """Indicates how soon a follow-up action should occur."""
+
+    UPCOMING = "upcoming"
+    DUE = "due"
+    OVERDUE = "overdue"
+
+
+class PilotFollowUp(BaseModel):
+    """Recommended next action for a pilot participant engagement."""
+
+    participant_id: UUID
+    cohort: str
+    participant_alias: str | None
+    channel: str
+    locale: str
+    status: PilotParticipantStatus
+    due_at: datetime
+    urgency: FollowUpUrgency
+    reason: str
+    subject: str
+    message: str
+
+
+class PilotFollowUpList(BaseModel):
+    """Collection of follow-up recommendations."""
+
+    generated_at: datetime
+    total: int
+    items: list[PilotFollowUp]

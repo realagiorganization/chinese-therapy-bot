@@ -6,6 +6,7 @@ from fastapi import APIRouter, Depends, Path, Query, status
 
 from app.api.deps import get_pilot_cohort_service
 from app.schemas.pilot_cohort import (
+    PilotFollowUpList,
     PilotParticipantCreate,
     PilotParticipantFilters,
     PilotParticipantListResponse,
@@ -74,6 +75,34 @@ async def list_pilot_participants(
         search=search,
     )
     return await service.list_participants(filters, limit=limit, offset=offset)
+
+
+@router.get(
+    "/participants/followups",
+    response_model=PilotFollowUpList,
+    summary="Generate follow-up recommendations for pilot engagement.",
+)
+async def plan_pilot_followups(
+    cohort: str | None = Query(default=None, description="Filter by cohort identifier."),
+    status: PilotParticipantStatus | None = Query(
+        default=None,
+        description="Optional participant status filter applied before computing follow-ups.",
+    ),
+    channel: str | None = Query(default=None, description="Filter by preferred channel."),
+    horizon_days: int = Query(
+        default=7,
+        ge=1,
+        le=30,
+        description="Include follow-ups that fall within the next N days (default: 7).",
+    ),
+    service: PilotCohortService = Depends(get_pilot_cohort_service),
+) -> PilotFollowUpList:
+    filters = PilotParticipantFilters(
+        cohort=cohort,
+        status=status,
+        channel=channel,
+    )
+    return await service.plan_followups(filters, horizon_days=horizon_days)
 
 
 @router.patch(

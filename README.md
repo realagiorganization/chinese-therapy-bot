@@ -82,6 +82,7 @@ Agent entry points are exposed as `mindwell-summary-scheduler`, `mindwell-data-s
 Use `mindwell-monitoring-agent --dry-run` to verify telemetry access without dispatching alerts.
 Use `mindwell-pilot-feedback-report --format human` to turn collected UAT feedback into sentiment/trust/usability summaries and top tag counts.
 Use `mindwell-pilot-cohort list --cohort pilot-2025w6` to review roster status, or `mindwell-pilot-cohort import roster.csv --cohort pilot-2025w6` to stage invites from a CSV.
+Use `mindwell-pilot-followups --cohort pilot-2025w6 --horizon-days 7` to generate templated outreach plans for upcoming or overdue pilot touchpoints.
 
 ### Frontend (Vite/React)
 1. Install dependencies:

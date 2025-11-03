@@ -1,0 +1,23 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: mindwell-agent-config
+data:
+  APP_ENV: dev
+  AWS_REGION: ap-northeast-1
+  S3_BUCKET_THERAPISTS: mindwell-dev-therapists
+  THERAPIST_DATA_S3_PREFIX: therapists
+  THERAPIST_DEFAULT_LOCALE: zh-CN
+  DATA_SYNC_SOURCES: https://example.com/datasets/therapists.json
+  DATA_SYNC_DRY_RUN: "false"
+  S3_SUMMARIES_BUCKET: mindwell-dev-summaries
+  S3_CONVERSATION_LOGS_BUCKET: mindwell-dev-conversations
+  SUMMARY_SCHEDULER_MODE: both
+  SUMMARY_SCHEDULER_DATE: ""
+  MONITORING_LATENCY_THRESHOLD_MS: "1200"
+  MONITORING_ERROR_RATE_THRESHOLD: "0.05"
+  MONITORING_COST_THRESHOLD_USD: "500"
+  MONITORING_COST_LOOKBACK_DAYS: "1"
+  MONITORING_METRICS_PATH: /tmp/monitoring/metrics.json
+  MONITORING_DRY_RUN: "false"
+  ALERT_CHANNEL: "#mindwell-alerts"

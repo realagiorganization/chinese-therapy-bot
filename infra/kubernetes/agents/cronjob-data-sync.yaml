@@ -1,0 +1,75 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: mindwell-data-sync
+  labels:
+    app: mindwell-data-sync
+spec:
+  schedule: "0 */4 * * *"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 1
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 1
+      template:
+        metadata:
+          labels:
+            app: mindwell-data-sync
+        spec:
+          serviceAccountName: mindwell-agents
+          restartPolicy: OnFailure
+          containers:
+            - name: data-sync
+              image: ${BACKEND_IMAGE}
+              imagePullPolicy: IfNotPresent
+              command:
+                - /bin/sh
+                - -c
+                - |
+                  set -euo pipefail
+                  python - <<'PY'
+                  import os
+                  import subprocess
+                  import sys
+
+                  sources_raw = os.environ.get("DATA_SYNC_SOURCES", "")
+                  sources = [item.strip() for item in sources_raw.split(",") if item.strip()]
+                  if not sources:
+                      sys.stderr.write("DATA_SYNC_SOURCES env var must include at least one source path or URL.\n")
+                      sys.exit(1)
+
+                  cmd = ["mindwell-data-sync"]
+                  for source in sources:
+                      cmd.extend(["--source", source])
+
+                  prefix = os.environ.get("THERAPIST_DATA_S3_PREFIX")
+                  if prefix:
+                      cmd.extend(["--prefix", prefix])
+
+                  locale = os.environ.get("THERAPIST_DEFAULT_LOCALE")
+                  if locale:
+                      cmd.extend(["--locale", locale])
+
+                  dry_run = os.environ.get("DATA_SYNC_DRY_RUN", "").lower()
+                  if dry_run in {"1", "true", "yes", "on"}:
+                      cmd.append("--dry-run")
+
+                  subprocess.run(cmd, check=True)
+                  PY
+              envFrom:
+                - configMapRef:
+                    name: mindwell-agent-config
+                - secretRef:
+                    name: mindwell-backend
+              volumeMounts:
+                - name: agent-secrets
+                  mountPath: /mnt/secrets
+                  readOnly: true
+          volumes:
+            - name: agent-secrets
+              csi:
+                driver: secrets-store.csi.k8s.io
+                readOnly: true
+                volumeAttributes:
+                  secretProviderClass: backend-secrets

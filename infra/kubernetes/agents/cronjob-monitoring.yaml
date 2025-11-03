@@ -1,0 +1,62 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: mindwell-monitoring-agent
+  labels:
+    app: mindwell-monitoring-agent
+spec:
+  schedule: "*/5 * * * *"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 1
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 1
+      template:
+        metadata:
+          labels:
+            app: mindwell-monitoring-agent
+        spec:
+          serviceAccountName: mindwell-agents
+          restartPolicy: OnFailure
+          containers:
+            - name: monitoring-agent
+              image: ${BACKEND_IMAGE}
+              imagePullPolicy: IfNotPresent
+              command:
+                - /bin/sh
+                - -c
+                - |
+                  set -euo pipefail
+                  python - <<'PY'
+                  import os
+                  import subprocess
+                  from pathlib import Path
+
+                  metrics_path = (os.environ.get("MONITORING_METRICS_PATH") or "").strip()
+                  if metrics_path:
+                      Path(metrics_path).expanduser().parent.mkdir(parents=True, exist_ok=True)
+
+                  cmd = ["mindwell-monitoring-agent"]
+                  dry_run = os.environ.get("MONITORING_DRY_RUN", "").lower()
+                  if dry_run in {"1", "true", "yes", "on"}:
+                      cmd.append("--dry-run")
+
+                  subprocess.run(cmd, check=True)
+                  PY
+              envFrom:
+                - configMapRef:
+                    name: mindwell-agent-config
+                - secretRef:
+                    name: mindwell-backend
+              volumeMounts:
+                - name: agent-secrets
+                  mountPath: /mnt/secrets
+                  readOnly: true
+          volumes:
+            - name: agent-secrets
+              csi:
+                driver: secrets-store.csi.k8s.io
+                readOnly: true
+                volumeAttributes:
+                  secretProviderClass: backend-secrets

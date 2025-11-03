@@ -6,6 +6,7 @@ from app.schemas.feedback import (
     PilotFeedbackFilters,
     PilotFeedbackItem,
     PilotFeedbackListResponse,
+    PilotFeedbackSummary,
 )
 from app.services.feedback import PilotFeedbackService
 
@@ -61,3 +62,35 @@ async def list_pilot_feedback(
         minimum_trust_score=minimum_trust_score,
     )
     return await service.list_feedback(filters, limit=limit, offset=offset)
+
+
+@router.get(
+    "/pilot/summary",
+    response_model=PilotFeedbackSummary,
+    summary="Summarize pilot UAT feedback sentiment, trust, usability, and follow-up needs.",
+)
+async def summarize_pilot_feedback(
+    cohort: str | None = Query(default=None, description="Filter by pilot cohort tag."),
+    channel: str | None = Query(default=None, description="Filter by primary channel (web/mobile/etc)."),
+    role: str | None = Query(default=None, description="Filter by participant role."),
+    minimum_trust_score: int | None = Query(
+        default=None,
+        ge=1,
+        le=5,
+        description="Minimum trust score inclusive filter (1-5).",
+    ),
+    top_tag_limit: int = Query(
+        default=8,
+        ge=1,
+        le=20,
+        description="Maximum number of feedback tags to include in the summary.",
+    ),
+    service: PilotFeedbackService = Depends(get_feedback_service),
+) -> PilotFeedbackSummary:
+    filters = PilotFeedbackFilters(
+        cohort=cohort,
+        channel=channel,
+        role=role,
+        minimum_trust_score=minimum_trust_score,
+    )
+    return await service.summarize_feedback(filters, top_tag_limit=top_tag_limit)

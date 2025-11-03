@@ -90,3 +90,61 @@ def test_list_pilot_feedback_filters_by_query(feedback_client: TestClient) -> No
     assert payload["total"] == 1
     assert len(payload["items"]) == 1
     assert payload["items"][0]["channel"] == "web"
+
+
+def test_pilot_feedback_summary_returns_aggregated_metrics(feedback_client: TestClient) -> None:
+    entries = [
+        {
+            "cohort": "pilot-2025w5",
+            "channel": "web",
+            "role": "participant",
+            "sentiment_score": 4,
+            "trust_score": 5,
+            "usability_score": 4,
+            "tags": ["journey", "latency"],
+            "follow_up_needed": True,
+        },
+        {
+            "cohort": "pilot-2025w5",
+            "channel": "mobile",
+            "role": "participant",
+            "sentiment_score": 2,
+            "trust_score": 3,
+            "usability_score": 2,
+            "tags": ["latency"],
+            "follow_up_needed": True,
+        },
+        {
+            "cohort": "pilot-2025w5",
+            "channel": "mobile",
+            "role": "caregiver",
+            "sentiment_score": 5,
+            "trust_score": 4,
+            "usability_score": 5,
+            "tags": ["resources"],
+            "follow_up_needed": False,
+        },
+    ]
+
+    for payload in entries:
+        resp = feedback_client.post("/api/feedback/pilot", json=payload)
+        assert resp.status_code == 201
+
+    response = feedback_client.get(
+        "/api/feedback/pilot/summary",
+        params={"cohort": "pilot-2025w5", "top_tag_limit": 1},
+    )
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["total_entries"] == 3
+    assert data["average_trust"] == 4.0
+    assert data["average_sentiment"] == 3.67
+    assert data["follow_up_needed"] == 2
+    assert data["top_tags"] == [{"tag": "latency", "count": 2}]
+
+    by_channel = data["by_channel"]
+    assert by_channel[0]["key"] == "mobile"
+    assert by_channel[0]["total"] == 2
+    assert by_channel[0]["average_trust"] == 3.5
+    assert by_channel[1]["key"] == "web"

@@ -2,7 +2,7 @@ import { useAuth } from "@context/AuthContext";
 import { useVoiceSettings } from "@context/VoiceSettingsContext";
 import { useNetworkStatus } from "@hooks/useNetworkStatus";
 import { markStartupEvent } from "@hooks/useStartupProfiler";
-import { useVoiceInput } from "@hooks/useVoiceInput";
+import { useVoiceInput, type VoiceInputMode } from "@hooks/useVoiceInput";
 import { useVoicePlayback } from "@hooks/useVoicePlayback";
 import { sendMessage } from "@services/chat";
 import { loadChatState, persistChatState } from "@services/chatCache";
@@ -139,16 +139,28 @@ function RecommendationCard({
 function resolveVoiceStatusLabel(
   isRecording: boolean,
   isTranscribing: boolean,
+  mode: VoiceInputMode,
+  supported: boolean,
   isOffline: boolean,
+  localSupported: boolean,
 ): string {
-  if (isOffline) {
-    return "离线模式下暂不可用";
+  if (!supported) {
+    if (mode === "local") {
+      return "设备暂不支持离线语音识别";
+    }
+    if (isOffline && !localSupported) {
+      return "离线模式下语音识别不可用";
+    }
+    return "语音服务暂不可用";
   }
   if (isTranscribing) {
-    return "语音识别中…";
+    return mode === "local" ? "本地识别中…" : "语音识别中…";
   }
   if (isRecording) {
-    return "保持按住录音";
+    return mode === "local" ? "松开结束识别" : "保持按住录音";
+  }
+  if (mode === "local") {
+    return isOffline ? "离线语音识别已启用" : "长按进行离线识别";
   }
   return "长按说话";
 }
@@ -162,6 +174,9 @@ export function ChatScreen() {
   const listRef = useRef<FlatList<MessageWithId>>(null);
   const insets = useSafeAreaInsets();
   const [activeLocale, setActiveLocale] = useState("zh-CN");
+  const networkStatus = useNetworkStatus(12000);
+  const isOffline =
+    !networkStatus.isConnected || !networkStatus.isInternetReachable;
   const {
     supported: voiceSupported,
     isRecording: isVoiceRecording,
@@ -171,7 +186,12 @@ export function ChatScreen() {
     stop: stopVoiceInput,
     cancel: cancelVoiceInput,
     clearError: clearVoiceError,
-  } = useVoiceInput(activeLocale, tokens?.accessToken ?? null);
+    mode: voiceMode,
+    localSupported: localVoiceSupported,
+    remoteSupported: remoteVoiceSupported,
+  } = useVoiceInput(activeLocale, tokens?.accessToken ?? null, {
+    preferLocal: isOffline,
+  });
   const {
     enabled: isVoicePlaybackEnabled,
     setEnabled: setVoicePlaybackEnabled,
@@ -198,7 +218,6 @@ export function ChatScreen() {
     { summary: string; keywords: string[] }[]
   >([]);
   const [isRestoring, setRestoring] = useState<boolean>(true);
-  const networkStatus = useNetworkStatus(12000);
   const [voiceSettingsVisible, setVoiceSettingsVisible] = useState(false);
   const ratePresets = useMemo(
     () => [
@@ -221,8 +240,6 @@ export function ChatScreen() {
     : isVoicePlaybackEnabled
       ? "开启"
       : "关闭";
-  const isOffline =
-    !networkStatus.isConnected || !networkStatus.isInternetReachable;
   const composerPadding = useMemo(
     () => Math.max(insets.bottom, theme.spacing.sm),
     [insets.bottom, theme.spacing.sm],
@@ -236,6 +253,9 @@ export function ChatScreen() {
         : undefined,
     [],
   );
+  const canRenderVoiceButton = localVoiceSupported || remoteVoiceSupported;
+  const remoteOfflineBlocked = voiceMode === "remote" && isOffline;
+  const effectiveVoiceSupported = voiceSupported && !remoteOfflineBlocked;
 
   const styles = useMemo(
     () =>
@@ -626,7 +646,7 @@ export function ChatScreen() {
   );
 
   const handleVoiceStart = useCallback(() => {
-    if (isOffline) {
+    if (!effectiveVoiceSupported) {
       return;
     }
     clearVoiceError();
@@ -638,7 +658,12 @@ export function ChatScreen() {
     startVoiceInput(handleVoiceTranscript).catch((error) => {
       console.warn("Failed to start voice input", error);
     });
-  }, [clearVoiceError, startVoiceInput, handleVoiceTranscript, isOffline]);
+  }, [
+    clearVoiceError,
+    startVoiceInput,
+    handleVoiceTranscript,
+    effectiveVoiceSupported,
+  ]);
 
   const handleVoiceStop = useCallback(() => {
     stopVoiceInput().catch((error) => {
@@ -761,7 +786,34 @@ export function ChatScreen() {
   ]);
 
   const sendDisabled = isSending || isOffline || inputValue.trim().length === 0;
-  const voiceDisabled = isSending || isVoiceTranscribing || isOffline;
+  const voiceDisabled =
+    isSending || isVoiceTranscribing || !effectiveVoiceSupported;
+  const voiceStatusText = resolveVoiceStatusLabel(
+    isVoiceRecording,
+    isVoiceTranscribing,
+    voiceMode,
+    effectiveVoiceSupported,
+    isOffline,
+    localVoiceSupported,
+  );
+  const voiceButtonLabel = (() => {
+    if (!effectiveVoiceSupported) {
+      if (voiceMode === "local" && !localVoiceSupported) {
+        return "不支持离线";
+      }
+      if (voiceMode === "remote" && isOffline) {
+        return "离线不可用";
+      }
+      return "暂不可用";
+    }
+    if (isVoiceRecording) {
+      return "松开结束";
+    }
+    if (voiceMode === "local") {
+      return "按住离线识别";
+    }
+    return "按住语音";
+  })();
 
   return (
     <KeyboardAvoidingView
@@ -888,7 +940,7 @@ export function ChatScreen() {
           { paddingBottom: composerPadding, paddingTop: theme.spacing.sm },
         ]}
       >
-        {voiceSupported && (
+        {canRenderVoiceButton && (
           <View style={styles.voiceContainer}>
             <Pressable
               android_ripple={androidRipple}
@@ -908,14 +960,10 @@ export function ChatScreen() {
                 style={[
                   styles.voiceButtonLabel,
                   isVoiceRecording && styles.voiceButtonLabelActive,
-                  isOffline && { opacity: 0.7 },
+                  !effectiveVoiceSupported && { opacity: 0.7 },
                 ]}
               >
-                {isOffline
-                  ? "离线不可用"
-                  : isVoiceRecording
-                    ? "松开结束"
-                    : "按住语音"}
+                {voiceButtonLabel}
               </Text>
             </Pressable>
             <View style={styles.voiceStatusRow}>
@@ -928,11 +976,7 @@ export function ChatScreen() {
                   isVoiceTranscribing && { marginLeft: theme.spacing.xs * 0.5 },
                 ]}
               >
-                {resolveVoiceStatusLabel(
-                  isVoiceRecording,
-                  isVoiceTranscribing,
-                  isOffline,
-                )}
+                {voiceStatusText}
               </Text>
             </View>
           </View>
