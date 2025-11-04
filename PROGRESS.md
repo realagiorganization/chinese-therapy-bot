@@ -2,7 +2,7 @@
 
 ### Verification Snapshot
 - [x] Recreated backend virtualenv and installed `mindwell-backend` with dev extras to satisfy test dependencies (`pip install -e .[dev]`).
-- [x] Ran the backend suite via `pytest`; latest run (2025-11-04T13:52Z) produced 101 passing tests on Python 3.11.14 (historical baselines retained in prior entries for comparison).
+- [x] Ran the backend suite via `pytest`; latest run (2025-11-04T18:57Z) produced 103 passing tests on Python 3.11.14 (historical baselines retained in prior entries for comparison).
 - [x] Confirmed referenced Phase 0/1 design artifacts exist under `docs/` (e.g., `docs/phase0_foundations.md`, `docs/phase1_product_design.md`) and align with completed checkboxes.
 - [x] Validated Terraform modules for remote state, AKS, observability, and secret management under `infra/terraform/`, matching Phase 2 completed tasks.
 - [x] Spot-checked backend services (chat, summaries, feature flags) to ensure the implementations cited in Phase 3 are present and wired into FastAPI dependencies.
@@ -11,6 +11,7 @@
 - [x] Added regression coverage + FastAPI routing for `/api/chat/stream` and legacy `/therapy/chat/stream` SSE endpoints to close Phase 7 bug tracker item (`services/backend/app/api/routes/chat.py:1`, `services/backend/tests/test_chat_api.py:1`).
 - [x] Ensured chat template dataset loads from packaged resources or local fallback, keeping Phase 5 template tooling functional (`services/backend/app/services/templates.py:1`, `services/backend/tests/test_template_service.py:1`).
 - [x] Implemented Expo Speech voice playback with adjustable rate/pitch preferences and a disable toggle in the mobile chat experience (`clients/mobile/src/context/VoiceSettingsContext.tsx:1`, `clients/mobile/src/hooks/useVoicePlayback.ts:1`, `clients/mobile/src/screens/ChatScreen.tsx:600`).
+- [x] Interrupted ongoing voice playback when the user types, begins recording, or sends a new message so TTS never overlaps with fresh input (`clients/mobile/src/screens/ChatScreen.tsx:624`, `clients/mobile/src/screens/ChatScreen.tsx:651`, `clients/mobile/src/screens/ChatScreen.tsx:716`).
 - [x] Added on-device speech recognition fallback so mobile voice capture works when offline (`clients/mobile/src/hooks/useLocalVoiceInput.ts:1`, `clients/mobile/src/hooks/useVoiceInput.ts:1`, `clients/mobile/src/screens/ChatScreen.tsx:140`).
 - [x] Delivered pilot feedback intake persistence + API to capture pilot cohort sentiment for Phase 6 UAT tracking (`services/backend/app/models/entities.py:381`, `services/backend/app/api/routes/feedback.py:1`, `services/backend/tests/test_feedback_service.py:1`, `services/backend/tests/test_feedback_api.py:1`).
 - [x] Added pilot cohort roster management model, service, API, CLI, and regression tests so recruitment can proceed with structured tracking (`services/backend/app/models/entities.py:414`, `services/backend/app/services/pilot_cohort.py:1`, `services/backend/app/api/routes/pilot_cohort.py:1`, `services/backend/scripts/manage_pilot_cohort.py:1`, `services/backend/tests/test_pilot_cohort_service.py:1`, `services/backend/tests/test_pilot_cohort_api.py:1`).
@@ -18,13 +19,15 @@
 - [x] Added `/api/feedback/pilot/summary` endpoint so product and research can ingest aggregated UAT metrics; validated via the regression suite (`services/backend/app/api/routes/feedback.py:1`, `services/backend/tests/test_feedback_api.py:1`).
 - [x] Confirmed infrastructure automation and CI coverage for mobile clients match Phase 2/7 claims (`infra/terraform/azure_postgres.tf:1`, `.github/workflows/ci.yml:1`).
 - [x] README documents end-to-end frontend/mobile setup workflows as required by DEV_PLAN (`README.md:70`, `README.md:90`).
-- [x] Re-ran `terraform init -backend=false` and `terraform validate` against `infra/terraform` using Terraform 1.6.6 (`./.bin/terraform`); generated updated `.terraform.lock.hcl` pinning azurerm 3.117.1.
-- [x] Installed Terraform 1.6.6, Azure CLI 2.78.0, and AWS CLI 2.23.6 into the shared `.bin/` toolchain (`terraform`, `az`, `aws` now detected by `infra/scripts/check_cloud_prereqs.sh`; script still exits early until real Azure/AWS credentials are supplied).
+- [x] Re-ran `terraform init -backend=false` and `terraform validate` against `infra/terraform` using Terraform 1.6.6 (installed under `.bin/terraform` with a `/usr/local/bin/terraform` symlink); generated updated `.terraform.lock.hcl` pinning azurerm 3.117.1.
+- [x] Installed Terraform 1.6.6, Azure CLI 2.79.0, and AWS CLI 2.31.28 into the shared toolchain (now available on `PATH`); re-ran `infra/scripts/check_cloud_prereqs.sh` to confirm binaries are detected and documented the flow still halts pending Azure/AWS credentials.
+- [x] 2025-11-06T14:35Z: Re-verified chat streaming + template services and replaced the stubbed RAG claim with a concrete knowledge base pipeline feeding psychoeducation snippets to the LLM and clients (`services/backend/app/services/knowledge_base.py`, `services/backend/tests/test_knowledge_base_service.py`, `clients/web/src/hooks/useChatSession.ts`, `clients/mobile/src/screens/ChatScreen.tsx`).
+- [x] 2025-11-05T09:40Z: Audited representative completed milestones (chat streaming endpoints, template service, automation CronJobs, CLI suites) against repository state; confirmed outstanding unchecked items remain blocked on infrastructure credentials or live pilot recruitment.
 - [x] Added Kubernetes CronJobs for automation agents (`mindwell-data-sync`, `mindwell-summary-scheduler`, `mindwell-monitoring-agent`) under `infra/kubernetes/agents/` and expanded the shared SecretProviderClass so workloads can pull App Insights, alerting, and AWS credentials from Key Vault.
 - [x] Ensured Data Sync agent emits JSON ingestion metrics to `DATA_SYNC_METRICS_PATH`, with CronJob bootstrap logic ensuring directories exist for Monitoring ingestion (`services/backend/app/agents/data_sync.py`, `services/backend/tests/test_data_sync_agent.py`, `infra/kubernetes/agents/cronjob-data-sync.yaml`, `infra/kubernetes/agents/configmap.yaml`).
 - [x] Added webhook dispatch regression coverage to guarantee monitoring alerts post actionable payloads (`services/backend/tests/test_alert_dispatcher.py:1`).
 - [x] Hardened AWS Bedrock fallback integration to use `aioboto3.Session().client` and added regression coverage capturing Bedrock + heuristic streaming behavior (`services/backend/app/integrations/llm.py`, `services/backend/tests/test_llm_orchestrator.py`).
-- [x] 2025-11-03T18:47Z: Re-audited completed milestones against repository state, reran `pytest` (76 passed), and validated Terraform configuration with Terraform 1.6.6 (`terraform init -backend=false` + `terraform validate` via `./.bin/terraform`); no discrepancies found. Follow-up verification 2025-11-04T07:05Z confirmed 92 passing tests with current feature set. New pilot cohort tooling verified through API + service tests.
+- [x] 2025-11-03T18:47Z: Re-audited completed milestones against repository state, reran `pytest` (76 passed), and validated Terraform configuration with Terraform 1.6.6 (`terraform init -backend=false` + `terraform validate` via `./.bin/terraform`); no discrepancies found. Follow-up verification 2025-11-04T07:05Z confirmed 92 passing tests with current feature set, and 2025-11-04T18:51Z run verified 101 tests passing after reinstalling dev dependencies and refreshing toolchain binaries. New pilot cohort tooling verified through API + service tests.
 - [x] Authored infrastructure preflight script and AKS provisioning runbook to accelerate outstanding Phase 2 apply work (`infra/scripts/check_cloud_prereqs.sh`, `docs/runbooks/aks_provisioning.md`).
 - [x] Documented pilot cohort recruitment & UAT execution process to unblock the remaining Phase 6 user testing milestone (`docs/runbooks/pilot_cohort_recruitment.md`).
 
@@ -125,7 +128,7 @@
 ## Phase 5 – Intelligent Agent Features
 - [x] Implement conversation memory service with keyword filtering and summarization store. *(see `services/backend/app/services/memory.py` & `/api/memory/{userId}`)*
 - [x] Build therapist recommendation engine leveraging embeddings + prompt standardization. *(see `services/backend/app/services/recommendations.py` using Azure/OpenAI embeddings with heuristic fallback + `ChatService` integration)*
-- [x] Add RAG pipeline for contextual response generation with conversation snippets and therapist knowledge base. *(chat context prompt now stitches therapist recommendations + memory highlights in `services/backend/app/services/chat.py`)*
+- [x] Add RAG pipeline for contextual response generation with conversation memories, therapist knowledge base insights, and psychoeducation snippets. *(Prompt assembly now pulls localized knowledge articles via `services/backend/app/services/knowledge_base.py`, injects them in `services/backend/app/services/chat.py`, and surfaces snippets to web/mobile clients.)*
 - [x] Introduce guided chat scene templates for common mental health topics. *(curated dataset in `services/backend/app/data/chat_templates.json`, API `/api/chat/templates`, and web quick-start UI in `clients/web/src/components/ChatPanel.tsx`.)*
 - [x] Develop tooling to evaluate model response quality and guardrails. *(Guardrail heuristics + evaluation API via `services/backend/app/services/evaluation.py` and `/api/evaluations/response`.)*
 
@@ -155,6 +158,7 @@
     - [x] Expose aggregated feedback summary API to feed dashboards and backlog triage (`/api/feedback/pilot/summary`, CLI `summarize_pilot_feedback.py`, regression in `services/backend/tests/test_feedback_api.py`).
     - [x] Build cohort roster management primitives (DB model, service, API, CLI) so Growth/UAT teams can stage recruitment and track status transitions (`services/backend/app/services/pilot_cohort.py`, `/api/pilot-cohort/*`, CLI `mindwell-pilot-cohort`).
     - [x] Generate pilot feedback summary CLI to quantify sentiment/trust scores and tag themes for backlog prioritization. *(Run `mindwell-pilot-feedback-report --format json` to produce metrics.)*
+    - [x] Added `mindwell-pilot-cohort summary` command + service metrics to surface consent coverage, status/channel/locale distribution, and tag hotspots for daily recruitment stand-ups (`services/backend/app/services/pilot_cohort.py`, `services/backend/scripts/manage_pilot_cohort.py`, `services/backend/tests/test_pilot_cohort_service.py`).
 
 ## Phase 7 – Deployment & Operations
 - [x] Finalize CI/CD pipelines for backend, frontend, and mobile releases.
@@ -169,6 +173,7 @@
 - [x] Establish customer support workflows and incident response playbooks.
   - [x] Define escalation matrix, paging channels, and runbook templates. *(Documented in `docs/operations/incident_response.md` tying Monitoring/CIRunner/Data Sync agents into a single escalation process.)*
 - [x] Monitor production metrics post-launch and iterate based on telemetry. *(New `MonitoringService` + `mindwell-monitoring-agent` poll Azure App Insights & AWS Cost Explorer with alert dispatch, emit structured JSON snapshots when `MONITORING_METRICS_PATH` is set, and have coverage in `services/backend/tests/test_monitoring_service.py`.)*
+  - [x] Added data-sync freshness guardrail so monitoring raises alerts when the Data Sync agent metrics file is stale, missing, or recorded as dry-run/errored (`services/backend/app/services/monitoring.py`, `services/backend/tests/test_monitoring_service.py`).
   - [x] Instrument product analytics (journey engagement, conversion funnels) and feed into growth roadmap. *(New `analytics_events` schema + service/API/agent: see `services/backend/app/services/analytics.py`, `/api/analytics`, CLI `mindwell-analytics-agent`, and doc `docs/product_analytics.md`.)*
 
 ## Phase 8 – Documentation & Launch Readiness

@@ -10,6 +10,13 @@ type CachedChatPayload = {
   messages: (ChatMessage & { id: string })[];
   recommendations: TherapistRecommendation[];
   memoryHighlights: { summary: string; keywords: string[] }[];
+  knowledgeSnippets: {
+    entryId: string;
+    title: string;
+    summary: string;
+    guidance: string[];
+    source?: string;
+  }[];
   updatedAt: number;
   locale?: string;
 };

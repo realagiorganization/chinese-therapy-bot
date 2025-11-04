@@ -201,7 +201,17 @@ requests
         if not self._cost_client and settings.aws_region:
             self._cost_client = CostExplorerClient(settings)
         self._dispatcher = alert_dispatcher or AlertDispatcher(settings)
-        self._metrics_path = Path(settings.monitoring_metrics_path) if settings.monitoring_metrics_path else None
+        self._metrics_path = (
+            Path(settings.monitoring_metrics_path).expanduser()
+            if settings.monitoring_metrics_path
+            else None
+        )
+        raw_data_sync_path = settings.data_sync_metrics_path
+        if raw_data_sync_path:
+            path = Path(raw_data_sync_path).expanduser()
+            self._data_sync_metrics_path = path if path.suffix else path / "data_sync_metrics.json"
+        else:
+            self._data_sync_metrics_path = None
 
     async def run(self, *, dispatch: bool = True) -> list[MetricAlert]:
         alerts = await self.evaluate()
@@ -214,7 +224,8 @@ requests
         latency = await self._check_latency()
         error_rate = await self._check_error_rate()
         cost = await self._check_cost()
-        return [latency, error_rate, cost]
+        data_sync = self._check_data_sync()
+        return [latency, error_rate, cost, data_sync]
 
     def _record_metrics(self, alerts: Sequence[MetricAlert]) -> None:
         if not self._metrics_path:
@@ -248,6 +259,114 @@ requests
             )
         except Exception as exc:  # pragma: no cover - defensive logging
             logger.debug("Failed to persist monitoring metrics: %s", exc, exc_info=exc)
+
+    def _check_data_sync(self) -> MetricAlert:
+        threshold = self._settings.monitoring_data_sync_max_age_hours
+        metric_name = "data_sync_recency_hours"
+        if threshold <= 0:
+            return MetricAlert(
+                metric=metric_name,
+                status="skipped",
+                unit="h",
+                threshold=threshold,
+                message="Data sync freshness guardrail disabled.",
+            )
+
+        metrics_path = self._data_sync_metrics_path
+        if not metrics_path:
+            return MetricAlert(
+                metric=metric_name,
+                status="skipped",
+                unit="h",
+                threshold=threshold,
+                message="Data sync metrics path not configured; skipping data sync freshness check.",
+            )
+
+        if not metrics_path.exists():
+            return MetricAlert(
+                metric=metric_name,
+                status="alert",
+                unit="h",
+                threshold=threshold,
+                message=f"Data sync metrics file not found at {metrics_path}.",
+                details={"path": str(metrics_path)},
+            )
+
+        try:
+            payload = json.loads(metrics_path.read_text(encoding="utf-8"))
+        except Exception as exc:  # pragma: no cover - defensive logging
+            logger.warning("Failed to read data sync metrics from %s", metrics_path, exc_info=exc)
+            return MetricAlert(
+                metric=metric_name,
+                status="error",
+                unit="h",
+                threshold=threshold,
+                message=f"Unable to read data sync metrics: {exc}",
+                details={"path": str(metrics_path)},
+            )
+
+        generated_raw = payload.get("generated_at")
+        try:
+            generated_at = self._parse_timestamp(generated_raw)
+        except ValueError as exc:
+            return MetricAlert(
+                metric=metric_name,
+                status="error",
+                unit="h",
+                threshold=threshold,
+                message=f"Invalid generated_at in data sync metrics: {exc}",
+                details={
+                    "path": str(metrics_path),
+                    "generated_at": generated_raw,
+                },
+            )
+
+        now = datetime.now(timezone.utc)
+        age_hours = max(0.0, (now - generated_at).total_seconds() / 3600.0)
+        result = payload.get("result") or {}
+        errors = result.get("errors") or []
+        total_raw = result.get("total_raw")
+        written = result.get("written")
+        dry_run = bool(payload.get("dry_run"))
+
+        total_raw_value = total_raw if isinstance(total_raw, (int, float)) else None
+        written_value = written if isinstance(written, (int, float)) else None
+
+        issues: list[str] = []
+        if age_hours > threshold:
+            issues.append(f"stale ({age_hours:.2f}h > {threshold:.2f}h)")
+        if errors:
+            issues.append(f"{len(errors)} error(s) reported")
+        if (
+            not dry_run
+            and total_raw_value is not None
+            and total_raw_value > 0
+            and (written_value is None or written_value == 0)
+        ):
+            issues.append("no records written")
+        if dry_run:
+            issues.append("last run executed in dry-run mode")
+
+        status: MetricStatus = "alert" if issues else "ok"
+        message = f"Last data sync completed {age_hours:.2f}h ago."
+        if issues:
+            message += " Issues: " + "; ".join(issues)
+
+        return MetricAlert(
+            metric=metric_name,
+            status=status,
+            unit="h",
+            value=age_hours,
+            threshold=threshold,
+            message=message,
+            details={
+                "path": str(metrics_path),
+                "dry_run": dry_run,
+                "total_raw": total_raw,
+                "written": written,
+                "errors": errors,
+            },
+        )
 
     async def _check_latency(self) -> MetricAlert:
         threshold = self._settings.monitoring_latency_threshold_ms
@@ -398,6 +517,18 @@ requests
             return self._parse_numeric(raw_value)
 
         raise ValueError(f"Unable to locate column '{column_name}' in Application Insights response.")
+
+    def _parse_timestamp(self, raw: str | None) -> datetime:
+        if not raw:
+            raise ValueError("missing timestamp")
+        normalized = raw.replace("Z", "+00:00")
+        try:
+            parsed = datetime.fromisoformat(normalized)
+        except ValueError as exc:
+            raise ValueError(f"invalid ISO8601 timestamp {raw!r}") from exc
+        if parsed.tzinfo is None:
+            parsed = parsed.replace(tzinfo=timezone.utc)
+        return parsed.astimezone(timezone.utc)
 
     _TIMESPAN_PATTERN = re.compile(
         r"^(?:(?P<days>-?\d+)\.)?(?P<hours>\d{2}):(?P<minutes>\d{2}):(?P<seconds>\d{2})(?:\.(?P<fraction>\d+))?$"

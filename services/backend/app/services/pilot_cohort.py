@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+from collections import Counter
 from datetime import datetime, timedelta, timezone
 from typing import Any, Iterable
 from uuid import UUID
@@ -17,6 +18,8 @@ from app.schemas.pilot_cohort import (
     PilotParticipantFilters,
     PilotParticipantListResponse,
     PilotParticipantResponse,
+    PilotParticipantSummary,
+    PilotParticipantSummaryBucket,
     PilotParticipantStatus,
     PilotParticipantUpdate,
 )
@@ -177,6 +180,65 @@ class PilotCohortService:
         return PilotParticipantListResponse(
             total=total,
             items=items,
+        )
+
+    async def summarize_participants(
+        self,
+        filters: PilotParticipantFilters | None = None,
+    ) -> PilotParticipantSummary:
+        """Return aggregate metrics for the filtered participant set."""
+        filters = filters or PilotParticipantFilters()
+        stmt = self._apply_filters(select(PilotCohortParticipant), filters)
+        result = await self._session.execute(
+            stmt.order_by(PilotCohortParticipant.created_at.asc())
+        )
+        participants = list(result.scalars().all())
+
+        total = len(participants)
+        if total == 0:
+            return PilotParticipantSummary(
+                total=0,
+                with_consent=0,
+                without_consent=0,
+                by_status=[],
+                by_channel=[],
+                by_locale=[],
+                top_tags=[],
+            )
+
+        with_consent = sum(1 for participant in participants if participant.consent_received)
+        status_counts = Counter(
+            (participant.status or "unspecified").lower() for participant in participants
+        )
+        channel_counts = Counter(
+            (participant.channel or "unspecified").lower() for participant in participants
+        )
+        locale_counts = Counter(
+            (participant.locale or "unspecified").lower() for participant in participants
+        )
+        tag_counts = Counter(
+            tag.lower()
+            for participant in participants
+            for tag in participant.tags or []
+            if tag and tag.strip()
+        )
+
+        def _buckets(counter: Counter[str]) -> list[PilotParticipantSummaryBucket]:
+            return [
+                PilotParticipantSummaryBucket(key=key, total=count)
+                for key, count in sorted(counter.items(), key=lambda item: (-item[1], item[0]))
+            ]
+
+        top_tags = _buckets(tag_counts)[:10]
+
+        return PilotParticipantSummary(
+            total=total,
+            with_consent=with_consent,
+            without_consent=total - with_consent,
+            by_status=_buckets(status_counts),
+            by_channel=_buckets(channel_counts),
+            by_locale=_buckets(locale_counts),
+            top_tags=top_tags,
         )
 
     async def plan_followups(

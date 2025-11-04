@@ -113,6 +113,9 @@ class AppSettings(BaseSettings):
     monitoring_cost_lookback_days: int = Field(
         default=1, alias="MONITORING_COST_LOOKBACK_DAYS"
     )
+    monitoring_data_sync_max_age_hours: float = Field(
+        default=6.0, alias="MONITORING_DATA_SYNC_MAX_AGE_HOURS"
+    )
     monitoring_metrics_path: Optional[str] = Field(
         default=None, alias="MONITORING_METRICS_PATH"
     )

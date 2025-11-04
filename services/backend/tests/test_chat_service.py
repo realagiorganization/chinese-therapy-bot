@@ -12,15 +12,21 @@ from app.models.entities import ChatMessage, ChatSession, User
 from app.schemas.chat import ChatRequest
 from app.schemas.therapists import TherapistRecommendation
 from app.services.chat import ChatService
+from app.services.knowledge_base import KnowledgeBaseEntry
 
 
 class StubOrchestrator:
     """Deterministic orchestrator used for unit tests."""
 
+    def __init__(self) -> None:
+        self.last_context_prompt = None
+
     async def generate_reply(self, history, *, language: str = "zh-CN", context_prompt=None):
+        self.last_context_prompt = context_prompt
         return "感谢你的分享，让我们一起做一次呼吸练习。"
 
     async def stream_reply(self, history, *, language: str = "zh-CN", context_prompt=None):
+        self.last_context_prompt = context_prompt
         for fragment in ["感谢", "你的分享"]:
             yield fragment
 
@@ -95,6 +101,26 @@ class StubRecommendationService:
         ]
 
 
+class StubKnowledgeBaseService:
+    def __init__(self) -> None:
+        self.calls: list[dict[str, object]] = []
+
+    async def search(self, query: str, *, locale: str, limit: int = 3):
+        self.calls.append({"query": query, "locale": locale, "limit": limit})
+        return [
+            KnowledgeBaseEntry(
+                entry_id="sleep_regulation_cn",
+                locale="zh-CN",
+                title="重建睡眠节奏的三个关键动作",
+                summary="规律睡眠节奏有助于缓解疲惫与焦虑。",
+                guidance=("晚上固定时间收尾工作，给身体“准备休息”的信号。",),
+                keywords=("失眠", "睡眠"),
+                tags=("sleep",),
+                source="MindWell Care Team",
+            )
+        ]
+
+
 @pytest_asyncio.fixture()
 async def chat_session() -> AsyncSession:
     engine = create_async_engine("sqlite+aiosqlite:///:memory:")
@@ -141,6 +167,7 @@ async def test_stream_turn_emits_events_and_persists_transcript(chat_session: As
     assert events, "Expected at least one SSE event."
     assert events[0]["event"] == "session_established"
     assert events[0]["data"]["resolved_locale"] == "zh-CN"
+    assert events[0]["data"]["knowledge_snippets"] == []
     token_events = [event for event in events if event["event"] == "token"]
     assert token_events, "Expected streaming token events."
     assert token_events[0]["data"]["delta"] == "感谢"
@@ -148,6 +175,7 @@ async def test_stream_turn_emits_events_and_persists_transcript(chat_session: As
     assert events[-1]["data"]["message"]["content"].startswith("感谢你的分享")
     assert events[-1]["data"]["recommendations"]
     assert events[-1]["data"]["memory_highlights"]
+    assert events[-1]["data"]["knowledge_snippets"] == []
     assert events[-1]["data"]["resolved_locale"] == "zh-CN"
 
     assert storage.persist_calls
@@ -165,3 +193,38 @@ async def test_stream_turn_emits_events_and_persists_transcript(chat_session: As
     db_messages = await chat_session.execute(select(ChatMessage))
     stored = db_messages.scalars().all()
     assert len(stored) == 2
+
+
+@pytest.mark.asyncio
+async def test_process_turn_includes_knowledge_snippets(chat_session: AsyncSession) -> None:
+    orchestrator = StubOrchestrator()
+    storage = StubTranscriptStorage()
+    memory = StubMemoryService()
+    recommendations = StubRecommendationService()
+    knowledge = StubKnowledgeBaseService()
+
+    service = ChatService(
+        chat_session,
+        orchestrator,
+        storage,
+        memory_service=memory,
+        recommendation_service=recommendations,
+        knowledge_base=knowledge,
+    )
+
+    payload = ChatRequest(
+        user_id=uuid4(),
+        message="最近总是睡不着，白天又很焦虑。",
+        locale="zh-CN",
+        session_id=None,
+        enable_streaming=False,
+    )
+
+    response = await service.process_turn(payload)
+
+    assert response.knowledge_snippets, "Expected knowledge snippets in the chat response."
+    snippet = response.knowledge_snippets[0]
+    assert snippet.entry_id == "sleep_regulation_cn"
+    assert "睡眠" in snippet.summary
+    assert orchestrator.last_context_prompt is not None
+    assert "心理教育参考" in orchestrator.last_context_prompt

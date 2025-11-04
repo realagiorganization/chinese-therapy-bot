@@ -1,0 +1,87 @@
+[
+  {
+    "id": "sleep_regulation_cn",
+    "locale": "zh-CN",
+    "title": "重建睡眠节奏的三个关键动作",
+    "summary": "规律的睡眠时间、卧室的暗度与安静度以及睡前放松仪式可以帮助身体重新识别“该休息了”。",
+    "guidance": [
+      "每天固定时间上床与起床，即使周末也尽量保持一致，以稳定生物钟。",
+      "睡前 60 分钟逐步调暗灯光，避免看手机或电脑屏幕，给大脑一个“收尾”信号。",
+      "设计一个 10 分钟的放松仪式，例如热水泡脚、轻柔伸展或写下第二天待办事项，降低睡前担忧。"
+    ],
+    "keywords": ["失眠", "睡眠", "熬夜", "夜间醒来", "睡不着"],
+    "tags": ["sleep", "self-care"],
+    "source": "MindWell Care Team"
+  },
+  {
+    "id": "anxiety_breathing_cn",
+    "locale": "zh-CN",
+    "title": "面对焦虑时的节奏呼吸练习",
+    "summary": "4-4-6 的呼吸节奏（吸气 4 拍、停顿 4 拍、呼气 6 拍）有助于降低心率，强化安全感。",
+    "guidance": [
+      "挺直坐好或靠在椅背，双脚着地，感受身体被支撑。",
+      "吸气时默数 4 拍，胸腹部同时扩张；停顿时轻轻提醒自己“我很安全”。",
+      "缓慢呼气 6 拍，想象把身体的紧张随呼气一起释放，连续练习 2-3 分钟。"
+    ],
+    "keywords": ["焦虑", "紧张", "呼吸", "心跳加速"],
+    "tags": ["anxiety", "grounding"],
+    "source": "MindWell Breathwork Library"
+  },
+  {
+    "id": "work_stress_boundary_cn",
+    "locale": "zh-CN",
+    "title": "为工作压力设置边界的小步骤",
+    "summary": "可执行的微习惯有助于告别“工作无处不在”的感觉，为身心留出恢复带宽。",
+    "guidance": [
+      "设置每天两个“信息静默”时段（午餐与睡前 30 分钟），关闭工作通知。",
+      "区分“紧急”与“重要”任务，使用 1-3-5 待办法：1 件最重要、3 件中等任务、5 件可选。",
+      "下班前写下“今天完成了什么、明天第一步是什么”，帮助大脑结束工作模式。"
+    ],
+    "keywords": ["工作压力", "加班", "倦怠", "边界"],
+    "tags": ["stress", "productivity"],
+    "source": "MindWell Workplace Notes"
+  },
+  {
+    "id": "support_network_cn",
+    "locale": "zh-CN",
+    "title": "激活支持网络的三问自检",
+    "summary": "主动检查“我可以向谁求助”能降低孤立无助感，为情绪提供出口。",
+    "guidance": [
+      "写下三个名字：倾听型、建议型、专业型（如心理咨询师），明确不同人可以提供的支持。",
+      "准备一句开场白，例如“我最近有点撑不住，想找你聊聊可以吗？”降低联络门槛。",
+      "为自己设定一个“小任务”，本周至少向其中一位发送问候或分享近况。"
+    ],
+    "keywords": ["孤独", "支持系统", "求助", "倾诉"],
+    "tags": ["relationships", "support"],
+    "source": "MindWell Connection Toolkit"
+  },
+  {
+    "id": "microbreak_mindfulness_cn",
+    "locale": "zh-CN",
+    "title": "两分钟工作间隙的正念扫描",
+    "summary": "短暂的身体扫描可以让注意力暂时离开高压任务，防止情绪积累爆发。",
+    "guidance": [
+      "放下手头工作，坐直或站立，双脚稳稳踩地。",
+      "从头到脚缓慢扫描身体，注意哪些部位紧绷，轻轻呼气时放松那里。",
+      "结束时问自己：我现在最需要补充的是哪一种资源——休息、营养还是社交？"
+    ],
+    "keywords": ["压力", "正念", "情绪管理", "身体扫描"],
+    "tags": ["stress", "mindfulness"],
+    "source": "MindWell Mindfulness Studio"
+  },
+  {
+    "id": "panic_grounding_en",
+    "locale": "en-US",
+    "title": "5-4-3-2-1 Grounding for Sudden Panic",
+    "summary": "A sensory-based grounding exercise can re-anchor attention when panic symptoms surge.",
+    "guidance": [
+      "Name five things you can see, focusing on colours or textures.",
+      "Touch four objects, noticing temperature and pressure.",
+      "Identify three sounds, two smells, and finally one thing you can taste or imagine tasting.",
+      "End with one slow breath and a reminder: “This feeling will pass; I am reclaiming control.”"
+    ],
+    "keywords": ["panic", "anxiety", "grounding"],
+    "tags": ["anxiety", "grounding"],
+    "source": "MindWell First Aid Kit"
+  }
+]

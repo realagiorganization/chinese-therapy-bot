@@ -16,6 +16,8 @@ from app.schemas.pilot_cohort import (
     PilotParticipantCreate,
     PilotParticipantFilters,
     PilotParticipantStatus,
+    PilotParticipantSummary,
+    PilotParticipantSummaryBucket,
     PilotParticipantUpdate,
 )
 from app.services.pilot_cohort import PilotCohortService
@@ -105,6 +107,37 @@ def build_parser() -> argparse.ArgumentParser:
         help="Maximum records to display (default: 50).",
     )
     list_parser.set_defaults(command="list", consent=None)
+
+    summary_parser = subparsers.add_parser(
+        "summary",
+        help="Show aggregate pilot cohort metrics.",
+    )
+    summary_parser.add_argument("--cohort", help="Filter by cohort identifier.")
+    summary_parser.add_argument("--status", choices=_status_choices(), help="Filter by status.")
+    summary_parser.add_argument("--channel", help="Filter by preferred channel.")
+    summary_parser.add_argument("--source", help="Filter by acquisition source.")
+    consent_group = summary_parser.add_mutually_exclusive_group()
+    consent_group.add_argument(
+        "--consent-required",
+        action="store_const",
+        const=False,
+        dest="consent",
+        help="Only participants without consent acknowledgement.",
+    )
+    consent_group.add_argument(
+        "--consent-complete",
+        action="store_const",
+        const=True,
+        dest="consent",
+        help="Only participants with consent acknowledgement.",
+    )
+    summary_parser.add_argument(
+        "--format",
+        choices=("table", "json"),
+        default="table",
+        help="Output format for the summary (default: table).",
+    )
+    summary_parser.set_defaults(command="summary", consent=None)
 
     update_parser = subparsers.add_parser(
         "update",
@@ -292,11 +325,72 @@ async def handle_update(args: argparse.Namespace) -> int:
     return 0
 
 
+def _percent(value: int, total: int) -> str:
+    if total <= 0:
+        return "0.0%"
+    return f"{(value / total) * 100:.1f}%"
+
+
+def _render_bucket_section(title: str, buckets: list[PilotParticipantSummaryBucket]) -> list[str]:
+    if not buckets:
+        return [f"{title}: no data recorded."]
+    header = f"{title} (count)"
+    lines = [header, "-" * len(header)]
+    for bucket in buckets:
+        lines.append(f"{bucket.key:<18} {bucket.total}")
+    return lines
+
+
+def render_summary_table(summary: PilotParticipantSummary) -> str:
+    """Return a human-readable table for pilot cohort summary metrics."""
+    lines = [
+        f"Total participants: {summary.total}",
+        f"Consent complete:   {summary.with_consent} ({_percent(summary.with_consent, summary.total)})",
+        f"Consent pending:    {summary.without_consent} ({_percent(summary.without_consent, summary.total)})",
+        "",
+        *_render_bucket_section("Status distribution", summary.by_status),
+        "",
+        *_render_bucket_section("Channel distribution", summary.by_channel),
+        "",
+        *_render_bucket_section("Locale distribution", summary.by_locale),
+    ]
+    if summary.top_tags:
+        lines.extend(
+            [
+                "",
+                *_render_bucket_section("Top tags", summary.top_tags),
+            ]
+        )
+    return "\n".join(lines)
+
+
+async def handle_summary(args: argparse.Namespace) -> int:
+    session_factory = get_session_factory()
+    async with session_factory() as session:
+        service = PilotCohortService(session)
+        filters = PilotParticipantFilters(
+            cohort=args.cohort,
+            status=PilotParticipantStatus(args.status) if args.status else None,
+            channel=args.channel,
+            source=args.source,
+            consent_received=args.consent,
+        )
+        summary = await service.summarize_participants(filters)
+
+    if args.format == "json":
+        print(json.dumps(summary.model_dump(), indent=2, ensure_ascii=False))
+    else:
+        print(render_summary_table(summary))
+    return 0
+
+
 async def dispatch(args: argparse.Namespace) -> int:
     if args.command == "import":
         return await handle_import(args)
     if args.command == "list":
         return await handle_list(args)
+    if args.command == "summary":
+        return await handle_summary(args)
     if args.command == "update":
         return await handle_update(args)
     raise ValueError(f"Unsupported command {args.command}")

@@ -8,13 +8,16 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 
 from app.models.entities import PilotCohortParticipant
 from app.schemas.pilot_cohort import (
+    FollowUpUrgency,
     PilotParticipantCreate,
     PilotParticipantFilters,
     PilotParticipantStatus,
+    PilotParticipantSummary,
+    PilotParticipantSummaryBucket,
     PilotParticipantUpdate,
-    FollowUpUrgency,
 )
 from app.services.pilot_cohort import PilotCohortService
+from scripts.manage_pilot_cohort import render_summary_table
 
 
 @pytest_asyncio.fixture()
@@ -192,3 +195,101 @@ async def test_plan_followups_respects_filters_and_localization(cohort_session: 
     assert followup.locale == "en-US"
     assert followup.subject == "MindWell wellness check-in"
     assert followup.urgency == FollowUpUrgency.OVERDUE
+
+
+@pytest.mark.asyncio
+async def test_summarize_participants_returns_metrics(cohort_session: AsyncSession) -> None:
+    service = PilotCohortService(cohort_session)
+    await service.create_participant(
+        PilotParticipantCreate(
+            cohort="pilot-2025w11",
+            participant_alias="Amy",
+            status=PilotParticipantStatus.ACTIVE,
+            channel="mobile",
+            locale="zh-CN",
+            consent_received=True,
+            tags=["sleep", "retreat"],
+        )
+    )
+    await service.create_participant(
+        PilotParticipantCreate(
+            cohort="pilot-2025w11",
+            participant_alias="Brian",
+            status=PilotParticipantStatus.ACTIVE,
+            channel="web",
+            locale="en-US",
+            consent_received=False,
+            tags=["sleep"],
+        )
+    )
+    await service.create_participant(
+        PilotParticipantCreate(
+            cohort="pilot-2025w12",
+            participant_alias="Chloe",
+            status=PilotParticipantStatus.INVITED,
+            channel="wechat",
+            locale="zh-CN",
+            consent_received=True,
+            tags=["stress"],
+        )
+    )
+
+    summary = await service.summarize_participants()
+
+    assert summary.total == 3
+    assert summary.with_consent == 2
+    assert summary.without_consent == 1
+
+    status_counts = {bucket.key: bucket.total for bucket in summary.by_status}
+    assert status_counts["active"] == 2
+    assert status_counts["invited"] == 1
+
+    channel_counts = {bucket.key: bucket.total for bucket in summary.by_channel}
+    assert channel_counts["mobile"] == 1
+    assert channel_counts["wechat"] == 1
+
+    locale_counts = {bucket.key: bucket.total for bucket in summary.by_locale}
+    assert locale_counts["zh-cn"] == 2
+    assert locale_counts["en-us"] == 1
+
+    top_tags = {bucket.key: bucket.total for bucket in summary.top_tags}
+    assert top_tags["sleep"] == 2
+    assert top_tags["stress"] == 1
+
+    filtered = await service.summarize_participants(
+        PilotParticipantFilters(cohort="pilot-2025w11")
+    )
+    assert filtered.total == 2
+    assert filtered.by_status[0].key == "active"
+
+
+def test_render_summary_table_formats_sections() -> None:
+    summary = PilotParticipantSummary(
+        total=4,
+        with_consent=3,
+        without_consent=1,
+        by_status=[
+            PilotParticipantSummaryBucket(key="active", total=2),
+            PilotParticipantSummaryBucket(key="invited", total=2),
+        ],
+        by_channel=[
+            PilotParticipantSummaryBucket(key="mobile", total=3),
+            PilotParticipantSummaryBucket(key="web", total=1),
+        ],
+        by_locale=[
+            PilotParticipantSummaryBucket(key="zh-cn", total=2),
+            PilotParticipantSummaryBucket(key="en-us", total=2),
+        ],
+        top_tags=[
+            PilotParticipantSummaryBucket(key="sleep", total=2),
+            PilotParticipantSummaryBucket(key="stress", total=1),
+        ],
+    )
+
+    table = render_summary_table(summary)
+
+    assert "Total participants: 4" in table
+    assert "Consent complete:   3 (75.0%)" in table
+    assert "Status distribution" in table
+    assert "active" in table
+    assert "Top tags" in table

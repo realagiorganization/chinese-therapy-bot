@@ -36,6 +36,14 @@ export type MemoryHighlight = {
   keywords: string[];
 };
 
+export type KnowledgeSnippet = {
+  entryId: string;
+  title: string;
+  summary: string;
+  guidance: string[];
+  source?: string | null;
+};
+
 export type TherapistRecommendationDetail = {
   therapistId: string;
   name: string;
@@ -56,6 +64,7 @@ export type ChatTurnResponse = {
   recommendedTherapistIds: string[];
   recommendations: TherapistRecommendationDetail[];
   memoryHighlights: MemoryHighlight[];
+  knowledgeSnippets: KnowledgeSnippet[];
   resolvedLocale: string;
 };
 
@@ -74,6 +83,7 @@ export type ChatStreamEvent =
         recommendations: TherapistRecommendationDetail[];
         recommendedTherapistIds: string[];
         memoryHighlights: MemoryHighlight[];
+        knowledgeSnippets: KnowledgeSnippet[];
         locale?: string;
         resolvedLocale?: string;
       };

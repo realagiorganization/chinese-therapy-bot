@@ -5,6 +5,7 @@ import type {
   ChatStreamEvent,
   ChatTurnRequest,
   ChatTurnResponse,
+  KnowledgeSnippet,
   MemoryHighlight,
   TherapistRecommendationDetail
 } from "./types";
@@ -70,6 +71,22 @@ function normalizeHighlights(items: unknown): MemoryHighlight[] {
   });
 }
 
+function normalizeKnowledgeSnippets(items: unknown): KnowledgeSnippet[] {
+  return asArray(items, (entry) => {
+    const data = asRecord(entry);
+    if (!data) {
+      return null;
+    }
+    return {
+      entryId: asString(data.entry_id ?? data.entryId),
+      title: asString(data.title),
+      summary: asString(data.summary),
+      guidance: asStringArray(data.guidance),
+      source: asString(data.source, undefined) ?? undefined
+    };
+  });
+}
+
 function normalizeResponse(payload: unknown): ChatTurnResponse {
   const data = asRecord(payload) ?? {};
   const recommendedIdsSource = data.recommended_therapist_ids ?? data.recommendedTherapistIds;
@@ -83,6 +100,7 @@ function normalizeResponse(payload: unknown): ChatTurnResponse {
     }),
     recommendations: normalizeRecommendations(data.recommendations),
     memoryHighlights: normalizeHighlights(data.memory_highlights),
+    knowledgeSnippets: normalizeKnowledgeSnippets(data.knowledge_snippets),
     resolvedLocale:
       asString(data.resolved_locale ?? data.locale ?? data.resolvedLocale, "zh-CN") || "zh-CN"
   };
@@ -213,6 +231,7 @@ export async function* streamChatTurn(
                   return value ? value : null;
                 }),
                 memoryHighlights: normalizeHighlights(payloadRecord.memory_highlights),
+                knowledgeSnippets: normalizeKnowledgeSnippets(payloadRecord.knowledge_snippets),
                 locale: asString(payloadRecord.locale),
                 resolvedLocale:
                   asString(

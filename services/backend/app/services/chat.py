@@ -12,11 +12,18 @@ from app.integrations.llm import ChatOrchestrator
 from app.integrations.storage import ChatTranscriptStorage
 from app.models import ChatMessage as ChatMessageModel
 from app.models import ChatSession, User
-from app.schemas.chat import ChatMessage, ChatRequest, ChatResponse, MemoryHighlight
+from app.schemas.chat import (
+    ChatMessage,
+    ChatRequest,
+    ChatResponse,
+    KnowledgeSnippet,
+    MemoryHighlight,
+)
 from app.schemas.therapists import TherapistRecommendation
 from app.services.analytics import ProductAnalyticsService
 from app.services.language_detection import LanguageDetector
 from app.services.memory import ConversationMemoryService
+from app.services.knowledge_base import KnowledgeBaseEntry, KnowledgeBaseService
 from app.services.recommendations import TherapistRecommendationService
 
 
@@ -33,6 +40,7 @@ class ChatService:
         storage: ChatTranscriptStorage,
         memory_service: ConversationMemoryService | None = None,
         recommendation_service: TherapistRecommendationService | None = None,
+        knowledge_base: KnowledgeBaseService | None = None,
         language_detector: LanguageDetector | None = None,
         analytics_service: ProductAnalyticsService | None = None,
     ):
@@ -41,6 +49,7 @@ class ChatService:
         self._storage = storage
         self._memory = memory_service
         self._recommendations = recommendation_service
+        self._knowledge_base = knowledge_base
         self._language_detector = language_detector or LanguageDetector()
         self._analytics = analytics_service
 
@@ -71,6 +80,7 @@ class ChatService:
             recommended_therapist_ids=context["recommended_ids"],
             recommendations=context["recommendations"],
             memory_highlights=context["memories"],
+            knowledge_snippets=context["knowledge_snippets"],
             resolved_locale=context["resolved_locale"],
         )
 
@@ -90,6 +100,9 @@ class ChatService:
                 ],
                 "memory_highlights": [
                     highlight.model_dump() for highlight in context["memories"]
+                ],
+                "knowledge_snippets": [
+                    snippet.model_dump() for snippet in context["knowledge_snippets"]
                 ],
             },
         }
@@ -141,6 +154,9 @@ class ChatService:
                 ],
                 "memory_highlights": [
                     highlight.model_dump() for highlight in context["memories"]
+                ],
+                "knowledge_snippets": [
+                    snippet.model_dump() for snippet in context["knowledge_snippets"]
                 ],
             },
         }
@@ -228,10 +244,16 @@ class ChatService:
             locale=resolved_locale,
         )
         memories = await self._load_memories(user.id, locale=resolved_locale)
+        knowledge_entries = await self._lookup_knowledge(
+            payload.message,
+            locale=resolved_locale,
+        )
+        knowledge_snippets = [self._to_snippet(entry) for entry in knowledge_entries]
         recommended_ids = [recommendation.therapist_id for recommendation in therapist_recs]
         context_prompt = self._build_context_prompt(
             recommendations=therapist_recs,
             memories=memories,
+            knowledge=knowledge_entries,
             locale=resolved_locale,
         )
 
@@ -243,6 +265,7 @@ class ChatService:
             "recommended_ids": recommended_ids,
             "recommendations": therapist_recs,
             "memories": memories,
+            "knowledge_snippets": knowledge_snippets,
             "context_prompt": context_prompt,
             "resolved_locale": resolved_locale,
         }
@@ -336,6 +359,7 @@ class ChatService:
         *,
         recommendations: list[TherapistRecommendation],
         memories: list[MemoryHighlight],
+        knowledge: list[KnowledgeBaseEntry],
         locale: str,
     ) -> str | None:
         sections: list[str] = []
@@ -409,6 +433,27 @@ class ChatService:
                         mem_lines.append(f"- Summary: {summary}")
             sections.append("\n".join(mem_lines))
 
+        if knowledge:
+            if is_chinese:
+                knowledge_heading = "与本次议题相关的心理教育参考："
+                kn_lines = [knowledge_heading]
+                for entry in knowledge:
+                    tip = entry.guidance[0] if entry.guidance else entry.summary
+                    kn_lines.append(f"- {entry.title}：{tip}")
+            elif is_russian:
+                knowledge_heading = "Полезные материалы по теме разговора:"
+                kn_lines = [knowledge_heading]
+                for entry in knowledge:
+                    tip = entry.guidance[0] if entry.guidance else entry.summary
+                    kn_lines.append(f"- {entry.title}: {tip}")
+            else:
+                knowledge_heading = "Relevant psychoeducation references:"
+                kn_lines = [knowledge_heading]
+                for entry in knowledge:
+                    tip = entry.guidance[0] if entry.guidance else entry.summary
+                    kn_lines.append(f"- {entry.title}: {tip}")
+            sections.append("\n".join(kn_lines))
+
         if not sections:
             return None
 
@@ -435,3 +480,32 @@ class ChatService:
             )
         except Exception as exc:  # pragma: no cover - defensive logging
             logger.warning("Failed to capture conversation memory: %s", exc, exc_info=exc)
+
+    async def _lookup_knowledge(
+        self,
+        text: str,
+        *,
+        locale: str,
+        limit: int = 3,
+    ) -> list[KnowledgeBaseEntry]:
+        if not self._knowledge_base:
+            return []
+
+        payload = (text or "").strip()
+        if not payload:
+            return []
+
+        try:
+            return await self._knowledge_base.search(payload, locale=locale, limit=limit)
+        except Exception as exc:  # pragma: no cover - defensive logging
+            logger.warning("Knowledge base lookup failed: %s", exc, exc_info=exc)
+            return []
+
+    def _to_snippet(self, entry: KnowledgeBaseEntry) -> KnowledgeSnippet:
+        return KnowledgeSnippet(
+            entry_id=entry.entry_id,
+            title=entry.title,
+            summary=entry.summary,
+            guidance=list(entry.guidance),
+            source=entry.source,
+        )

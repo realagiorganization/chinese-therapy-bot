@@ -393,6 +393,7 @@ export function ChatPanel({ className }: ChatPanelProps) {
     clearError,
     recommendations,
     memoryHighlights,
+    knowledgeSnippets,
     resolvedLocale
   } = useChatSession(locale);
   const sessionLocale = resolvedLocale || locale;
@@ -992,7 +993,7 @@ export function ChatPanel({ className }: ChatPanelProps) {
         </div>
       </form>
 
-      {(memoryHighlights.length > 0 || recommendations.length > 0) && (
+      {(memoryHighlights.length > 0 || recommendations.length > 0 || knowledgeSnippets.length > 0) && (
         <div
           style={{
             display: "grid",
@@ -1025,6 +1026,53 @@ export function ChatPanel({ className }: ChatPanelProps) {
                     {highlight.keywords.length > 0 && (
                       <Typography variant="caption" style={{ color: "var(--text-secondary)" }}>
                         {t("chat.keywords", { keywords: highlight.keywords.join(" / ") })}
+                      </Typography>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {knowledgeSnippets.length > 0 && (
+            <div>
+              <Typography variant="caption" style={{ color: "var(--text-secondary)" }}>
+                {t("chat.knowledge_snippets", { defaultValue: "心理教育提示" })}
+              </Typography>
+              <div
+                style={{
+                  marginTop: "6px",
+                  display: "grid",
+                  gap: "var(--mw-spacing-xs)"
+                }}
+              >
+                {knowledgeSnippets.map((snippet) => (
+                  <div
+                    key={snippet.entryId}
+                    style={{
+                      borderRadius: "var(--mw-radius-md)",
+                      border: "1px solid rgba(2,132,199,0.35)",
+                      padding: "10px 12px",
+                      background: "rgba(14,165,233,0.1)"
+                    }}
+                  >
+                    <Typography variant="body" style={{ fontWeight: 600 }}>
+                      {snippet.title}
+                    </Typography>
+                    <Typography variant="body" style={{ color: "var(--text-secondary)" }}>
+                      {snippet.summary}
+                    </Typography>
+                    {snippet.guidance.slice(0, 2).map((line, index) => (
+                      <Typography key={`${snippet.entryId}-${index}`} variant="caption">
+                        {"• " + line}
+                      </Typography>
+                    ))}
+                    {snippet.source && (
+                      <Typography
+                        variant="caption"
+                        style={{ color: "var(--text-muted)", fontStyle: "italic" }}
+                      >
+                        {snippet.source}
                       </Typography>
                     )}
                   </div>

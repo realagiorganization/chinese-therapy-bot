@@ -6,6 +6,14 @@ export type ChatMessage = {
   createdAt: string;
 };
 
+export type KnowledgeSnippet = {
+  entryId: string;
+  title: string;
+  summary: string;
+  guidance: string[];
+  source?: string;
+};
+
 export type ChatTurnResponse = {
   sessionId: string;
   reply: ChatMessage;
@@ -15,5 +23,6 @@ export type ChatTurnResponse = {
     summary: string;
     keywords: string[];
   }[];
+  knowledgeSnippets: KnowledgeSnippet[];
   resolvedLocale: string;
 };

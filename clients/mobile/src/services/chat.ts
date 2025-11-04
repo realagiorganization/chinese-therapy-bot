@@ -20,6 +20,13 @@ type ApiChatResponse = {
     summary: string;
     keywords: string[];
   }[];
+  knowledge_snippets?: {
+    entry_id: string;
+    title: string;
+    summary: string;
+    guidance?: string[];
+    source?: string | null;
+  }[];
   resolved_locale?: string;
   locale?: string;
 };
@@ -67,6 +74,13 @@ export async function sendMessage(
       avatarUrl: rec.avatar_url ?? undefined,
     })),
     memoryHighlights: response.memory_highlights,
+    knowledgeSnippets: (response.knowledge_snippets ?? []).map((item) => ({
+      entryId: item.entry_id,
+      title: item.title,
+      summary: item.summary,
+      guidance: Array.isArray(item.guidance) ? item.guidance.filter((line): line is string => typeof line === "string") : [],
+      source: item.source ?? undefined,
+    })),
     resolvedLocale: response.resolved_locale ?? response.locale ?? "zh-CN",
   };
 }

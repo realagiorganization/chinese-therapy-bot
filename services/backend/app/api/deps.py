@@ -24,6 +24,7 @@ from app.services.pilot_cohort import PilotCohortService
 from app.services.pilot_uat import PilotUATService
 from app.services.language_detection import LanguageDetector
 from app.services.memory import ConversationMemoryService
+from app.services.knowledge_base import KnowledgeBaseService
 from app.services.recommendations import TherapistRecommendationService
 from app.services.reports import ReportsService
 from app.services.templates import ChatTemplateService
@@ -40,6 +41,7 @@ _response_evaluator: ResponseEvaluator | None = None
 _asr_service: AutomaticSpeechRecognitionService | None = None
 _template_service: ChatTemplateService | None = None
 _language_detector: LanguageDetector | None = None
+_knowledge_base: KnowledgeBaseService | None = None
 
 
 async def get_db_session() -> AsyncGenerator[AsyncSession, None]:
@@ -94,13 +96,15 @@ async def get_chat_service(
     ) -> ChatService:
     """Provide ChatService instance."""
     settings = get_settings()
-    global _orchestrator, _storage, _embedding_client, _therapist_storage, _language_detector
+    global _orchestrator, _storage, _embedding_client, _therapist_storage, _language_detector, _knowledge_base
     if _orchestrator is None:
         _orchestrator = ChatOrchestrator(settings)
     if _storage is None:
         _storage = ChatTranscriptStorage(settings)
     if _embedding_client is None:
         _embedding_client = EmbeddingClient(settings)
+    if _knowledge_base is None:
+        _knowledge_base = KnowledgeBaseService(_embedding_client)
     if _therapist_storage is None:
         _therapist_storage = TherapistDataStorage(settings)
     if _language_detector is None:
@@ -124,6 +128,7 @@ async def get_chat_service(
         _storage,
         memory_service=memory_service,
         recommendation_service=recommendation_service,
+        knowledge_base=_knowledge_base,
         language_detector=_language_detector,
         analytics_service=analytics_service,
     )

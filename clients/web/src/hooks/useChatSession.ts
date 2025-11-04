@@ -5,6 +5,7 @@ import type {
   ChatMessage,
   ChatTurnRequest,
   ChatTurnResponse,
+  KnowledgeSnippet,
   MemoryHighlight,
   TherapistRecommendationDetail
 } from "../api/types";
@@ -42,6 +43,7 @@ type ChatSessionState = {
   messages: LocalChatMessage[];
   recommendations: TherapistRecommendationDetail[];
   memoryHighlights: MemoryHighlight[];
+  knowledgeSnippets: KnowledgeSnippet[];
   sessionId?: string;
   isStreaming: boolean;
   error: string | null;
@@ -52,6 +54,7 @@ const INITIAL_STATE: ChatSessionState = {
   messages: [],
   recommendations: [],
   memoryHighlights: [],
+  knowledgeSnippets: [],
   sessionId: undefined,
   isStreaming: false,
   error: null,
@@ -68,6 +71,7 @@ export type UseChatSessionResult = {
   clearError: () => void;
   recommendations: TherapistRecommendationDetail[];
   memoryHighlights: MemoryHighlight[];
+  knowledgeSnippets: KnowledgeSnippet[];
   sessionId?: string;
   userId: string;
   resolvedLocale: string;
@@ -158,6 +162,7 @@ export function useChatSession(locale: string): UseChatSessionResult {
           sessionId: response.sessionId || prev.sessionId,
           recommendations: response.recommendations,
           memoryHighlights: response.memoryHighlights,
+          knowledgeSnippets: response.knowledgeSnippets,
           resolvedLocale: response.resolvedLocale || prev.resolvedLocale || locale,
           messages: mergeAssistantMessage(prev.messages, assistantMessageId, () => ({
             id: assistantMessageId,
@@ -185,6 +190,7 @@ export function useChatSession(locale: string): UseChatSessionResult {
               sessionId: event.data.sessionId || prev.sessionId,
               recommendations: event.data.recommendations,
               memoryHighlights: event.data.memoryHighlights,
+              knowledgeSnippets: event.data.knowledgeSnippets,
               resolvedLocale:
                 event.data.resolvedLocale ||
                 event.data.locale ||
@@ -270,6 +276,7 @@ export function useChatSession(locale: string): UseChatSessionResult {
     clearError,
     recommendations: state.recommendations,
     memoryHighlights: state.memoryHighlights,
+    knowledgeSnippets: state.knowledgeSnippets,
     sessionId: state.sessionId,
     userId,
     resolvedLocale: state.resolvedLocale ?? locale

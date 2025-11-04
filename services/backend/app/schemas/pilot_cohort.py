@@ -106,6 +106,25 @@ class PilotParticipantListResponse(BaseModel):
     items: list[PilotParticipantResponse]
 
 
+class PilotParticipantSummaryBucket(BaseModel):
+    """Aggregated tally for a categorical dimension."""
+
+    key: str
+    total: int
+
+
+class PilotParticipantSummary(BaseModel):
+    """Collection of high-level pilot cohort engagement metrics."""
+
+    total: int
+    with_consent: int
+    without_consent: int
+    by_status: list[PilotParticipantSummaryBucket]
+    by_channel: list[PilotParticipantSummaryBucket]
+    by_locale: list[PilotParticipantSummaryBucket]
+    top_tags: list[PilotParticipantSummaryBucket]
+
+
 class FollowUpUrgency(str, Enum):
     """Indicates how soon a follow-up action should occur."""
 

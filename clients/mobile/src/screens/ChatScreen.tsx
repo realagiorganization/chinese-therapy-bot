@@ -217,6 +217,15 @@ export function ChatScreen() {
   const [memoryHighlights, setMemoryHighlights] = useState<
     { summary: string; keywords: string[] }[]
   >([]);
+  const [knowledgeSnippets, setKnowledgeSnippets] = useState<
+    {
+      entryId: string;
+      title: string;
+      summary: string;
+      guidance: string[];
+      source?: string;
+    }[]
+  >([]);
   const [isRestoring, setRestoring] = useState<boolean>(true);
   const [voiceSettingsVisible, setVoiceSettingsVisible] = useState(false);
   const ratePresets = useMemo(
@@ -317,6 +326,31 @@ export function ChatScreen() {
           marginBottom: theme.spacing.xs,
         },
         highlightKeywords: {
+          fontSize: 12,
+          color: theme.colors.textSecondary,
+        },
+        snippetCard: {
+          borderRadius: theme.radius.md,
+          backgroundColor: "rgba(14, 165, 233, 0.06)",
+          padding: theme.spacing.md,
+          gap: theme.spacing.xs,
+        },
+        snippetTitle: {
+          fontWeight: "600",
+          color: theme.colors.textPrimary,
+          fontSize: 16,
+        },
+        snippetSummary: {
+          color: theme.colors.textSecondary,
+          fontSize: 14,
+        },
+        snippetGuidance: {
+          color: theme.colors.textPrimary,
+          fontSize: 14,
+          lineHeight: 20,
+        },
+        snippetSource: {
+          marginTop: theme.spacing.xs,
           fontSize: 12,
           color: theme.colors.textSecondary,
         },
@@ -562,6 +596,7 @@ export function ChatScreen() {
         setSessionId(cached.sessionId);
         setRecommendations(cached.recommendations);
         setMemoryHighlights(cached.memoryHighlights);
+        setKnowledgeSnippets(cached.knowledgeSnippets ?? []);
         scrollToLatestMessage(false);
         if (cached.locale) {
           setActiveLocale(cached.locale);
@@ -594,6 +629,7 @@ export function ChatScreen() {
       messages,
       recommendations,
       memoryHighlights,
+      knowledgeSnippets,
       locale: activeLocale,
     }).catch((error) => {
       console.warn("Failed to persist chat state", error);
@@ -604,6 +640,7 @@ export function ChatScreen() {
     messages,
     recommendations,
     memoryHighlights,
+    knowledgeSnippets,
     isRestoring,
     activeLocale,
   ]);
@@ -624,9 +661,12 @@ export function ChatScreen() {
   const handleInputChange = useCallback(
     (value: string) => {
       clearVoiceError();
+      if (isVoicePlaybackActive) {
+        stopVoicePlayback();
+      }
       setInputValue(value);
     },
-    [clearVoiceError],
+    [clearVoiceError, isVoicePlaybackActive, stopVoicePlayback],
   );
 
   const handleVoiceTranscript = useCallback(
@@ -650,6 +690,9 @@ export function ChatScreen() {
       return;
     }
     clearVoiceError();
+    if (isVoicePlaybackActive) {
+      stopVoicePlayback();
+    }
     if (Platform.OS === "ios" || Platform.OS === "android") {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {
         // Haptic feedback may not be available on all devices.
@@ -660,9 +703,11 @@ export function ChatScreen() {
     });
   }, [
     clearVoiceError,
+    isVoicePlaybackActive,
     startVoiceInput,
     handleVoiceTranscript,
     effectiveVoiceSupported,
+    stopVoicePlayback,
   ]);
 
   const handleVoiceStop = useCallback(() => {
@@ -709,6 +754,9 @@ export function ChatScreen() {
     const trimmed = inputValue.trim();
     if (!tokens || !userId || trimmed.length === 0) {
       return;
+    }
+    if (isVoicePlaybackActive) {
+      stopVoicePlayback();
     }
     if (isOffline) {
       setError("当前处于离线状态，请联网后再发送消息。");
@@ -759,6 +807,7 @@ export function ChatScreen() {
       });
       setRecommendations(response.recommendations);
       setMemoryHighlights(response.memoryHighlights);
+      setKnowledgeSnippets(response.knowledgeSnippets);
       if (response.resolvedLocale) {
         setActiveLocale(response.resolvedLocale);
       }
@@ -783,6 +832,8 @@ export function ChatScreen() {
     isOffline,
     appendMessage,
     speakVoiceResponse,
+    isVoicePlaybackActive,
+    stopVoicePlayback,
   ]);
 
   const sendDisabled = isSending || isOffline || inputValue.trim().length === 0;
@@ -922,6 +973,26 @@ export function ChatScreen() {
                 <Text style={styles.highlightKeywords}>
                   {memory.keywords.join(" · ")}
                 </Text>
+              </View>
+            ))}
+          </View>
+        )}
+
+        {knowledgeSnippets.length > 0 && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>心理教育提示</Text>
+            {knowledgeSnippets.map((snippet) => (
+              <View key={snippet.entryId} style={styles.snippetCard}>
+                <Text style={styles.snippetTitle}>{snippet.title}</Text>
+                <Text style={styles.snippetSummary}>{snippet.summary}</Text>
+                {snippet.guidance.slice(0, 2).map((line, index) => (
+                  <Text key={`${snippet.entryId}-${index}`} style={styles.snippetGuidance}>
+                    {"• " + line}
+                  </Text>
+                ))}
+                {snippet.source ? (
+                  <Text style={styles.snippetSource}>{snippet.source}</Text>
+                ) : null}
               </View>
             ))}
           </View>
