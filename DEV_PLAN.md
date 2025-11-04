@@ -103,6 +103,7 @@
 - Feedback aggregation CLI ✅ *(`mindwell-pilot-feedback-report` summarizes sentiment/trust/usability scores and top tags to inform backlog triage.)*
 - Feedback summary API ✅ *(`/api/feedback/pilot/summary` unlocks dashboard integrations for backlog prioritization.)*
 - UAT session logging ✅ *(New `PilotUATSession` model + `/api/uat/sessions` API and `mindwell-uat-sessions` CLI capture facilitator logs with regression coverage in `services/backend/tests/test_pilot_uat_service.py` and `services/backend/tests/test_pilot_uat_api.py`.)*
+- Backlog prioritization API ✅ *(`/api/uat/sessions/backlog` distills recurring issues/action items into a severity-ranked backlog with unit + API coverage so product can sequence post-pilot fixes.)*
 
 #### **Pilot Cohort Recruitment**
 

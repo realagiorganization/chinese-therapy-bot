@@ -157,3 +157,44 @@ async def test_summarize_sessions_returns_aggregated_metrics(uat_session: AsyncS
     assert summary.issues_by_severity[0].severity == "high"
     assert summary.issues_by_severity[0].count == 2
     assert summary.sessions_by_platform[0].key in {"web", "mobile"}
+
+
+@pytest.mark.asyncio
+async def test_prioritize_backlog_groups_recurrent_issues(uat_session: AsyncSession) -> None:
+    service = PilotUATService(uat_session)
+    await service.log_session(
+        PilotUATSessionCreate(
+            cohort="pilot-2025w9",
+            participant_alias="Chen",
+            platform="web",
+            action_items=["Review caching"],
+            issues=[
+                PilotUATIssue(title="Latency spike", severity="High", notes="Home timeline stalled."),
+                PilotUATIssue(title="Copy tweak", severity="Low", notes="CTA needs localization."),
+            ],
+        )
+    )
+    await service.log_session(
+        PilotUATSessionCreate(
+            cohort="pilot-2025w9",
+            participant_alias="Ling",
+            platform="mobile",
+            action_items=["Review caching", "Profile loading audit"],
+            issues=[
+                PilotUATIssue(title="Latency spike", severity="Medium", notes="Summary refresh slow."),
+            ],
+        )
+    )
+
+    backlog = await service.prioritize_backlog(
+        PilotUATSessionFilters(cohort="pilot-2025w9"),
+        limit=5,
+    )
+
+    assert backlog.total == 2
+    assert backlog.items[0].title.lower().startswith("latency")
+    assert backlog.items[0].severity == "high"
+    assert backlog.items[0].occurrences == 2
+    assert backlog.items[0].affected_participants == 2
+    assert "Review caching" in backlog.items[0].action_items
+    assert backlog.items[1].title.lower().startswith("copy")

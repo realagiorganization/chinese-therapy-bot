@@ -6,6 +6,7 @@ from fastapi import APIRouter, Depends, Query, status
 
 from app.api.deps import get_pilot_uat_service
 from app.schemas.pilot_uat import (
+    PilotUATBacklogResponse,
     PilotUATSessionCreate,
     PilotUATSessionFilters,
     PilotUATSessionListResponse,
@@ -75,6 +76,32 @@ async def summarize_pilot_uat_sessions(
     """Return aggregated metrics for recorded UAT sessions."""
     filters = PilotUATSessionFilters(cohort=cohort, environment=environment)
     return await service.summarize_sessions(filters)
+
+
+@router.get(
+    "/sessions/backlog",
+    response_model=PilotUATBacklogResponse,
+)
+async def prioritize_pilot_uat_backlog(
+    cohort: str | None = None,
+    environment: str | None = None,
+    platform: str | None = None,
+    facilitator: str | None = None,
+    scenario: str | None = None,
+    participant_alias: str | None = None,
+    limit: int = Query(default=10, ge=1, le=50),
+    service: PilotUATService = Depends(get_pilot_uat_service),
+) -> PilotUATBacklogResponse:
+    """Return prioritized backlog entries derived from UAT issues."""
+    filters = PilotUATSessionFilters(
+        cohort=cohort,
+        environment=environment,
+        platform=platform,
+        facilitator=facilitator,
+        scenario=scenario,
+        participant_alias=participant_alias,
+    )
+    return await service.prioritize_backlog(filters, limit=limit)
 
 
 def _parse_datetime(value: str | None):

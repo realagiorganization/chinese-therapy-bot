@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import base64
 import csv
 import json
 import logging
@@ -11,10 +12,12 @@ from contextlib import asynccontextmanager
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Protocol, Sequence
+from typing import Any, Literal, Protocol, Sequence
 
 import aioboto3
 import httpx
+from azure.identity.aio import DefaultAzureCredential
+from azure.keyvault.secrets.aio import SecretClient
 
 from app.core.config import AppSettings, get_settings
 
@@ -126,6 +129,36 @@ class SyncResult:
     errors: list[str] = field(default_factory=list)
 
 
+SecretMirrorStatus = Literal["updated", "skipped", "error"]
+
+
+@dataclass(slots=True)
+class SecretMirrorMapping:
+    """Mapping from an AWS Secrets Manager secret to an Azure Key Vault secret."""
+
+    source_secret_id: str
+    target_secret_name: str
+
+
+@dataclass(slots=True)
+class SecretMirrorResult:
+    """Outcome of mirroring a single secret."""
+
+    source_secret_id: str
+    target_secret_name: str
+    status: SecretMirrorStatus
+    message: str
+    version_id: str | None = None
+
+
+@dataclass(slots=True)
+class DataSyncOutcome:
+    """Aggregate result of the data sync agent run."""
+
+    therapist_result: SyncResult | None = None
+    secret_results: list[SecretMirrorResult] = field(default_factory=list)
+
+
 class DataSyncAgent:
     """Normalize therapist profiles and publish them to the configured S3 bucket."""
 
@@ -134,12 +167,17 @@ class DataSyncAgent:
         settings: AppSettings,
         *,
         s3_client_factory: Callable[..., AsyncIterator[Any]] | None = None,
+        secrets_manager_factory: Callable[..., AsyncIterator[Any]] | None = None,
+        key_vault_client_factory: Callable[..., AsyncIterator[SecretClient]] | None = None,
     ):
-        if not settings.s3_therapists_bucket:
-            raise RuntimeError("S3_BUCKET_THERAPISTS must be configured to run the Data Sync agent.")
-
         self._settings = settings
+        if not settings.s3_therapists_bucket:
+            logger.warning(
+                "S3_BUCKET_THERAPISTS is not configured; therapist profile uploads will be skipped."
+            )
         self._s3_client_factory = s3_client_factory or self._build_s3_client_factory()
+        self._secrets_manager_factory = secrets_manager_factory
+        self._key_vault_client_factory = key_vault_client_factory
         self._metrics_path = (
             Path(settings.data_sync_metrics_path).expanduser()
             if settings.data_sync_metrics_path
@@ -159,6 +197,51 @@ class DataSyncAgent:
                 )
             async with aioboto3.client("s3", **client_kwargs) as client:
                 yield client
+
+        return factory
+
+    def _ensure_secrets_manager_factory(self) -> Callable[..., AsyncIterator[Any]]:
+        if self._secrets_manager_factory is None:
+            self._secrets_manager_factory = self._build_secrets_manager_factory()
+        return self._secrets_manager_factory
+
+    def _ensure_key_vault_client_factory(self) -> Callable[..., AsyncIterator[SecretClient]]:
+        if self._key_vault_client_factory is None:
+            self._key_vault_client_factory = self._build_key_vault_client_factory()
+        return self._key_vault_client_factory
+
+    def _build_secrets_manager_factory(self) -> Callable[..., AsyncIterator[Any]]:
+        @asynccontextmanager
+        async def factory() -> AsyncIterator[Any]:
+            client_kwargs: dict[str, Any] = {}
+            if self._settings.aws_region:
+                client_kwargs["region_name"] = self._settings.aws_region
+            if self._settings.aws_access_key_id and self._settings.aws_secret_access_key:
+                client_kwargs["aws_access_key_id"] = self._settings.aws_access_key_id.get_secret_value()
+                client_kwargs["aws_secret_access_key"] = (
+                    self._settings.aws_secret_access_key.get_secret_value()
+                )
+            async with aioboto3.client("secretsmanager", **client_kwargs) as client:
+                yield client
+
+        return factory
+
+    def _build_key_vault_client_factory(self) -> Callable[..., AsyncIterator[SecretClient]]:
+        vault_name = self._settings.azure_key_vault_name
+        if not vault_name:
+            raise RuntimeError("AZURE_KEY_VAULT_NAME must be configured to mirror secrets.")
+
+        vault_url = f"https://{vault_name}.vault.azure.net"
+
+        @asynccontextmanager
+        async def factory() -> AsyncIterator[SecretClient]:
+            credential = DefaultAzureCredential(exclude_interactive_browser_credential=True)
+            client = SecretClient(vault_url=vault_url, credential=credential)
+            try:
+                yield client
+            finally:
+                await client.close()
+                await credential.close()
 
         return factory
 
@@ -213,6 +296,107 @@ class DataSyncAgent:
             return result
         finally:
             self._record_metrics(result, sources=source_list, dry_run=dry_run)
+
+    async def mirror_secrets(
+        self,
+        mappings: Sequence[SecretMirrorMapping],
+        *,
+        dry_run: bool = False,
+    ) -> list[SecretMirrorResult]:
+        if not mappings:
+            return []
+
+        results: list[SecretMirrorResult] = []
+        secret_payloads: list[tuple[SecretMirrorMapping, str, str | None]] = []
+        secrets_factory = self._ensure_secrets_manager_factory()
+
+        async with secrets_factory() as secrets_client:
+            for mapping in mappings:
+                try:
+                    response = await secrets_client.get_secret_value(SecretId=mapping.source_secret_id)
+                except Exception as exc:
+                    logger.warning(
+                        "Failed to read secret %s from AWS Secrets Manager: %s",
+                        mapping.source_secret_id,
+                        exc,
+                        exc_info=exc,
+                    )
+                    results.append(
+                        SecretMirrorResult(
+                            source_secret_id=mapping.source_secret_id,
+                            target_secret_name=mapping.target_secret_name,
+                            status="error",
+                            message=f"Fetch failed: {exc}",
+                        )
+                    )
+                    continue
+
+                secret_value = response.get("SecretString")
+                if secret_value is None:
+                    binary_value = response.get("SecretBinary")
+                    if binary_value is None:
+                        results.append(
+                            SecretMirrorResult(
+                                source_secret_id=mapping.source_secret_id,
+                                target_secret_name=mapping.target_secret_name,
+                                status="error",
+                                message="Secret payload missing SecretString and SecretBinary.",
+                            )
+                        )
+                        continue
+                    secret_value = base64.b64decode(binary_value).decode("utf-8")
+
+                version_id = response.get("VersionId")
+                secret_payloads.append((mapping, secret_value, version_id))
+
+        if dry_run:
+            for mapping, _, version_id in secret_payloads:
+                results.append(
+                    SecretMirrorResult(
+                        source_secret_id=mapping.source_secret_id,
+                        target_secret_name=mapping.target_secret_name,
+                        status="skipped",
+                        message="Dry run enabled; Key Vault update skipped.",
+                        version_id=version_id,
+                    )
+                )
+            self._record_secret_metrics(results, dry_run=True)
+            return results
+
+        key_vault_factory = self._ensure_key_vault_client_factory()
+        async with key_vault_factory() as key_vault_client:
+            for mapping, secret_value, version_id in secret_payloads:
+                try:
+                    await key_vault_client.set_secret(mapping.target_secret_name, secret_value)
+                except Exception as exc:  # pragma: no cover - defensive logging
+                    logger.warning(
+                        "Failed to write secret %s to Key Vault: %s",
+                        mapping.target_secret_name,
+                        exc,
+                        exc_info=exc,
+                    )
+                    results.append(
+                        SecretMirrorResult(
+                            source_secret_id=mapping.source_secret_id,
+                            target_secret_name=mapping.target_secret_name,
+                            status="error",
+                            message=f"Key Vault update failed: {exc}",
+                            version_id=version_id,
+                        )
+                    )
+                else:
+                    results.append(
+                        SecretMirrorResult(
+                            source_secret_id=mapping.source_secret_id,
+                            target_secret_name=mapping.target_secret_name,
+                            status="updated",
+                            message="Secret replicated to Key Vault.",
+                            version_id=version_id,
+                        )
+                    )
+
+        self._record_secret_metrics(results, dry_run=False)
+        return results
 
     async def _write_records(
         self,
@@ -374,28 +558,100 @@ class DataSyncAgent:
         except Exception as exc:  # pragma: no cover - defensive logging
             logger.debug("Failed to persist data sync metrics: %s", exc, exc_info=exc)
 
+    def _record_secret_metrics(
+        self,
+        results: Sequence[SecretMirrorResult],
+        *,
+        dry_run: bool,
+    ) -> None:
+        if not self._metrics_path or not results:
+            return
 
-def _build_sources(args: argparse.Namespace) -> list[TherapistSource]:
+        base_path = self._metrics_path
+        if base_path.suffix:
+            target = base_path.with_name(f"{base_path.stem}_secrets{base_path.suffix}")
+        else:
+            target = base_path / "data_sync_secret_metrics.json"
+
+        payload = {
+            "generated_at": datetime.now(timezone.utc).isoformat(),
+            "dry_run": dry_run,
+            "result_count": len(results),
+            "results": [
+                {
+                    "source_secret_id": result.source_secret_id,
+                    "target_secret_name": result.target_secret_name,
+                    "status": result.status,
+                    "message": result.message,
+                    "version_id": result.version_id,
+                }
+                for result in results
+            ],
+        }
+
+        try:
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_text(
+                json.dumps(payload, ensure_ascii=False, indent=2),
+                encoding="utf-8",
+            )
+        except Exception as exc:  # pragma: no cover - defensive logging
+            logger.debug("Failed to persist secret mirror metrics: %s", exc, exc_info=exc)
+
+
+def _build_sources(source_specs: Sequence[str], *, locale: str) -> list[TherapistSource]:
     sources: list[TherapistSource] = []
-    for source_spec in args.source:
+    for source_spec in source_specs:
         if source_spec.startswith("http"):
-            sources.append(HttpJSONSource(url=source_spec, locale=args.locale))
+            sources.append(HttpJSONSource(url=source_spec, locale=locale))
         else:
             path = pathlib.Path(source_spec).expanduser()
-            sources.append(LocalFileSource(path=path, locale=args.locale, name=path.name))
-    if not sources:
-        raise ValueError("At least one --source must be provided.")
+            sources.append(LocalFileSource(path=path, locale=locale, name=path.name))
     return sources
 
 
-async def _run(args: argparse.Namespace) -> SyncResult:
+def _parse_secret_mappings(raw_mappings: Sequence[str]) -> list[SecretMirrorMapping]:
+    mappings: list[SecretMirrorMapping] = []
+    for item in raw_mappings:
+        parts = item.split(":", 1)
+        if len(parts) != 2:
+            raise ValueError(
+                f"Invalid --mirror-secret value {item!r}. Expected format SECRET_ID:KEY_VAULT_SECRET_NAME."
+            )
+        source_id, target_name = (part.strip() for part in parts)
+        if not source_id or not target_name:
+            raise ValueError(
+                f"Invalid --mirror-secret value {item!r}. Both source and target names are required."
+            )
+        mappings.append(
+            SecretMirrorMapping(
+                source_secret_id=source_id,
+                target_secret_name=target_name,
+            )
+        )
+    return mappings
+
+
+async def _run(args: argparse.Namespace) -> DataSyncOutcome:
     settings = get_settings()
     agent = DataSyncAgent(settings)
-    sources = _build_sources(args)
-    return await agent.run(
-        sources,
-        dry_run=args.dry_run,
-        prefix=args.prefix,
+    sources = _build_sources(args.source, locale=args.locale)
+    therapist_result: SyncResult | None = None
+    if sources:
+        therapist_result = await agent.run(
+            sources,
+            dry_run=args.dry_run,
+            prefix=args.prefix,
+        )
+
+    secret_mappings = _parse_secret_mappings(args.mirror_secret)
+    secret_results: list[SecretMirrorResult] = []
+    if secret_mappings:
+        secret_results = await agent.mirror_secrets(secret_mappings, dry_run=args.dry_run)
+
+    return DataSyncOutcome(
+        therapist_result=therapist_result,
+        secret_results=secret_results,
     )
 
 
@@ -427,21 +683,41 @@ def main() -> None:
         action="store_true",
         help="Process and normalize inputs without uploading to S3.",
     )
+    parser.add_argument(
+        "--mirror-secret",
+        action="append",
+        default=[],
+        metavar="SECRET_ID:KEY_VAULT_NAME",
+        help=(
+            "Mirror a secret from AWS Secrets Manager to Azure Key Vault. "
+            "Format: SECRET_ID:KEY_VAULT_SECRET_NAME. May be provided multiple times."
+        ),
+    )
 
     args = parser.parse_args()
+    if not args.source and not args.mirror_secret:
+        parser.error("At least one --source or --mirror-secret must be provided.")
+
     try:
         result = asyncio.run(_run(args))
     except Exception as exc:  # pragma: no cover - CLI failure path
         logger.exception("Data Sync agent failed: %s", exc)
         raise SystemExit(1) from exc
 
-    logger.info(
-        "Data Sync completed: %s raw -> %s normalized -> %s written (skipped=%s).",
-        result.total_raw,
-        result.normalized,
-        result.written,
-        result.skipped,
-    )
+    if result.therapist_result:
+        logger.info(
+            "Therapist data sync: %s raw -> %s normalized -> %s written (skipped=%s).",
+            result.therapist_result.total_raw,
+            result.therapist_result.normalized,
+            result.therapist_result.written,
+            result.therapist_result.skipped,
+        )
+
+    if result.secret_results:
+        summary = ", ".join(
+            f"{item.target_secret_name}:{item.status}" for item in result.secret_results
+        )
+        logger.info("Secret mirroring completed: %s", summary)
 
 
 if __name__ == "__main__":

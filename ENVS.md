@@ -51,6 +51,7 @@ The backend reads configuration from environment variables via `AppSettings` (`s
 - `AZURE_SPEECH_KEY`: Subscription key for Azure Cognitive Services Speech, enabling server-side audio transcription.
 - `AZURE_SPEECH_REGION`: Azure region hosting the Speech resource (e.g. `eastasia`) used by the ASR integration.
 - `AZURE_SPEECH_ENDPOINT`: Optional override for the Speech-to-Text endpoint when using a private link or custom domain.
+- `AZURE_KEY_VAULT_NAME`: Azure Key Vault name holding runtime secrets; required when mirroring rotated provider keys or mounting secrets in AKS.
 - `TTS_SERVICE_API_KEY`: Credential for the text-to-speech provider powering voice playback.
 - `ASR_SERVICE_API_KEY`: Credential for server-side automatic speech recognition.
 - `APP_INSIGHTS_APP_ID`: Azure Application Insights application identifier used by the Monitoring Agent to query metrics.

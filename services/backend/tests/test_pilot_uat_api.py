@@ -132,3 +132,43 @@ def test_pilot_uat_summary_returns_aggregates(uat_client: TestClient) -> None:
     assert summary["total_sessions"] == 2
     assert summary["sessions_with_blockers"] == 1
     assert summary["issues_by_severity"][0] == {"severity": "high", "count": 1}
+
+
+def test_pilot_uat_backlog_endpoint_prioritizes_issues(uat_client: TestClient) -> None:
+    payloads = [
+        {
+            "cohort": "pilot-2025w12",
+            "participant_alias": "UserA",
+            "platform": "web",
+            "issues": [
+                {"title": "Latency spike", "severity": "High", "notes": "Dashboard load slow"},
+                {"title": "Copy tweak", "severity": "Low"},
+            ],
+            "action_items": ["Review caching layer"],
+        },
+        {
+            "cohort": "pilot-2025w12",
+            "participant_alias": "UserB",
+            "platform": "mobile",
+            "issues": [
+                {"title": "Latency spike", "severity": "Medium"},
+            ],
+            "action_items": ["Optimize mobile preload"],
+        },
+    ]
+    for payload in payloads:
+        resp = uat_client.post("/api/uat/sessions", json=payload)
+        assert resp.status_code == 201
+
+    response = uat_client.get(
+        "/api/uat/sessions/backlog",
+        params={"cohort": "pilot-2025w12", "limit": 5},
+    )
+
+    assert response.status_code == 200
+    backlog = response.json()
+    assert backlog["total"] == 2
+    assert backlog["items"][0]["title"].lower().startswith("latency")
+    assert backlog["items"][0]["severity"] == "high"
+    assert backlog["items"][0]["occurrences"] == 2
+    assert "Review caching layer" in backlog["items"][0]["action_items"]

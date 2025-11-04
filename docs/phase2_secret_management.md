@@ -30,8 +30,8 @@ This document closes the outstanding **Phase 2** checklist items around secret g
 - [x] Terraform grants `Key Vault Secrets User` to AKS managed identities (`azure_keyvault.tf`).
 - [x] Terraform outputs publish managed identity IDs required for GitHub OIDC federation (`outputs.tf`).
 - [x] Kubernetes manifests consume Key Vault secrets through the CSI driver (`infra/kubernetes/backend/`).
-- [ ] Author GitHub Actions workflows for automated LLM credential rotation.
-- [ ] Wire Data Sync agent to mirror rotated secrets from AWS to Azure.
+- [x] Author GitHub Actions workflows for automated LLM credential rotation. *(See `.github/workflows/llm-key-rotation.yml` – runs on a bi-monthly cadence with manual override inputs and publishes rotation metrics artifacts.)*
+- [x] Wire Data Sync agent to mirror rotated secrets from AWS to Azure. *(Use `mindwell-data-sync --mirror-secret <secret-id>:<kv-name>`; the agent now writes secret rotation metrics alongside therapist ingestion stats.)*
 
 ## 5. Runbook Snippets
 

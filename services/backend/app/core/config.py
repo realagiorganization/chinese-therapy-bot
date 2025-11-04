@@ -118,6 +118,7 @@ class AppSettings(BaseSettings):
     )
     alert_webhook_url: Optional[SecretStr] = Field(default=None, alias="ALERT_WEBHOOK_URL")
     alert_channel: Optional[str] = Field(default=None, alias="ALERT_CHANNEL")
+    azure_key_vault_name: Optional[str] = Field(default=None, alias="AZURE_KEY_VAULT_NAME")
 
     model_config = SettingsConfigDict(
         env_file=".env",

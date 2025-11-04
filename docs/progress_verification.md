@@ -18,13 +18,14 @@ These notes capture evidence that the completed checklist items in `PROGRESS.md`
 - AWS cross-cloud scaffolding now covers VPC/subnet layout, RDS PostgreSQL, and automation agent EC2 hosts via `infra/terraform/aws_network.tf`, `infra/terraform/aws_rds.tf`, and `infra/terraform/aws_ec2_agents.tf`.
 - 2025-11-03 UTC: `terraform init`/`validate` executed in `infra/terraform/` with provider azurerm 3.117.1; updated AKS monitor metrics, Key Vault retention, scheduled query alert, and consumption budget resources to reflect the latest schema and committed `infra/terraform/.terraform.lock.hcl`.
 
-## Phase 3 – Backend Services
+-## Phase 3 – Backend Services
 - FastAPI services, router wiring, and modular architecture live under `services/backend/app/api/router.py:1-120`.
 - Chat orchestration with streaming, transcript persistence, and memory capture is implemented in `services/backend/app/services/chat.py:1-200`.
 - S3 transcript and summary storage integrations reside in `services/backend/app/integrations/storage.py:1-179`.
 - Therapist recommendation engine with embeddings and heuristics is in `services/backend/app/services/recommendations.py:1-180`.
 - Conversation memory service with keyword filtering and summarization is defined in `services/backend/app/services/memory.py:1-200`.
 - Google OAuth stub, OTP throttling, and token rotation support are codified across `services/backend/app/services/auth.py:1-220` and `app/api/routes/auth.py:1-160`, aligning with the Phase 3 identity management checklist.
+- `pytest` run on 2025-11-04 under Python 3.11.14 reports 98 passing tests (see `services/backend/tests/`), maintaining the regression guarantees claimed in `PROGRESS.md`.
 
 ## Phase 4 – Frontend Experience
 - React web client with localization, journey reports, and therapist flows has supporting tests in `clients/web/src/App.test.tsx:1-131`.
@@ -50,6 +51,8 @@ These notes capture evidence that the completed checklist items in `PROGRESS.md`
 - Load testing scaffolding is present in `services/backend/loadtests/locustfile.py:1-160`.
 - Encryption enforcement across Azure/AWS resources documented in `docs/security/encryption_validation.md:1-74`, covering TLS requirements and server-side encryption updates.
 - Data retention automation implemented via `services/backend/app/agents/retention_cleanup.py:1-260` with coverage in `tests/test_retention_cleanup_agent.py:1-150`, matching the compliance automation checklist.
+- Pilot UAT rehearsal assets now ship with a deterministic sample data generator at `services/backend/app/utils/pilot_samples.py:1`, exposed via the CLI `services/backend/scripts/generate_pilot_samples.py:1` with regression coverage in `services/backend/tests/test_pilot_samples.py:1`.
+- Facilitator workflow is documented in `docs/runbooks/pilot_uat_execution.md:1`, covering dry runs, CLI usage, and follow-up automation.
 
 ## Phase 7 – Deployment & Operations
 - Terraform apply automation with manual approval gates is codified in `.github/workflows/infra-apply.yml:1-213`, leveraging the new helper script `infra/scripts/run_terraform_apply.sh:1-170` to reuse signed plan artifacts.
@@ -57,3 +60,4 @@ These notes capture evidence that the completed checklist items in `PROGRESS.md`
 
 ## Outstanding Areas
 - Tasks still unchecked in `PROGRESS.md` (e.g., Terraform apply execution, security review actions, data governance runbooks) remain pending and are not evidenced in the repository.
+- `PROGRESS.md` cites the most recent backend regression run as 96 tests; running `pytest` locally now reports 98 passing tests, so the snapshot should be refreshed.

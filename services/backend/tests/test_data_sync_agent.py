@@ -1,12 +1,13 @@
 from __future__ import annotations
 
 import json
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Callable
 from contextlib import asynccontextmanager
+from typing import Any
 
 import pytest
 
-from app.agents.data_sync import DataSyncAgent, SyncResult
+from app.agents.data_sync import DataSyncAgent, SecretMirrorMapping, SyncResult
 from app.core.config import AppSettings
 
 
@@ -37,14 +38,43 @@ class CapturingS3Client:
         )
 
 
+class FakeSecretsManagerClient:
+    def __init__(self, secrets: dict[str, str]):
+        self._secrets = secrets
+        self.requested: list[str] = []
+
+    async def get_secret_value(self, *, SecretId: str) -> dict[str, Any]:
+        self.requested.append(SecretId)
+        if SecretId not in self._secrets:
+            raise ValueError(f"Secret {SecretId} not found.")
+        return {
+            "ARN": f"arn:aws:secretsmanager:::secret:{SecretId}",
+            "Name": SecretId,
+            "SecretString": self._secrets[SecretId],
+            "VersionId": "1",
+        }
+
+
+class FakeKeyVaultClient:
+    def __init__(self) -> None:
+        self.set_calls: list[tuple[str, str]] = []
+
+    async def set_secret(self, name: str, value: str) -> None:
+        self.set_calls.append((name, value))
+
+
 def build_agent(
     calls: list[dict[str, object]],
     *,
     metrics_path: str | None = None,
+    secrets_manager_factory: Callable[[], AsyncIterator[Any]] | None = None,
+    key_vault_factory: Callable[[], AsyncIterator[Any]] | None = None,
+    azure_key_vault_name: str = "kv-mindwell-test",
 ) -> DataSyncAgent:
     settings_kwargs: dict[str, object] = {
         "S3_BUCKET_THERAPISTS": "test-bucket",
         "AWS_REGION": "ap-east-1",
+        "AZURE_KEY_VAULT_NAME": azure_key_vault_name,
     }
     if metrics_path:
         settings_kwargs["DATA_SYNC_METRICS_PATH"] = metrics_path
@@ -55,7 +85,13 @@ def build_agent(
     async def factory() -> AsyncIterator[CapturingS3Client]:
         yield CapturingS3Client(calls)
 
-    return DataSyncAgent(settings, s3_client_factory=factory)
+    agent = DataSyncAgent(
+        settings,
+        s3_client_factory=factory,
+        secrets_manager_factory=secrets_manager_factory,
+        key_vault_client_factory=key_vault_factory,
+    )
+    return agent
 
 
 @pytest.mark.asyncio
@@ -153,3 +189,89 @@ async def test_data_sync_agent_records_metrics(tmp_path, path_is_directory: bool
     assert payload["result"]["normalized"] == result.normalized == 1
     assert payload["result"]["written"] == 0
     assert payload["result"]["errors"] == []
+
+
+@pytest.mark.asyncio
+async def test_data_sync_agent_mirror_secrets_updates_key_vault(tmp_path) -> None:
+    secrets_client = FakeSecretsManagerClient(
+        {"mindwell/dev/openai/api-key": "sk-prod-123456789"}
+    )
+    key_vault_client = FakeKeyVaultClient()
+
+    @asynccontextmanager
+    async def secrets_factory() -> AsyncIterator[FakeSecretsManagerClient]:
+        yield secrets_client
+
+    @asynccontextmanager
+    async def key_vault_factory() -> AsyncIterator[FakeKeyVaultClient]:
+        yield key_vault_client
+
+    agent = build_agent(
+        [],
+        metrics_path=str(tmp_path),
+        secrets_manager_factory=secrets_factory,
+        key_vault_factory=key_vault_factory,
+    )
+
+    mappings = [
+        SecretMirrorMapping(
+            source_secret_id="mindwell/dev/openai/api-key",
+            target_secret_name="openai-api-key",
+        )
+    ]
+
+    results = await agent.mirror_secrets(mappings, dry_run=False)
+
+    assert results
+    assert results[0].status == "updated"
+    assert key_vault_client.set_calls == [("openai-api-key", "sk-prod-123456789")]
+
+    metrics_file = tmp_path / "data_sync_secret_metrics.json"
+    assert metrics_file.exists()
+    payload = json.loads(metrics_file.read_text(encoding="utf-8"))
+    assert payload["result_count"] == 1
+    assert payload["results"][0]["status"] == "updated"
+    assert payload["results"][0]["target_secret_name"] == "openai-api-key"
+
+
+@pytest.mark.asyncio
+async def test_data_sync_agent_mirror_secrets_dry_run(tmp_path) -> None:
+    secrets_client = FakeSecretsManagerClient(
+        {"mindwell/dev/openai/api-key": "sk-stage-abcdef"}
+    )
+    key_vault_client = FakeKeyVaultClient()
+
+    @asynccontextmanager
+    async def secrets_factory() -> AsyncIterator[FakeSecretsManagerClient]:
+        yield secrets_client
+
+    @asynccontextmanager
+    async def key_vault_factory() -> AsyncIterator[FakeKeyVaultClient]:
+        yield key_vault_client
+
+    agent = build_agent(
+        [],
+        metrics_path=str(tmp_path),
+        secrets_manager_factory=secrets_factory,
+        key_vault_factory=key_vault_factory,
+    )
+
+    mappings = [
+        SecretMirrorMapping(
+            source_secret_id="mindwell/dev/openai/api-key",
+            target_secret_name="openai-api-key",
+        )
+    ]
+
+    results = await agent.mirror_secrets(mappings, dry_run=True)
+
+    assert results
+    assert results[0].status == "skipped"
+    assert results[0].message.startswith("Dry run")
+    assert key_vault_client.set_calls == []
+
+    metrics_file = tmp_path / "data_sync_secret_metrics.json"
+    assert metrics_file.exists()
+    payload = json.loads(metrics_file.read_text(encoding="utf-8"))
+    assert payload["dry_run"] is True
+    assert payload["results"][0]["status"] == "skipped"

@@ -9,6 +9,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.entities import PilotUATSession
 from app.schemas.pilot_uat import (
+    PilotUATBacklogItem,
+    PilotUATBacklogResponse,
     PilotUATIssue,
     PilotUATGroupSummary,
     PilotUATIssueSummary,
@@ -163,6 +165,92 @@ class PilotUATService:
             sessions_by_environment=_summaries(environment_buckets),
         )
 
+    async def prioritize_backlog(
+        self,
+        filters: PilotUATSessionFilters | None = None,
+        *,
+        limit: int = 10,
+    ) -> PilotUATBacklogResponse:
+        """Aggregate recurring issues into a prioritized backlog."""
+        filters = filters or PilotUATSessionFilters()
+        stmt = select(PilotUATSession)
+        stmt = self._apply_filters(stmt, filters)
+        result = await self._session.execute(stmt)
+        records: list[PilotUATSession] = list(result.scalars().all())
+
+        if not records:
+            return PilotUATBacklogResponse(total=0, items=[])
+
+        aggregated: dict[str, dict[str, Any]] = {}
+        for record in records:
+            participant_key = self._participant_key(record)
+            session_actions = set(record.action_items or [])
+            for issue in record.issues or []:
+                title = str(issue.get("title") or "").strip()
+                if not title:
+                    continue
+                key = title.lower()
+                severity = str(issue.get("severity") or "unspecified").lower()
+                notes = str(issue.get("notes") or "").strip()
+
+                bucket = aggregated.setdefault(
+                    key,
+                    {
+                        "title": title,
+                        "severity": severity,
+                        "severity_score": self._severity_score(severity),
+                        "occurrences": 0,
+                        "participants": set(),
+                        "notes": [],
+                        "action_items": set(),
+                        "latest_session": record.session_date,
+                    },
+                )
+                bucket["occurrences"] += 1
+                score = self._severity_score(severity)
+                if score > bucket["severity_score"]:
+                    bucket["severity_score"] = score
+                    bucket["severity"] = severity
+
+                if participant_key:
+                    bucket["participants"].add(participant_key)
+                if notes:
+                    bucket["notes"].append(notes)
+                if session_actions:
+                    bucket["action_items"].update(session_actions)
+                if record.session_date > bucket["latest_session"]:
+                    bucket["latest_session"] = record.session_date
+
+        backlog_items: list[PilotUATBacklogItem] = []
+        for bucket in aggregated.values():
+            backlog_items.append(
+                PilotUATBacklogItem(
+                    title=bucket["title"],
+                    severity=bucket["severity"],
+                    occurrences=bucket["occurrences"],
+                    affected_participants=len(bucket["participants"]),
+                    latest_session_date=bucket["latest_session"],
+                    sample_notes=self._unique_notes(bucket["notes"], limit=3),
+                    action_items=sorted(bucket["action_items"]),
+                )
+            )
+
+        backlog_items.sort(
+            key=lambda item: (
+                -self._severity_score(item.severity),
+                -item.occurrences,
+                -item.latest_session_date.timestamp(),
+            )
+        )
+
+        if limit > 0:
+            backlog_items = backlog_items[:limit]
+
+        return PilotUATBacklogResponse(
+            total=len(aggregated),
+            items=backlog_items,
+        )
+
     def _apply_filters(
         self,
         stmt: Select,
@@ -201,6 +289,37 @@ class PilotUATService:
         if conditions:
             stmt = stmt.where(and_(*conditions))
         return stmt
+
+    @staticmethod
+    def _severity_score(value: str | None) -> int:
+        mapping = {
+            "critical": 4,
+            "high": 3,
+            "medium": 2,
+            "low": 1,
+            "unspecified": 0,
+            "": 0,
+        }
+        if value is None:
+            return mapping["unspecified"]
+        return mapping.get(value.lower(), 0)
+
+    @staticmethod
+    def _unique_notes(notes: Iterable[str], *, limit: int) -> list[str]:
+        seen: set[str] = set()
+        collected: list[str] = []
+        for note in notes:
+            stripped = note.strip()
+            if not stripped:
+                continue
+            lowered = stripped.lower()
+            if lowered in seen:
+                continue
+            seen.add(lowered)
+            collected.append(stripped)
+            if len(collected) >= max(limit, 0):
+                break
+        return collected
 
     @staticmethod
     def _normalize_datetime(value: datetime | None) -> datetime:

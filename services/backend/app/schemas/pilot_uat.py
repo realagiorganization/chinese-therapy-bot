@@ -112,3 +112,22 @@ class PilotUATSessionSummary(BaseModel):
     issues_by_severity: list[PilotUATIssueSummary]
     sessions_by_platform: list[PilotUATGroupSummary]
     sessions_by_environment: list[PilotUATGroupSummary]
+
+
+class PilotUATBacklogItem(BaseModel):
+    """Prioritized backlog entry derived from UAT issues/action items."""
+
+    title: str
+    severity: str
+    occurrences: int
+    affected_participants: int
+    latest_session_date: datetime
+    sample_notes: list[str]
+    action_items: list[str]
+
+
+class PilotUATBacklogResponse(BaseModel):
+    """Response payload containing prioritized backlog entries."""
+
+    total: int
+    items: list[PilotUATBacklogItem]
