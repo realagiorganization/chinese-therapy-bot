@@ -41,6 +41,29 @@ class User(Base):
     display_name: Mapped[str | None] = mapped_column(String(120), nullable=True)
     locale: Mapped[str] = mapped_column(String(16), default="zh-CN")
     timezone: Mapped[str] = mapped_column(String(40), default="Asia/Shanghai")
+    account_type: Mapped[str] = mapped_column(
+        String(16), default="email", doc="Auth channel used to provision the account."
+    )
+    demo_code: Mapped[str | None] = mapped_column(
+        String(64),
+        nullable=True,
+        doc="Identifier for the demo code that provisioned this account.",
+    )
+    token_limit: Mapped[int] = mapped_column(
+        Integer,
+        default=3,
+        doc="Maximum number of active refresh tokens allowed for the account.",
+    )
+    chat_token_quota: Mapped[int] = mapped_column(
+        Integer,
+        default=0,
+        doc="Maximum number of chat turns allocated to the account (0 = unlimited).",
+    )
+    chat_tokens_remaining: Mapped[int | None] = mapped_column(
+        Integer,
+        nullable=True,
+        doc="Remaining chat tokens before prompting for subscription.",
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=datetime.utcnow
     )
@@ -58,7 +81,14 @@ class User(Base):
     __table_args__ = (
         UniqueConstraint("phone_number", name="uq_users_phone"),
         UniqueConstraint("email", name="uq_users_email"),
+        UniqueConstraint("demo_code", name="uq_users_demo_code"),
         Index("ix_users_external_id", "external_id"),
+        Index("ix_users_account_type", "account_type"),
+        CheckConstraint("chat_token_quota >= 0", name="ck_users_chat_token_quota_positive"),
+        CheckConstraint(
+            "(chat_tokens_remaining IS NULL) OR (chat_tokens_remaining >= 0)",
+            name="ck_users_chat_tokens_remaining_positive",
+        ),
     )
 
 

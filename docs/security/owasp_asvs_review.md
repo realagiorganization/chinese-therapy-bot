@@ -24,8 +24,8 @@ Each control is scored as:
 
 | Control | Status | Notes |
 | --- | --- | --- |
-| V2.1 Password and credential policy | ✅ | Password login deprecated prior to GA; SMS OTP & Google OAuth flows enforce rotating codes (`AuthService._generate_otp`) and Google token exchange. |
-| V2.2 Multi-factor workflow | ✅ | SMS OTP acts as possession factor; Google OAuth stored as external identity. |
+| V2.1 Password and credential policy | ✅ | Password login remains deprecated; oauth2-proxy email and demo-code flows enforce token quotas and hashed refresh storage. |
+| V2.2 Multi-factor workflow | ⚠️ | oauth2-proxy relies on upstream IdP MFA. Enforce provider-level MFA for production tenants. |
 | V2.3 Credential storage | ✅ | OTP codes hashed with SHA-256 + secret pepper (`AuthService._hash_secret`). Refresh tokens hashed before storage. |
 | V2.5 Account recovery abuse protection | ⚠️ | OTP attempt counter enforced (`LoginChallenge.max_attempts`); need rate limiting at API gateway (tracked in `SEC-14`, due sprint W5). |
 | V2.9 Credential rotation | ✅ | JWT/refresh TTLs configurable; secrets stored in Key Vault/Secrets Manager with rotation SOP (`docs/phase2_secret_management.md`). |
@@ -37,7 +37,7 @@ Each control is scored as:
 | V3.1 Secure session identifiers | ✅ | JWT access tokens signed with HMAC secret; refresh tokens UUIDv4 with hash storage. |
 | V3.5 Session timeout | ✅ | Access token TTL 15 minutes, refresh token TTL 30 days; configurable via environment variables. |
 | V3.9 Session revocation | ✅ | Refresh token marked revoked on reuse; `AuthService.refresh_token` rotates tokens. |
-| V3.10 Session fixation prevention | ✅ | New session created post-login; challenge ID tied to OTP workflow. |
+| V3.10 Session fixation prevention | ✅ | New refresh token issued per oauth2-proxy session; demo codes disallow reuse beyond quota. |
 
 ## 4. Access Control (V4)
 
@@ -97,7 +97,7 @@ Each control is scored as:
 
 | Item | Owner | Target | Status |
 | --- | --- | --- | --- |
-| SEC-14: Add OTP route rate limiting via API gateway (Azure APIM/NGINX) | Platform Eng | Week 5 | ⚠️ |
+| SEC-14: Add oauth2-proxy header signature validation & anomaly detection | Platform Eng | Week 5 | ⚠️ |
 | SEC-21: Protect admin/probing endpoints behind RBAC & feature flags | Platform Eng | Week 6 | ⚠️ |
 | SEC-09: Enforce MIME validation + malware scan for media uploads | Core Backend | Week 7 | ⚠️ |
 | LEG-04: Finalize privacy policy copy and link in clients | Legal/PM | Week 4 | ⚠️ |

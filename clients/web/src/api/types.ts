@@ -88,7 +88,7 @@ export type ChatStreamEvent =
     }
   | {
       type: "error";
-      data: { detail: string };
+      data: { detail: string; code?: string };
     };
 
 export type DailyJourneyReport = {

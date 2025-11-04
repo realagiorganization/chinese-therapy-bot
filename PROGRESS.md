@@ -56,10 +56,10 @@
 - [x] Scaffold backend service (FastAPI) with modular architecture. *(see `docs/phase3_backend_scaffold.md` & `services/backend/`)*
 - [x] Define SQLAlchemy persistence layer covering users, therapists, chat sessions/messages, and summary tables.
 - [x] Integrate async database access for chat, therapist directory, and reports services with graceful seed fallbacks.
-- [x] Implement SMS OTP challenge persistence with expiration, throttling, and SMS provider abstraction.
-  - [x] Added Twilio-backed SMS provider for production OTP delivery with automated tests covering request/response handling.
+- [x] Implement oauth2-proxy backed email authentication with session exchange and token quotas.
+  - [x] Added demo-code registry with per-code token limits and automated tests covering allowlist validation.
 - [x] Implement token issuance with JWT access/refresh tokens, rotation, and token renewal endpoint.
-- [x] Integrate Google OAuth code verification stub and user identity linking.
+- [x] Replace Google OAuth stub with oauth2-proxy identity headers and email-based account linking.
 - [x] Build chat service for message ingestion, streaming responses, and persistence to database/S3. *(FastAPI endpoint now supports SSE streaming with transcript archival.)*
 - [x] Integrate AI model orchestrator (Azure OpenAI primary, AWS Bedrock fallback) with prompt templates.
 - [x] Persist chat transcripts and metadata to AWS S3 conversation logs bucket. *(ChatTranscriptStorage now streams per-message JSON events alongside transcript snapshots.)*
@@ -91,10 +91,10 @@
 - [x] Prototype Explore page content modules and personalization hooks.
   - [x] Define placeholder content blocks (breathing exercises, psychoeducation, trending topics).
   - [x] Connect modules to feature flag service for staged rollouts.
-- [x] Implement account onboarding/login flows (SMS, Google).
+- [x] Implement account onboarding/login flows (oauth2-proxy email + demo codes).
   - [x] Build OTP request/verification UI tied into backend throttling.
-  - [x] Add Google OAuth web flow and token exchange using the stub client.
-- [x] Scaffold React Native/Expo mobile client with SMS + Google authentication and chat shell. *(see `clients/mobile/` for initial app structure and theming tied to shared tokens.)*
+  - [x] Document oauth2-proxy header mapping and local fallback behaviour for development.
+- [x] Scaffold React Native/Expo mobile client with oauth2-proxy email + demo-code authentication and chat shell. *(see `clients/mobile/` for initial app structure and theming tied to shared tokens.)*
 - [x] Ship mobile therapist directory with in-app filters and detail view. *(New Expo tab integrates `TherapistDirectoryScreen`, `useTherapistDirectory`, and API-backed detail loading with graceful fallbacks.)*
 - [x] Ensure iOS optimization (gesture handling, offline caching, push notifications).
   - [x] Validate React Native/Expo builds against Apple HIG-aligned interactions. *(Checklist captured in `docs/mobile_performance.md` under “Gesture & Interaction Validation”; haptic tab feedback + safe-area banner wiring lives in `clients/mobile/App.tsx:1`, `clients/mobile/src/components/ConnectivityBanner.tsx:1`, with Metro alias support in `clients/mobile/babel.config.js:1`.)*

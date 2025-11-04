@@ -1,146 +1,193 @@
-import { useCallback, useMemo, useState } from "react";
-import type { FormEvent } from "react";
+import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 
-import { exchangeGoogleCode, exchangeSmsCode, requestSmsChallenge } from "../api/auth";
+import { AuthError, exchangeOAuthSession, loginWithDemoCode } from "../api/auth";
 import { useAuth } from "../auth/AuthContext";
 import { Button, Card, Typography } from "../design-system";
 import { LocaleSwitcher } from "./LocaleSwitcher";
 
-type SmsChallengeState = {
-  challengeId: string;
-  expiresAt: number;
-  detail: string;
-};
+const EMAIL_STORAGE_KEY = "mindwell:login:email";
+const OAUTH_PENDING_KEY = "mindwell:oauth:pending";
 
-function computeExpiry(expiresIn: number): number {
-  const ttlSeconds = Number.isFinite(expiresIn) && expiresIn > 0 ? expiresIn : 3600;
-  return Date.now() + ttlSeconds * 1000;
+type EmailStatus = "idle" | "checking" | "redirecting";
+type DemoStatus = "idle" | "submitting";
+
+function readStoredEmail(): string {
+  if (typeof window === "undefined") {
+    return "";
+  }
+  try {
+    return window.localStorage.getItem(EMAIL_STORAGE_KEY) ?? "";
+  } catch {
+    return "";
+  }
+}
+
+function persistEmail(value: string): void {
+  if (typeof window === "undefined") {
+    return;
+  }
+  try {
+    window.localStorage.setItem(EMAIL_STORAGE_KEY, value);
+  } catch {
+    // ignore storage failures
+  }
+}
+
+function setPendingOAuth(status: boolean): void {
+  if (typeof window === "undefined") {
+    return;
+  }
+  try {
+    if (status) {
+      window.localStorage.setItem(OAUTH_PENDING_KEY, "1");
+    } else {
+      window.localStorage.removeItem(OAUTH_PENDING_KEY);
+    }
+  } catch {
+    // ignore storage failures
+  }
+}
+
+function isPendingOAuth(): boolean {
+  if (typeof window === "undefined") {
+    return false;
+  }
+  try {
+    return window.localStorage.getItem(OAUTH_PENDING_KEY) === "1";
+  } catch {
+    return false;
+  }
 }
 
 export function LoginPanel() {
-  const { t, i18n } = useTranslation();
+  const { t } = useTranslation();
   const { setTokens } = useAuth();
 
-  const [phoneNumber, setPhoneNumber] = useState("");
-  const [countryCode, setCountryCode] = useState("+86");
-  const [otpCode, setOtpCode] = useState("");
-  const [challenge, setChallenge] = useState<SmsChallengeState | null>(null);
-  const [smsStatus, setSmsStatus] = useState<"idle" | "sending" | "sent" | "verifying">("idle");
+  const [email, setEmail] = useState<string>(() => readStoredEmail());
+  const [demoCode, setDemoCode] = useState("");
+  const [emailStatus, setEmailStatus] = useState<EmailStatus>("idle");
+  const [demoStatus, setDemoStatus] = useState<DemoStatus>("idle");
   const [error, setError] = useState<string | null>(null);
-  const [googleCode, setGoogleCode] = useState("");
-  const [googleStatus, setGoogleStatus] = useState<"idle" | "submitting">("idle");
 
-  const hasActiveChallenge = useMemo(() => {
-    if (!challenge) {
-      return false;
+  const isCheckingOAuth = emailStatus === "checking";
+  const isRedirecting = emailStatus === "redirecting";
+
+  useEffect(() => {
+    let cancelled = false;
+    const pending = isPendingOAuth();
+    if (pending) {
+      setEmailStatus("checking");
     }
-    return challenge.expiresAt > Date.now();
-  }, [challenge]);
 
-  const smsHint = useMemo(() => {
-    if (!challenge || !hasActiveChallenge) {
-      return null;
-    }
-    const remainingSeconds = Math.max(0, Math.round((challenge.expiresAt - Date.now()) / 1000));
-    return t("auth.sms_pending", { seconds: remainingSeconds });
-  }, [challenge, hasActiveChallenge, t]);
+    (async () => {
+      try {
+        const tokens = await exchangeOAuthSession();
+        if (!cancelled) {
+          setTokens({
+            accessToken: tokens.accessToken,
+            refreshToken: tokens.refreshToken,
+            expiresAt: Date.now() + tokens.expiresIn * 1000
+          });
+          setError(null);
+        }
+      } catch (err) {
+        if (cancelled) {
+          return;
+        }
+        if (err instanceof AuthError && err.status === 401) {
+          setError(null);
+        } else if (err instanceof Error) {
+          setError(err.message);
+        } else {
+          setError(t("auth.errors.oauth_unknown"));
+        }
+      } finally {
+        if (!cancelled) {
+          setEmailStatus("idle");
+          setPendingOAuth(false);
+        }
+      }
+    })().catch(() => {
+      if (!cancelled) {
+        setEmailStatus("idle");
+      }
+    });
 
-  const resolvedLocale = i18n.resolvedLanguage ?? i18n.language ?? "zh-CN";
+    return () => {
+      cancelled = true;
+    };
+  }, [setTokens, t]);
 
-  const handleRequestSmsCode = useCallback(
-    async (event?: FormEvent) => {
-      event?.preventDefault();
-      if (!phoneNumber.trim()) {
-        setError(t("auth.errors.phone_required"));
+  const handleEmailSubmit = useCallback(
+    (event: FormEvent) => {
+      event.preventDefault();
+      const trimmed = email.trim();
+      if (!trimmed) {
+        setError(t("auth.errors.email_required"));
         return;
       }
-
-      setSmsStatus("sending");
       setError(null);
-      try {
-        const payload = await requestSmsChallenge({
-          phoneNumber,
-          countryCode,
-          locale: resolvedLocale
+      persistEmail(trimmed);
+      setPendingOAuth(true);
+      setEmailStatus("redirecting");
+
+      if (typeof window !== "undefined") {
+        const base = window.location.origin;
+        const redirectTarget = `${base}${window.location.pathname}`;
+        const search = new URLSearchParams({
+          rd: redirectTarget,
+          login_hint: trimmed
         });
-        const expiresAt = computeExpiry(payload.expiresIn);
-        setChallenge({
-          challengeId: payload.challengeId,
-          expiresAt,
-          detail: payload.detail
-        });
-        setSmsStatus("sent");
-      } catch (err) {
-        setSmsStatus("idle");
-        setChallenge(null);
-        setError(err instanceof Error ? err.message : t("auth.errors.sms_unknown"));
+        window.location.assign(`/oauth2/start?${search.toString()}`);
       }
     },
-    [phoneNumber, countryCode, resolvedLocale, t]
+    [email, t]
   );
 
-  const handleVerifySmsCode = useCallback(
-    async (event?: FormEvent) => {
-      event?.preventDefault();
-      if (!challenge || !hasActiveChallenge) {
-        setError(t("auth.errors.challenge_missing"));
+  const handleDemoLogin = useCallback(
+    async (event: FormEvent) => {
+      event.preventDefault();
+      const trimmed = demoCode.trim();
+      if (!trimmed) {
+        setError(t("auth.errors.demo_required"));
         return;
       }
-      if (!otpCode.trim()) {
-        setError(t("auth.errors.code_required"));
-        return;
-      }
-
-      setSmsStatus("verifying");
+      setDemoStatus("submitting");
       setError(null);
+
       try {
-        const tokenPair = await exchangeSmsCode({
-          challengeId: challenge.challengeId,
-          code: otpCode
+        const tokens = await loginWithDemoCode({
+          code: trimmed
         });
         setTokens({
-          accessToken: tokenPair.accessToken,
-          refreshToken: tokenPair.refreshToken,
-          expiresAt: computeExpiry(tokenPair.expiresIn)
+          accessToken: tokens.accessToken,
+          refreshToken: tokens.refreshToken,
+          expiresAt: Date.now() + tokens.expiresIn * 1000
         });
       } catch (err) {
-        setError(err instanceof Error ? err.message : t("auth.errors.sms_unknown"));
-        setSmsStatus("sent");
+        setDemoStatus("idle");
+        if (err instanceof AuthError) {
+          setError(err.message);
+        } else if (err instanceof Error) {
+          setError(err.message);
+        } else {
+          setError(t("auth.errors.demo_unknown"));
+        }
       }
     },
-    [challenge, hasActiveChallenge, otpCode, setTokens, t]
+    [demoCode, setTokens, t]
   );
 
-  const handleGoogleLogin = useCallback(
-    async (event?: FormEvent) => {
-      event?.preventDefault();
-      if (!googleCode.trim()) {
-        setError(t("auth.errors.google_code_required"));
-        return;
-      }
-      setGoogleStatus("submitting");
-      setError(null);
-
-      try {
-        const tokenPair = await exchangeGoogleCode({ code: googleCode.trim() });
-        setTokens({
-          accessToken: tokenPair.accessToken,
-          refreshToken: tokenPair.refreshToken,
-          expiresAt: computeExpiry(tokenPair.expiresIn)
-        });
-      } catch (err) {
-        setError(err instanceof Error ? err.message : t("auth.errors.google_unknown"));
-        setGoogleStatus("idle");
-      }
-    },
-    [googleCode, setTokens, t]
-  );
-
-  const canRequestSms = smsStatus === "idle" || smsStatus === "sent";
-  const canVerifySms = smsStatus === "sent" || smsStatus === "verifying";
-  const isVerifying = smsStatus === "verifying";
-  const isSendingSms = smsStatus === "sending";
+  const emailButtonLabel = useMemo(() => {
+    if (isRedirecting) {
+      return t("auth.email_redirect");
+    }
+    if (isCheckingOAuth) {
+      return t("auth.email_checking");
+    }
+    return t("auth.email_cta");
+  }, [isRedirecting, isCheckingOAuth, t]);
 
   return (
     <Card
@@ -173,127 +220,71 @@ export function LoginPanel() {
       </div>
 
       <form
-        onSubmit={handleVerifySmsCode}
+        onSubmit={handleEmailSubmit}
         style={{
           display: "grid",
           gap: "var(--mw-spacing-sm)"
         }}
       >
         <Typography variant="overline" style={{ color: "var(--text-secondary)" }}>
-          {t("auth.sms_section")}
-        </Typography>
-        <label style={{ display: "grid", gap: "4px", fontSize: "0.9rem" }}>
-          <span style={{ color: "var(--text-secondary)" }}>{t("auth.phone_label")}</span>
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "100px 1fr",
-              gap: "var(--mw-spacing-xs)"
-            }}
-          >
-            <input
-              type="text"
-              value={countryCode}
-              onChange={(event) => setCountryCode(event.target.value)}
-              style={{
-                padding: "10px",
-                borderRadius: "var(--mw-radius-md)",
-                border: "1px solid var(--mw-border-subtle)",
-                fontSize: "1rem"
-              }}
-              placeholder="+86"
-            />
-            <input
-              type="tel"
-              value={phoneNumber}
-              onChange={(event) => setPhoneNumber(event.target.value)}
-              style={{
-                padding: "10px",
-                borderRadius: "var(--mw-radius-md)",
-                border: "1px solid var(--mw-border-subtle)",
-                fontSize: "1rem"
-              }}
-              placeholder={t("auth.phone_placeholder")}
-            />
-          </div>
-        </label>
-        <Button
-          type="button"
-          disabled={!canRequestSms || isSendingSms}
-          onClick={(event) => {
-            void handleRequestSmsCode(event);
-          }}
-        >
-          {isSendingSms ? t("auth.sending_code") : t("auth.send_code")}
-        </Button>
-
-        {hasActiveChallenge && (
-          <div
-            style={{
-              background: "rgba(59,130,246,0.08)",
-              borderRadius: "var(--mw-radius-md)",
-              padding: "var(--mw-spacing-xs)"
-            }}
-          >
-            <Typography variant="caption" style={{ color: "var(--mw-color-primary)" }}>
-              {smsHint ?? challenge?.detail}
-            </Typography>
-          </div>
-        )}
-
-        <label style={{ display: "grid", gap: "4px", fontSize: "0.9rem" }}>
-          <span style={{ color: "var(--text-secondary)" }}>{t("auth.code_label")}</span>
-          <input
-            type="text"
-            value={otpCode}
-            onChange={(event) => setOtpCode(event.target.value)}
-            style={{
-              padding: "10px",
-              borderRadius: "var(--mw-radius-md)",
-              border: "1px solid var(--mw-border-subtle)",
-              fontSize: "1rem",
-              letterSpacing: "4px",
-              textAlign: "center"
-            }}
-            placeholder="123456"
-            maxLength={6}
-          />
-        </label>
-        <Button type="submit" disabled={!canVerifySms || isVerifying}>
-          {isVerifying ? t("auth.verifying") : t("auth.verify_code")}
-        </Button>
-      </form>
-
-      <form
-        onSubmit={handleGoogleLogin}
-        style={{
-          display: "grid",
-          gap: "var(--mw-spacing-sm)"
-        }}
-      >
-        <Typography variant="overline" style={{ color: "var(--text-secondary)" }}>
-          {t("auth.google_section")}
+          {t("auth.email_section")}
         </Typography>
         <Typography variant="caption" style={{ color: "var(--text-secondary)" }}>
-          {t("auth.google_hint")}
+          {t("auth.email_hint")}
         </Typography>
         <label style={{ display: "grid", gap: "4px", fontSize: "0.9rem" }}>
-          <span style={{ color: "var(--text-secondary)" }}>{t("auth.google_code_label")}</span>
+          <span style={{ color: "var(--text-secondary)" }}>{t("auth.email_label")}</span>
           <input
-            type="text"
-            value={googleCode}
-            onChange={(event) => setGoogleCode(event.target.value)}
+            type="email"
+            value={email}
+            onChange={(event) => setEmail(event.target.value)}
             style={{
               padding: "10px",
               borderRadius: "var(--mw-radius-md)",
               border: "1px solid var(--mw-border-subtle)",
               fontSize: "1rem"
             }}
-            placeholder="demo-oauth-code"
+            placeholder="you@example.com"
+            autoComplete="email"
           />
         </label>
-        <Button type="submit" variant="secondary" disabled={googleStatus === "submitting"}>
-          {googleStatus === "submitting" ? t("auth.google_submitting") : t("auth.google_cta")}
+
+        <Button type="submit" disabled={isRedirecting || isCheckingOAuth}>
+          {emailButtonLabel}
+        </Button>
+      </form>
+
+      <form
+        onSubmit={handleDemoLogin}
+        style={{
+          display: "grid",
+          gap: "var(--mw-spacing-sm)"
+        }}
+      >
+        <Typography variant="overline" style={{ color: "var(--text-secondary)" }}>
+          {t("auth.demo_section")}
+        </Typography>
+        <Typography variant="caption" style={{ color: "var(--text-secondary)" }}>
+          {t("auth.demo_hint")}
+        </Typography>
+        <label style={{ display: "grid", gap: "4px", fontSize: "0.9rem" }}>
+          <span style={{ color: "var(--text-secondary)" }}>{t("auth.demo_label")}</span>
+          <input
+            type="text"
+            value={demoCode}
+            onChange={(event) => setDemoCode(event.target.value)}
+            style={{
+              padding: "10px",
+              borderRadius: "var(--mw-radius-md)",
+              border: "1px solid var(--mw-border-subtle)",
+              fontSize: "1rem",
+              letterSpacing: "2px"
+            }}
+            placeholder="DEMO-TEAM"
+          />
+        </label>
+        <Button type="submit" variant="secondary" disabled={demoStatus === "submitting"}>
+          {demoStatus === "submitting" ? t("auth.demo_submitting") : t("auth.demo_cta")}
         </Button>
       </form>
 

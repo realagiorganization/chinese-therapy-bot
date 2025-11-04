@@ -13,13 +13,13 @@ This document captures the initial threat modeling exercise requested in `DEV_PL
 - **External Users:** Web/mobile clients invoking FastAPI routes (`/chat`, `/auth`, `/reports`).
 - **Therapists/Admins:** Access management tools, import pipelines, reporting surfaces.
 - **Automation Agents:** CI Runner, Data Sync, Summary Scheduler, Monitoring (per `AGENTS.md`).
-- **Third Parties:** SMS provider, OAuth (Google), AI platforms, Terraform providers.
+- **Third Parties:** oauth2-proxy identity provider, upstream OAuth sources, AI platforms, Terraform providers.
 - **Infrastructure Admins:** Azure/AWS subscription administrators with direct console or CLI access.
 
 Attack surfaces include public APIs (FastAPI, SSE streaming), webhook/event consumers, IaC execution (Terraform, GitHub Actions), agent cron jobs, and storage buckets exposed via misconfiguration.
 
 ## 3. Data Flow Overview
-1. Clients authenticate (SMS OTP or Google OAuth) through `AuthService` and receive JWT tokens (`services/backend/app/services/auth.py`).
+1. Clients authenticate via oauth2-proxy (email) or demo codes, then `AuthService` issues JWT/refresh tokens (`services/backend/app/services/auth.py`).
 2. Chat messages stream to FastAPI (`/api/chat/stream`, legacy alias `/therapy/chat/stream`), orchestrated by `ChatService` (`services/backend/app/services/chat.py`) which persists transcripts to Postgres and S3.
 3. Summary Scheduler Agent (`services/backend/app/agents/summary_scheduler.py`) reads chat history, generates summaries via LLM orchestrator, and stores results in S3 through `SummaryStorage`.
 4. Data Sync Agent ingests therapist data into S3, then ETLs into Postgres.
@@ -30,7 +30,7 @@ Attack surfaces include public APIs (FastAPI, SSE streaming), webhook/event cons
 | Scenario | Impact | Current Mitigations | Follow-ups |
 | --- | --- | --- | --- |
 | **Compromised JWT/Refresh Tokens** via theft or replay | Account hijack, data exposure | Refresh tokens hashed (`AuthService._hash_secret`), TTL constrained, `RefreshToken` table tracks issued tokens | Add device binding & anomaly detection; enforce token revocation on logout |
-| **Weak OTP Generation** exploited by brute force | Unauthorized login | OTPs now use `secrets.choice` and normalized phone numbers (`services/backend/app/services/auth.py:200-265`) | Rate-limit OTP verification per IP/device; add SMS provider audit logs |
+| **Forged oauth2-proxy headers** bypassing identity checks | Unauthorized login | Backend trusts only configured header names (`OAUTH2_PROXY_*`), enforces token quotas per user/demo, and rejects missing email claims | Add signed cookie validation, enable oauth2-proxy audit logging, and alert on header mismatches |
 | **S3 Bucket Misconfiguration** leaking transcripts | Privacy breach | Buckets defined private in Terraform (`infra/terraform/aws_storage.tf`), uploads use IAM roles, transcripts pseudonymized | Enable S3 bucket policies enforcing TLS, add Macie scans, periodic access review |
 | **LLM Prompt Injection / Jailbreak** | Malicious responses, data leak | Prompt templating centralised (`app/integrations/llm.py`), evaluation service monitors outputs, guardrail heuristics exist (`services/backend/app/services/evaluation.py`) | Integrate automated red teaming, add content filtering before reply streaming |
 | **CI Secrets Exposure** on self-hosted runners | Broad infra compromise | GitHub Actions now runs `pip-audit`, `bandit`, and `gitleaks` (`.github/workflows/ci.yml`) with `.gitleaks.toml` allowlist | Lock down runner IAM roles, enable GitHub OIDC fine-grained permissions, add dependency review gate |

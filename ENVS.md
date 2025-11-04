@@ -15,9 +15,7 @@ The backend reads configuration from environment variables via `AppSettings` (`s
 - `S3_CONVERSATION_LOGS_BUCKET`: S3 bucket storing raw chat transcripts exported by the backend.
 - `S3_SUMMARIES_BUCKET`: S3 bucket storing generated daily/weekly conversation summaries.
 - `S3_BUCKET_THERAPISTS`: S3 bucket containing normalized therapist profile JSON used by the Data Sync agent.
-- `SMS_PROVIDER_API_KEY`: Credential for the SMS provider used to deliver OTP codes (use a sandbox token in non-prod).
-- `GOOGLE_OAUTH_CLIENT_ID`: OAuth client ID for Google sign-in flows.
-- `GOOGLE_OAUTH_CLIENT_SECRET`: OAuth client secret paired with `GOOGLE_OAUTH_CLIENT_ID`.
+- `DEMO_CODE_FILE`: Absolute path to the JSON allowlist of approved demo codes served to invited testers.
 
 ### Frontend Web Client
 - `VITE_API_BASE_URL`: Fully qualified base URL of the deployed backend (e.g. `https://api.mindwell.cn`). Defaults to `http://localhost:8000` for local development but must be set for production builds.
@@ -41,12 +39,13 @@ The backend reads configuration from environment variables via `AppSettings` (`s
 - `THERAPIST_DATA_S3_PREFIX`: Overrides the default therapist data prefix (`therapists/`) during ingestion.
 - `BEDROCK_REGION`: AWS region hosting the Bedrock fallback model.
 - `BEDROCK_MODEL_ID`: Model identifier used when invoking AWS Bedrock as an LLM fallback.
-- `SMS_SENDER_ID`: Sender identifier registered with the SMS provider (defaults to provider-specific value when omitted).
-- `TWILIO_ACCOUNT_SID`: Twilio account identifier used when sending OTP messages via Twilio.
-- `TWILIO_AUTH_TOKEN`: Twilio authentication token paired with `TWILIO_ACCOUNT_SID`.
-- `TWILIO_FROM_NUMBER`: Verified Twilio phone number in E.164 format used as the SMS sender.
-- `TWILIO_MESSAGING_SERVICE_SID`: Twilio Messaging Service SID if using a messaging service instead of a single phone number.
-- `GOOGLE_OAUTH_REDIRECT_URI`: Redirect URI registered for web/mobile Google OAuth flows.
+- `AUTH_DEFAULT_TOKEN_LIMIT`: Maximum number of active refresh tokens allowed per standard account (default `3`).
+- `AUTH_DEMO_TOKEN_LIMIT`: Maximum number of active refresh tokens per demo code (default `1`).
+- `CHAT_TOKEN_DEFAULT_QUOTA`: Number of chat turns granted to authenticated accounts before prompting for a subscription (default `50`, `0` disables the quota).
+- `CHAT_TOKEN_DEMO_QUOTA`: Number of chat turns granted to demo-code accounts when the allowlist entry omits an explicit `chat_token_quota` (default `15`, `0` disables the quota).
+- `OAUTH2_PROXY_EMAIL_HEADER`: Header name forwarded by oauth2-proxy with the authenticated email (default `X-Auth-Request-Email`).
+- `OAUTH2_PROXY_USER_HEADER`: Header name carrying the stable subject/username for oauth2 identities (default `X-Auth-Request-User`).
+- `OAUTH2_PROXY_NAME_HEADER`: Optional header containing display name for the authenticated user (default `X-Auth-Request-Preferred-Username`).
 - `AZURE_SPEECH_KEY`: Subscription key for Azure Cognitive Services Speech, enabling server-side audio transcription.
 - `AZURE_SPEECH_REGION`: Azure region hosting the Speech resource (e.g. `eastasia`) used by the ASR integration.
 - `AZURE_SPEECH_ENDPOINT`: Optional override for the Speech-to-Text endpoint when using a private link or custom domain.
@@ -88,8 +87,7 @@ The table below captures the authoritative location, owning team, and rotation c
 | `S3_CONVERSATION_LOGS_BUCKET` | all | Terraform output `conversation_logs_bucket` (AWS account) | Platform Engineering | N/A (infrastructure identifier) | Lifecycle and bucket policies managed by Terraform; Monitoring Agent verifies encryption flag nightly |
 | `S3_SUMMARIES_BUCKET` | all | Terraform output `summaries_bucket` | Platform Engineering | N/A | Daily summary job checks bucket existence before upload |
 | `S3_BUCKET_THERAPISTS` | all | Terraform output `therapists_bucket` | Data Ops | N/A | Data Sync Agent uploads to prefixed folders per locale |
-| `SMS_PROVIDER_API_KEY` | staging / prod | AWS Secrets Manager `mindwell/sms-provider` | Growth Engineering | 60 days per vendor SLA | GitHub Actions workflow fetches secret during deployment and injects into AKS secret |
-| `GOOGLE_OAUTH_CLIENT_SECRET` | staging / prod | 1Password vault `MindWell OAuth` + Azure Key Vault replica | Mobile Team | 180 days / on incident | Rotation runbook `docs/security/oauth_rotation.md` issues new secret, updates Firebase + Key Vault |
+| `DEMO_CODE_FILE` | all | Git-managed JSON (e.g. `config/demo_codes.json`) synced to AKS ConfigMap | Platform Engineering | As codes change | Update allowlist file, trigger rollout of oauth2-proxy + API deployment |
 | `AZURE_SPEECH_KEY` | staging / prod | Azure Key Vault secret `azure-speech-key` | Voice Experience | 90 days | Monitoring Agent alarms if key age > 100 days |
 | `BEDROCK_MODEL_ID` | dev / staging / prod | Terraform variable `bedrock_model_id` | Platform Engineering | On fallback provider change | Terraform apply triggered by infra release pipeline |
 | `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` | dev (local only) | `.env.local` generated via `scripts/bootstrap-local-env.sh` | Platform Engineering | As needed when sandbox IAM user rotated | Local bootstrap script pulls credentials using `aws sts assume-role` |
@@ -106,4 +104,4 @@ An authoritative CSV export for compliance reporting is generated by `scripts/du
 ## Automation & Compliance Artifacts
 - `scripts/dump-env-matrix.py`: Produces an audit-friendly CSV summarizing the table above. Used by Compliance monthly.
 - `infra/terraform/outputs.tf`: Publishes bucket ARNs, Key Vault URIs, and OIDC audience strings consumed during deployment.
-- `docs/security/oauth_rotation.md`: Outlines the Google OAuth rotation process referenced above.
+- `docs/security/oauth_rotation.md`: Documents the oauth2-proxy secret rotation procedure referenced above.

@@ -57,7 +57,7 @@
 
 | **Week** | **Milestone** | **Details** |
 | --- | --- | --- |
-| Weeks 1–4 | **Core Scene Development** | - Model Integration - Account Management (SMS login, Google/third-party login) - Therapist Data Management - Frontend prototype for early testing |
+| Weeks 1–4 | **Core Scene Development** | - Model Integration - Account Management (oauth2-proxy email login, demo-code flows) - Therapist Data Management - Frontend prototype for early testing |
 | Weeks 5–7 | **iOS Development & App Store Release** |  |
 | Weeks 8–12 | **Model Refinement** | - Add RAG filtering and query context - Implement model memory system |
 
@@ -72,8 +72,8 @@
 #### **Account Management**
 
 - Username/password login ✅ *(deprecated before launch)*
-- SMS login ✅ *(OTP challenge + verification shipped in `services/backend/app/services/auth.py` with mobile/web flows.)*
-- Third-party account integration (Google, etc.) ✅ *(Google OAuth stub client + token exchange live across backend/web/mobile.)*
+- Email login via oauth2-proxy ✅ *(header-based identity exchange with token quotas and backend tests.)*
+- Demo-code & oauth2-proxy integration ✅ *(demo allowlist with per-code limits and oauth2-proxy header mapping.)*
 - Token renewal ✅
 
 #### **Chat System**
@@ -142,8 +142,8 @@
 ### **Login & Authentication**
 
 - Account-based login ✅ *(deprecated later)*
-- SMS login
-- Third-party account integration
+- oauth2-proxy email login
+- Demo-code fallback access flow
 - Token renewal
 
 ### **Chat Functionality**
@@ -211,7 +211,7 @@
 
 ## **8. Additional Notes**
 
-- Integration with Google and other third-party account management platforms in progress.
+- oauth2-proxy identity provider integration complete; demo-code governance handled via `config/demo_codes.json`.
 - Release artefact pipeline `.github/workflows/release.yml` produces backend wheels plus web/mobile bundles for tag builds and manual dispatch.
 - Investor/partner summary brief lives in `docs/investor_partner_brief.md` for fundraising and partnership outreach.
 

@@ -1,11 +1,15 @@
 import { getApiBaseUrl } from "./client";
 import { asNumber, asRecord, asString } from "./parsing";
 
-export type SmsChallengePayload = {
-  challengeId: string;
-  expiresIn: number;
-  detail: string;
-};
+export class AuthError extends Error {
+  status: number;
+
+  constructor(message: string, status: number) {
+    super(message);
+    this.status = status;
+    this.name = "AuthError";
+  }
+}
 
 export type TokenPair = {
   accessToken: string;
@@ -29,98 +33,74 @@ function buildAuthHeaders(): Record<string, string> {
   };
 }
 
-export async function requestSmsChallenge(options: {
-  phoneNumber: string;
-  countryCode?: string;
-  locale?: string;
-}): Promise<SmsChallengePayload> {
-  const endpoint = `${getApiBaseUrl()}/api/auth/sms`;
-  const response = await fetch(endpoint, {
-    method: "POST",
-    headers: buildAuthHeaders(),
-    body: JSON.stringify({
-      phone_number: options.phoneNumber,
-      country_code: options.countryCode ?? "+86",
-      locale: options.locale ?? "zh-CN"
-    })
-  });
+function buildBody(payload: Record<string, unknown>): string {
+  return JSON.stringify(payload);
+}
 
-  if (!response.ok) {
-    const payload = asRecord(await parseJson(response));
-    const detail = asString(payload?.detail, `SMS challenge failed (${response.status}).`);
-    throw new Error(detail);
-  }
-
-  const payload = asRecord((await response.json()) as unknown) ?? {};
+function normalizeTokenResponse(payload: Record<string, unknown> | null | undefined): TokenPair {
+  const data = payload ?? {};
   return {
-    challengeId: asString(payload.challenge_id),
-    expiresIn: asNumber(payload.expires_in),
-    detail: asString(payload.detail)
+    accessToken: asString(data.access_token),
+    refreshToken: asString(data.refresh_token),
+    expiresIn: asNumber(data.expires_in),
+    tokenType: asString(data.token_type, "bearer") || "bearer"
   };
 }
 
-export async function exchangeSmsCode(options: {
-  challengeId: string;
-  code: string;
+export async function exchangeOAuthSession(options: {
   sessionId?: string;
-}): Promise<TokenPair> {
-  const endpoint = `${getApiBaseUrl()}/api/auth/token`;
+  userAgent?: string;
+  ipAddress?: string;
+} = {}): Promise<TokenPair> {
+  const endpoint = `${getApiBaseUrl()}/api/auth/session`;
   const response = await fetch(endpoint, {
     method: "POST",
+    credentials: "include",
     headers: buildAuthHeaders(),
-    body: JSON.stringify({
-      provider: "sms",
-      challenge_id: options.challengeId,
-      code: options.code,
-      session_id: options.sessionId ?? null
+    body: buildBody({
+      session_id: options.sessionId ?? null,
+      user_agent: options.userAgent ?? null,
+      ip_address: options.ipAddress ?? null
     })
   });
 
   if (!response.ok) {
     const payload = asRecord(await parseJson(response));
-    const detail = asString(payload?.detail, `Verification failed (${response.status}).`);
-    throw new Error(detail);
+    const detail = asString(payload?.detail, `OAuth session exchange failed (${response.status}).`);
+    throw new AuthError(detail, response.status);
   }
 
-  const payload = asRecord((await response.json()) as unknown) ?? {};
-  return {
-    accessToken: asString(payload.access_token),
-    refreshToken: asString(payload.refresh_token),
-    expiresIn: asNumber(payload.expires_in),
-    tokenType: asString(payload.token_type, "bearer") || "bearer"
-  };
+  const payload = asRecord((await response.json()) as unknown);
+  return normalizeTokenResponse(payload);
 }
 
-export async function exchangeGoogleCode(options: {
+export async function loginWithDemoCode(options: {
   code: string;
-  redirectUri?: string;
   sessionId?: string;
+  userAgent?: string;
+  ipAddress?: string;
 }): Promise<TokenPair> {
-  const endpoint = `${getApiBaseUrl()}/api/auth/token`;
+  const endpoint = `${getApiBaseUrl()}/api/auth/demo`;
   const response = await fetch(endpoint, {
     method: "POST",
+    credentials: "include",
     headers: buildAuthHeaders(),
-    body: JSON.stringify({
-      provider: "google",
+    body: buildBody({
       code: options.code,
-      redirect_uri: options.redirectUri ?? null,
-      session_id: options.sessionId ?? null
+      session_id: options.sessionId ?? null,
+      user_agent: options.userAgent ?? null,
+      ip_address: options.ipAddress ?? null
     })
   });
 
   if (!response.ok) {
     const payload = asRecord(await parseJson(response));
-    const detail = asString(payload?.detail, `Google login failed (${response.status}).`);
-    throw new Error(detail);
+    const detail = asString(payload?.detail, `Demo login failed (${response.status}).`);
+    throw new AuthError(detail, response.status);
   }
 
-  const payload = asRecord((await response.json()) as unknown) ?? {};
-  return {
-    accessToken: asString(payload.access_token),
-    refreshToken: asString(payload.refresh_token),
-    expiresIn: asNumber(payload.expires_in),
-    tokenType: asString(payload.token_type, "bearer") || "bearer"
-  };
+  const payload = asRecord((await response.json()) as unknown);
+  return normalizeTokenResponse(payload);
 }
 
 export async function refreshToken(options: {
@@ -132,8 +112,9 @@ export async function refreshToken(options: {
   const endpoint = `${getApiBaseUrl()}/api/auth/token/refresh`;
   const response = await fetch(endpoint, {
     method: "POST",
+    credentials: "include",
     headers: buildAuthHeaders(),
-    body: JSON.stringify({
+    body: buildBody({
       refresh_token: options.refreshToken,
       session_id: options.sessionId ?? null,
       user_agent: options.userAgent ?? null,
@@ -144,14 +125,9 @@ export async function refreshToken(options: {
   if (!response.ok) {
     const payload = asRecord(await parseJson(response));
     const detail = asString(payload?.detail, `Token refresh failed (${response.status}).`);
-    throw new Error(detail);
+    throw new AuthError(detail, response.status);
   }
 
-  const payload = asRecord((await response.json()) as unknown) ?? {};
-  return {
-    accessToken: asString(payload.access_token),
-    refreshToken: asString(payload.refresh_token),
-    expiresIn: asNumber(payload.expires_in),
-    tokenType: asString(payload.token_type, "bearer") || "bearer"
-  };
+  const payload = asRecord((await response.json()) as unknown);
+  return normalizeTokenResponse(payload);
 }

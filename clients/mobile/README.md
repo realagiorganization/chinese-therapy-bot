@@ -2,7 +2,7 @@
 
 This directory contains the Expo-based React Native client that mirrors the web experience while targeting iOS and Android. The mobile app currently delivers:
 
-- SMS OTP and Google authorization flows sharing backend endpoints.
+- Email (oauth2-proxy) and demo-code flows sharing backend endpoints (native oauth callback wiring in progress).
 - Chat UI wired to the FastAPI `/api/chat/message` endpoint with therapist recommendations and memory highlights surfaced inline.
 - Offline transcript restoration backed by AsyncStorage so recent sessions remain available without connectivity.
 - Push notification scaffolding (Expo Notifications) that registers device tokens once the user authenticates.
@@ -17,7 +17,7 @@ This directory contains the Expo-based React Native client that mirrors the web 
    ```
 2. Provide the required environment variables (see `ENVS.md`):
    ```bash
-   export EXPO_PUBLIC_API_BASE_URL="http://localhost:8000/api"
+   export EXPO_PUBLIC_API_BASE_URL="http://localhost:8000"
    ```
 3. Launch the Expo development server:
    ```bash
@@ -28,14 +28,14 @@ This directory contains the Expo-based React Native client that mirrors the web 
 
 - `App.tsx`: Composes the auth provider, theme provider, and root navigation shell.
 - `src/context/AuthContext.tsx`: Persists token state with AsyncStorage and orchestrates login flows.
-- `src/screens/LoginScreen.tsx`: SMS + Google login UX with Mandarin-first copy.
+- `src/screens/LoginScreen.tsx`: oauth2-proxy email + demo-code login UX with Mandarin-first copy.
 - `src/screens/ChatScreen.tsx`: Chat transcript presentation, therapist recommendations, and message composer.
 - `src/services/`: Thin API client abstractions for authentication and chat endpoints.
 
 ## Next Steps
 
 - Ship Android voice input parity and performance profiling automation.
-- Wire Google/Apple OAuth SDKs for device-native authorization codes.
+- Complete oauth2-proxy callback handling on native platforms (custom tabs / ASWebAuthenticationSession).
 
 ## Release Bundles
 

@@ -67,4 +67,4 @@ tags = {
 ### Notes
 - Enable an Azure Storage Account backend for Terraform state before multi-user usage.
 - Configure Azure Key Vault firewall rules to include GitHub Action runner egress IPs when running in CI.
-- Populate secret values (OpenAI, SMS, Bedrock) via AWS Secrets Manager once credentials are provisioned.
+- Populate secret values (OpenAI, oauth2-proxy, Bedrock) via AWS Secrets Manager once credentials are provisioned.

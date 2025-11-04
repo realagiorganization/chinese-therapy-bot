@@ -14,29 +14,24 @@
   },
   "auth": {
     "title": "Sign in to MindWell",
-    "subtitle": "Use an SMS code or Google account to continue your journey.",
-    "sms_section": "SMS verification",
-    "phone_label": "Phone number",
-    "phone_placeholder": "e.g. 13800000000",
-    "send_code": "Send code",
-    "sending_code": "Sending…",
-    "sms_pending": "Code expires in {{seconds}}s",
-    "code_label": "Verification code",
-    "verify_code": "Verify and continue",
-    "verifying": "Verifying…",
-    "google_section": "Google sign-in (dev sandbox)",
-    "google_hint": "Enter any authorization code to simulate Google sign-in.",
-    "google_code_label": "Authorization code",
-    "google_cta": "Continue with Google",
-    "google_submitting": "Signing in…",
+    "subtitle": "Authenticate with your email to continue your journey. Demo access is optional for invited guests.",
+    "email_section": "Email authentication",
+    "email_hint": "oauth2-proxy validates your identity. We never store your password.",
+    "email_label": "Email address",
+    "email_cta": "Continue with email",
+    "email_checking": "Checking session...",
+    "email_redirect": "Redirecting...",
+    "demo_section": "Demo access",
+    "demo_hint": "Enter a case-sensitive demo code provided by MindWell.",
+    "demo_label": "Demo code",
+    "demo_cta": "Use demo code",
+    "demo_submitting": "Verifying code...",
     "logout": "Sign out",
     "errors": {
-      "phone_required": "Please enter a phone number.",
-      "code_required": "Enter the verification code.",
-      "google_code_required": "Provide the Google authorization code.",
-      "sms_unknown": "We couldn’t send the code. Try again shortly.",
-      "google_unknown": "Google sign-in failed. Try again.",
-      "challenge_missing": "Request a new code before verifying."
+      "email_required": "Please enter an email address.",
+      "demo_required": "Enter the demo code.",
+      "oauth_unknown": "We couldn't confirm your email. Try again or contact support.",
+      "demo_unknown": "Demo code validation failed. Check the code or request a new one."
     }
   },
   "explore": {
@@ -180,6 +175,30 @@
         "relationships": "Relationships",
         "burnout": "Burnout recovery",
         "self_compassion": "Self-compassion"
+      }
+    }
+  },
+  "subscription": {
+    "title": "Your demo credits are finished",
+    "message": "Pick a plan to keep exploring MindWell. Billing opens soon—we'll notify you first.",
+    "cta": "Notify me at launch",
+    "comingSoon": "Payments are not enabled yet. Leave your preferred plan and we'll reach out when subscriptions go live.",
+    "close": "Continue browsing",
+    "plans": {
+      "starter": {
+        "name": "Starter",
+        "price": "5 chats · weekly refill",
+        "description": "Short guided check-ins to stay mindful between therapy sessions."
+      },
+      "plus": {
+        "name": "Plus",
+        "price": "25 chats · monthly refill",
+        "description": "Longer conversations with memory highlights and therapist suggestions."
+      },
+      "pro": {
+        "name": "Pro",
+        "price": "Unlimited preview",
+        "description": "Full access for beta cohorts, including therapist-matched journeys."
       }
     }
   }

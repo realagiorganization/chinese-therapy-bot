@@ -1,6 +1,6 @@
 import { useCallback, useMemo, useRef, useState } from "react";
 
-import { sendChatTurn, streamChatTurn } from "../api/chat";
+import { ChatError, sendChatTurn, streamChatTurn } from "../api/chat";
 import type {
   ChatMessage,
   ChatTurnRequest,
@@ -46,6 +46,7 @@ type ChatSessionState = {
   isStreaming: boolean;
   error: string | null;
   resolvedLocale?: string;
+  quotaExceeded: boolean;
 };
 
 const INITIAL_STATE: ChatSessionState = {
@@ -55,7 +56,8 @@ const INITIAL_STATE: ChatSessionState = {
   sessionId: undefined,
   isStreaming: false,
   error: null,
-  resolvedLocale: undefined
+  resolvedLocale: undefined,
+  quotaExceeded: false
 };
 
 export type UseChatSessionResult = {
@@ -71,6 +73,8 @@ export type UseChatSessionResult = {
   sessionId?: string;
   userId: string;
   resolvedLocale: string;
+  quotaExceeded: boolean;
+  dismissQuotaPrompt: () => void;
 };
 
 export function useChatSession(locale: string): UseChatSessionResult {
@@ -109,7 +113,6 @@ export function useChatSession(locale: string): UseChatSessionResult {
         return;
       }
 
-      // Abort any in-flight stream before starting a new one.
       abortControllerRef.current?.abort();
 
       const controller = new AbortController();
@@ -137,7 +140,8 @@ export function useChatSession(locale: string): UseChatSessionResult {
         ...prev,
         messages: [...prev.messages, userMessage, assistantPlaceholder],
         error: null,
-        isStreaming: true
+        isStreaming: true,
+        quotaExceeded: false
       }));
 
       const request: ChatTurnRequest = {
@@ -151,8 +155,26 @@ export function useChatSession(locale: string): UseChatSessionResult {
       let aggregated = "";
       let fallbackAttempted = false;
 
+      const applyError = (detail: string, quota = false) => {
+        const message = detail || "Chat request failed.";
+        streamCompleted = true;
+        abortControllerRef.current = null;
+        setState((prev) => ({
+          ...prev,
+          quotaExceeded: prev.quotaExceeded || quota,
+          isStreaming: false,
+          error: message,
+          messages: mergeAssistantMessage(prev.messages, assistantMessageId, (current) => ({
+            ...current,
+            content: message,
+            streaming: false
+          }))
+        }));
+      };
+
       const finalizeFromResponse = (response: ChatTurnResponse) => {
         streamCompleted = true;
+        abortControllerRef.current = null;
         setState((prev) => ({
           ...prev,
           sessionId: response.sessionId || prev.sessionId,
@@ -164,17 +186,31 @@ export function useChatSession(locale: string): UseChatSessionResult {
             ...response.reply,
             streaming: false
           })),
-          isStreaming: false
+          isStreaming: false,
+          error: null,
+          quotaExceeded: false
         }));
       };
 
       const attemptFallback = async () => {
-        if (fallbackAttempted || controller.signal.aborted) {
+        if (fallbackAttempted || controller.signal.aborted || streamCompleted) {
           return;
         }
         fallbackAttempted = true;
-        const response = await sendChatTurn(request, { signal: controller.signal });
-        finalizeFromResponse(response);
+        try {
+          const response = await sendChatTurn(request, { signal: controller.signal });
+          finalizeFromResponse(response);
+        } catch (fallbackError) {
+          if (fallbackError instanceof ChatError && fallbackError.status === 402) {
+            applyError(fallbackError.message, true);
+          } else if (fallbackError instanceof ChatError) {
+            applyError(fallbackError.message);
+          } else if (fallbackError instanceof Error) {
+            applyError(fallbackError.message);
+          } else {
+            applyError(String(fallbackError));
+          }
+        }
       };
 
       try {
@@ -204,10 +240,9 @@ export function useChatSession(locale: string): UseChatSessionResult {
           } else if (event.type === "complete") {
             finalizeFromResponse(event.data);
           } else if (event.type === "error") {
-            setState((prev) => ({
-              ...prev,
-              error: event.data.detail
-            }));
+            const isQuotaError = event.data.code === "chat_tokens_exhausted";
+            applyError(event.data.detail, isQuotaError);
+            break;
           }
         }
 
@@ -216,45 +251,25 @@ export function useChatSession(locale: string): UseChatSessionResult {
         }
       } catch (error) {
         if (controller.signal.aborted) {
+          abortControllerRef.current = null;
           setState((prev) => ({
             ...prev,
             isStreaming: false,
             messages: prev.messages.filter((message) => message.id !== assistantMessageId)
           }));
-        } else {
-          setState((prev) => ({
-            ...prev,
-            error: error instanceof Error ? error.message : String(error)
-          }));
-          try {
+        } else if (error instanceof ChatError) {
+          const quotaError = error.status === 402 || error.code === "chat_tokens_exhausted";
+          applyError(error.message, quotaError);
+          if (!quotaError) {
             await attemptFallback();
-          } catch (fallbackError) {
-            setState((prev) => ({
-              ...prev,
-              isStreaming: false,
-              messages: mergeAssistantMessage(prev.messages, assistantMessageId, (message) => ({
-                ...message,
-                streaming: false
-              })),
-              error:
-                fallbackError instanceof Error
-                  ? fallbackError.message
-                  : String(fallbackError)
-            }));
           }
+        } else if (error instanceof Error) {
+          applyError(error.message);
+          await attemptFallback();
+        } else {
+          applyError(String(error));
+          await attemptFallback();
         }
-      } finally {
-        if (!controller.signal.aborted) {
-          setState((prev) => ({
-            ...prev,
-            isStreaming: false,
-            messages: mergeAssistantMessage(prev.messages, assistantMessageId, (message) => ({
-              ...message,
-              streaming: false
-            }))
-          }));
-        }
-        abortControllerRef.current = null;
       }
     },
     [locale, state.sessionId, state.resolvedLocale, userId]
@@ -272,6 +287,8 @@ export function useChatSession(locale: string): UseChatSessionResult {
     memoryHighlights: state.memoryHighlights,
     sessionId: state.sessionId,
     userId,
-    resolvedLocale: state.resolvedLocale ?? locale
+    resolvedLocale: state.resolvedLocale ?? locale,
+    quotaExceeded: state.quotaExceeded,
+    dismissQuotaPrompt
   };
 }

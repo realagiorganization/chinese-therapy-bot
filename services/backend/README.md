@@ -52,8 +52,8 @@ Application settings are defined in `app/core/config.py` using `pydantic-setting
 
 ## Next Steps
 
-- Connect OTP delivery to production SMS providers and replace the Console stub.
-- Integrate real Google OAuth exchanges and persist profile metadata securely.
+- Harden oauth2-proxy integration (header pinning, signed cookies) and remove legacy OTP code paths.
+- Ensure oauth2-proxy upstream identity mapping persists email/display name metadata securely.
 - Harden summary and chat pipelines with structured logging, metrics, and retries.
 - Expand automated tests across auth/chat/summaries and wire them into CI Runner.
 

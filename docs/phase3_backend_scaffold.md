@@ -6,7 +6,7 @@ This document captures the initial FastAPI scaffolding for the MindWell backend 
 - **Framework:** FastAPI (Python 3.10+) with async-first design for chat streaming and agent integrations.
 - **Packaging:** PEP 621 `pyproject.toml` with optional `dev` extras (`pytest`, `ruff`, `mypy`) to support CI linting and tests.
 - **Schema Management:** Pydantic v2 models for request/response validation across auth, chat, therapist, and report flows.
-- **Services Layer:** Lightweight domain services encapsulate business logic and integrations, enabling future swapping with real providers (OTP, LLM orchestration, S3, Postgres).
+- **Services Layer:** Lightweight domain services encapsulate business logic and integrations, enabling future swapping with real providers (identity proxy, LLM orchestration, S3, Postgres).
 
 ## 2. Project Layout (`services/backend`)
 
@@ -28,8 +28,9 @@ services/backend/
 | --- | --- | --- |
 | `/` | GET | Root informational heartbeat with environment metadata. |
 | `/api/healthz` | GET | Liveness probe. |
-| `/api/auth/sms` | POST | Initiates SMS OTP flow (stubbed response). |
-| `/api/auth/token` | POST | Exchanges OTP/OAuth code for tokens (fake tokens). |
+| `/api/auth/session` | POST | Exchanges oauth2-proxy identity headers for MindWell token pairs. |
+| `/api/auth/demo` | POST | Validates allowlisted demo codes and issues token pairs. |
+| `/api/auth/token/refresh` | POST | Rotates refresh tokens; revokes the prior token instance. |
 | `/api/chat/message` | POST | Processes a chat turn; streams assistant tokens via SSE when `enable_streaming` is true, otherwise returns the full reply payload. |
 | `/api/chat/templates` | GET | Returns curated conversation templates (per locale/topic) with sample openings and self-care nudges. |
 | `/api/therapists/` | GET | Lists therapists with filters, backed by static seed data. |
@@ -50,7 +51,7 @@ services/backend/
 
 ## 5. Next Implementation Steps
 1. Connect FastAPI dependency graph to actual persistence (PostgreSQL via SQLAlchemy/SQLModel).
-2. Integrate Azure AD B2C/OTP provider for production-grade authentication.
+2. Harden oauth2-proxy integration for production (signed cookies, header pinning, token quotas).
 3. Plug chat service into Azure OpenAI (primary) and AWS Bedrock (fallback) using structured prompt templates.
 4. Replace in-memory therapist data with repository pattern backed by Postgres + S3-sourced i18n profiles.
 5. Schedule background tasks for Summary Scheduler and Data Sync agents via Celery, Redis, or Azure Container Apps jobs.

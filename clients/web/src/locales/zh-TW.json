@@ -14,29 +14,24 @@
   },
   "auth": {
     "title": "登入 MindWell",
-    "subtitle": "透過簡訊驗證碼或 Google 帳號展開療癒旅程。",
-    "sms_section": "簡訊驗證登入",
-    "phone_label": "手機號碼",
-    "phone_placeholder": "例如 13800000000",
-    "send_code": "取得驗證碼",
-    "sending_code": "發送中…",
-    "sms_pending": "驗證碼將在 {{seconds}} 秒後失效",
-    "code_label": "驗證碼",
-    "verify_code": "驗證並登入",
-    "verifying": "驗證中…",
-    "google_section": "Google 登入（開發模式）",
-    "google_hint": "輸入任意授權碼即可模擬登入。",
-    "google_code_label": "授權碼",
-    "google_cta": "使用 Google 登入",
-    "google_submitting": "登入中…",
+    "subtitle": "透過電子郵件完成 oauth2 驗證，受邀訪客可使用體驗碼。",
+    "email_section": "電子郵件登入",
+    "email_hint": "oauth2-proxy 會驗證您的身分，我們不會儲存密碼。",
+    "email_label": "電子郵件",
+    "email_cta": "以電子郵件繼續",
+    "email_checking": "檢查工作階段...",
+    "email_redirect": "正在重新導向...",
+    "demo_section": "體驗存取",
+    "demo_hint": "輸入 MindWell 提供的體驗碼（區分大小寫）。",
+    "demo_label": "體驗碼",
+    "demo_cta": "使用體驗碼",
+    "demo_submitting": "驗證中...",
     "logout": "登出",
     "errors": {
-      "phone_required": "請填寫手機號碼。",
-      "code_required": "請輸入驗證碼。",
-      "google_code_required": "請輸入 Google 授權碼。",
-      "sms_unknown": "驗證碼發送失敗，請稍後再試。",
-      "google_unknown": "Google 登入失敗，請稍後再試。",
-      "challenge_missing": "請先取得驗證碼或重新發送。"
+      "email_required": "請輸入電子郵件。",
+      "demo_required": "請輸入體驗碼。",
+      "oauth_unknown": "無法確認電子郵件，請稍後再試或聯絡客服。",
+      "demo_unknown": "體驗碼無效，請確認或索取新的體驗碼。"
     }
   },
   "explore": {
@@ -180,6 +175,30 @@
         "relationships": "親密關係",
         "burnout": "倦怠修復",
         "self_compassion": "自我慈悲"
+      }
+    }
+  },
+  "subscription": {
+    "title": "體驗點數已用完",
+    "message": "請選擇合適的方案繼續體驗 MindWell。付費功能即將上線，我們會第一時間通知你。",
+    "cta": "開放時提醒我",
+    "comingSoon": "付款功能尚未啟用，留下意向後我們會在訂閱上線時與你聯繫。",
+    "close": "暫時回到體驗模式",
+    "plans": {
+      "starter": {
+        "name": "入門版",
+        "price": "每週 5 次對話額度",
+        "description": "適合短對話與呼吸練習，維持日常覺察。"
+      },
+      "plus": {
+        "name": "進階版",
+        "price": "每月 25 次對話額度",
+        "description": "更長的交流、記憶重點與個人化治療師推薦。"
+      },
+      "pro": {
+        "name": "專業版",
+        "price": "不限次數預覽",
+        "description": "提供完整陪伴體驗與治療師媒合，適用內測用戶。"
       }
     }
   }

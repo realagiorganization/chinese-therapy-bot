@@ -2,13 +2,13 @@ import json
 from collections.abc import AsyncIterator
 from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from fastapi.responses import StreamingResponse
 
 from app.api.deps import get_chat_service, get_chat_template_service
 from app.schemas.chat import ChatRequest, ChatResponse
 from app.schemas.templates import ChatTemplateItem, ChatTemplateListResponse
-from app.services.chat import ChatService
+from app.services.chat import ChatService, TokenQuotaExceeded
 from app.services.templates import ChatTemplateService
 
 router = APIRouter()
@@ -28,6 +28,11 @@ async def process_chat_turn(
 
     try:
         return await service.process_turn(payload)
+    except TokenQuotaExceeded as exc:
+        raise HTTPException(
+            status_code=status.HTTP_402_PAYMENT_REQUIRED,
+            detail=str(exc),
+        ) from exc
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
@@ -116,6 +121,13 @@ def _stream_chat_response(payload: ChatRequest, service: ChatService) -> Streami
         try:
             async for event in service.stream_turn(payload):
                 yield _encode_sse(event)
+        except TokenQuotaExceeded as exc:
+            yield _encode_sse(
+                {
+                    "event": "error",
+                    "data": {"detail": str(exc), "code": "chat_tokens_exhausted"},
+                }
+            )
         except ValueError as exc:
             yield _encode_sse({"event": "error", "data": {"detail": str(exc)}})
 

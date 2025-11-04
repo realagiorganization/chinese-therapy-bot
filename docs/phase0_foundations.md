@@ -35,7 +35,7 @@ This document captures the Phase 0 deliverables: target architecture, deployment
 
 ### Component Notes
 - **Clients:** React Native powers mobile clients; a React SPA serves desktop browsers. Both rely on shared localization assets (Chinese-first) and stream responses via web sockets.
-- **API Layer:** A modular service exposes REST/GraphQL endpoints, handling auth (SMS, Google OAuth, token renewal), therapist data, chat streaming, and report retrieval.
+- **API Layer:** A modular service exposes REST/GraphQL endpoints, handling auth (oauth2-proxy email, demo codes, token renewal), therapist data, chat streaming, and report retrieval.
 - **Intelligent Agents:** Four operational agents (CI Runner, Data Sync, Summary Scheduler, Monitoring) execute as containerized workers on Azure Container Apps or Kubernetes CronJobs/ScheduledJobs.
 - **Data Stores:** Azure Database for PostgreSQL holds relational data. Azure Cache for Redis enables low-latency chat sessions and feature flags. Azure Blob Storage (S3-compatible API via AWS S3 for cross-cloud redundancy) retains raw transcripts, daily/weekly summaries, and media artifacts.
 - **AI Integrations:** Primary inference uses Azure OpenAI (GPT-4o/4.1). AWS Bedrock (Claude/Sonnet) provides fallback capacity and specialized embeddings. Vector indices reside in Azure Cognitive Search.

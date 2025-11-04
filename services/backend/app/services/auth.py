@@ -1,124 +1,130 @@
 from __future__ import annotations
 
 import hashlib
+import logging
+import re
 import secrets
+from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from typing import Any
-from uuid import UUID, uuid4
 
 import jwt
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import AppSettings
-from app.integrations.google import GoogleOAuthClient, GoogleProfile
-from app.integrations.sms import SMSProvider
-from app.models import LoginChallenge, RefreshToken, User
-from app.schemas.auth import (
-    AuthProvider,
-    LoginChallengeResponse,
-    SMSLoginRequest,
-    TokenExchangeRequest,
-    TokenRefreshRequest,
-    TokenResponse,
-)
+from app.models import RefreshToken, User
+from app.schemas.auth import DemoLoginRequest, TokenRefreshRequest, TokenResponse
+from app.services.demo_codes import DemoCodeEntry, DemoCodeRegistry
+
+logger = logging.getLogger(__name__)
+
+
+@dataclass(slots=True)
+class OAuth2Identity:
+    """Normalized identity payload extracted from oauth2-proxy headers."""
+
+    subject: str
+    email: str
+    name: str | None = None
 
 
 class AuthService:
-    """Authentication workflows covering SMS OTP and Google OAuth flows."""
+    """Authentication workflows backed by oauth2-proxy and demo code allowlists."""
 
     def __init__(
         self,
         session: AsyncSession,
         settings: AppSettings,
-        sms_provider: SMSProvider,
-        google_client: GoogleOAuthClient,
+        demo_registry: DemoCodeRegistry,
     ):
         self._session = session
         self._settings = settings
-        self._sms_provider = sms_provider
-        self._google_client = google_client
+        self._demo_registry = demo_registry
 
-    async def initiate_sms_login(self, payload: SMSLoginRequest) -> LoginChallengeResponse:
-        phone_number = self._normalize_phone(payload.phone_number, payload.country_code)
-        if not phone_number:
-            raise ValueError("Phone number is invalid.")
+    async def create_session_from_oauth(
+        self,
+        identity: OAuth2Identity,
+        *,
+        session_id: str | None = None,
+        user_agent: str | None = None,
+        ip_address: str | None = None,
+    ) -> TokenResponse:
+        """Issue MindWell tokens for a user authenticated by oauth2-proxy."""
+        email = identity.email.strip().lower()
+        if not email:
+            raise ValueError("OAuth2 identity is missing email claims.")
 
-        user = await self._find_user_by_phone(phone_number)
-        otp_code = self._generate_otp()
-        now = self._now()
-        expires_at = now + timedelta(seconds=self._settings.otp_expiry_seconds)
+        subject = identity.subject.strip() or email
+        user = await self._upsert_oauth_user(subject=subject, email=email, name=identity.name)
+        limit = self._resolve_token_limit(user)
+        await self._enforce_token_limit(user, limit)
 
-        challenge = LoginChallenge(
-            id=uuid4(),
-            user_id=user.id if user else None,
-            provider=AuthProvider.SMS.value,
-            phone_number=phone_number,
-            code_hash=self._hash_secret(otp_code),
-            expires_at=expires_at,
-            attempts=0,
-            max_attempts=max(1, self._settings.otp_attempt_limit),
-            payload={
-                "country_code": payload.country_code,
-                "locale": payload.locale or "zh-CN",
-            },
-        )
-        self._session.add(challenge)
-        await self._session.flush()
-
-        await self._sms_provider.send_otp(
-            phone_number=phone_number,
-            code=otp_code,
-            sender_id=self._settings.sms_sender_id,
-            locale=payload.locale,
+        logger.debug("Issuing tokens for oauth2 user %s (limit=%s)", user.id, limit)
+        return await self._issue_tokens(
+            user,
+            session_id=session_id,
+            user_agent=user_agent,
+            ip_address=ip_address,
         )
 
-        return LoginChallengeResponse(
-            channel=AuthProvider.SMS,
-            challenge_id=str(challenge.id),
-            expires_in=self._settings.otp_expiry_seconds,
-            detail="OTP dispatched for SMS verification.",
+    async def login_with_demo_code(
+        self,
+        payload: DemoLoginRequest,
+        *,
+        user_agent: str | None = None,
+        ip_address: str | None = None,
+    ) -> TokenResponse:
+        """Exchange an allowlisted demo code for access tokens."""
+        entry = self._demo_registry.lookup(payload.code)
+        if not entry:
+            raise ValueError("Демо-код не найден или не разрешён.")
+
+        user = await self._get_or_create_demo_user(entry)
+        limit = self._resolve_token_limit(user, override=entry.token_limit)
+        await self._enforce_token_limit(user, limit)
+
+        logger.debug(
+            "Issuing tokens for demo code %s (user=%s, limit=%s)",
+            entry.code,
+            user.id,
+            limit,
         )
-
-    async def exchange_token(self, payload: TokenExchangeRequest) -> TokenResponse:
-        if not payload.code:
-            raise ValueError("Verification/OAuth code is required.")
-        if payload.provider == AuthProvider.SMS:
-            if not payload.challenge_id:
-                raise ValueError("challenge_id is required for SMS authentication.")
-            user = await self._complete_sms_login(payload.challenge_id, payload.code)
-            return await self._issue_tokens(user, session_id=payload.session_id)
-
-        if payload.provider == AuthProvider.GOOGLE:
-            profile = await self._google_client.exchange_code(payload.code, payload.redirect_uri)
-            user = await self._upsert_google_user(profile)
-            return await self._issue_tokens(user, session_id=payload.session_id)
-
-        raise ValueError(f"Unsupported auth provider {payload.provider}.")
+        return await self._issue_tokens(
+            user,
+            session_id=payload.session_id,
+            user_agent=user_agent,
+            ip_address=ip_address,
+        )
 
     async def refresh_token(self, payload: TokenRefreshRequest) -> TokenResponse:
+        """Rotate refresh token and mint a new access token pair."""
         if not payload.refresh_token:
-            raise ValueError("Refresh token must be supplied.")
+            raise ValueError("Необходимо указать refresh_token.")
+
         hashed = self._hash_secret(payload.refresh_token)
         stmt = select(RefreshToken).where(RefreshToken.token_hash == hashed)
         result = await self._session.execute(stmt)
         token = result.scalar_one_or_none()
         if not token:
-            raise ValueError("Refresh token is invalid.")
+            raise ValueError("Refresh token не найден или уже отозван.")
 
         now = self._now()
         if token.expires_at <= now:
-            raise ValueError("Refresh token has expired.")
+            raise ValueError("Срок действия refresh token истёк.")
         if token.revoked_at is not None:
-            raise ValueError("Refresh token has been revoked.")
+            raise ValueError("Refresh token был отозван.")
 
         user = token.user or await self._session.get(User, token.user_id)
         if not user:
-            raise ValueError("Associated user could not be resolved.")
+            raise ValueError("Пользователь для refresh token не найден.")
 
         token.revoked_at = now
-        await self._session.flush()
 
+        limit = self._resolve_token_limit(user)
+        await self._enforce_token_limit(user, limit)
+
+        logger.debug("Refreshing tokens for user %s (limit=%s)", user.id, limit)
         return await self._issue_tokens(
             user,
             session_id=payload.session_id,
@@ -126,60 +132,104 @@ class AuthService:
             ip_address=payload.ip_address,
         )
 
-    async def _complete_sms_login(self, challenge_id: str, code: str) -> User:
-        try:
-            challenge_uuid = UUID(challenge_id)
-        except ValueError as exc:
-            raise ValueError("challenge_id is malformed.") from exc
-
-        challenge = await self._session.get(LoginChallenge, challenge_uuid)
-        if not challenge:
-            raise ValueError("SMS challenge not found.")
-        if challenge.provider != AuthProvider.SMS.value:
-            raise ValueError("Challenge provider mismatch.")
-
-        now = self._now()
-        if challenge.verified_at is not None:
-            raise ValueError("Challenge has already been completed.")
-        if challenge.expires_at <= now:
-            raise ValueError("Challenge has expired; please request a new OTP.")
-        if challenge.attempts >= challenge.max_attempts:
-            raise ValueError("Maximum verification attempts exceeded.")
-
-        if challenge.code_hash != self._hash_secret(code):
-            challenge.attempts += 1
-            await self._session.flush()
-            raise ValueError("Verification code is incorrect.")
-
-        challenge.verified_at = now
-        phone_number = challenge.phone_number
-        if not phone_number:
-            raise ValueError("Challenge missing phone number.")
-
-        user = await self._get_or_create_user_by_phone(phone_number)
-        challenge.user_id = user.id
-        await self._session.flush()
-        return user
-
-    async def _upsert_google_user(self, profile: GoogleProfile) -> User:
-        stmt = select(User).where(User.external_id == profile.subject).limit(1)
+    async def _upsert_oauth_user(self, *, subject: str, email: str, name: str | None) -> User:
+        stmt = select(User).where(User.external_id == subject).limit(1)
         result = await self._session.execute(stmt)
         user = result.scalar_one_or_none()
+
+        display_name = (name or "").strip() or email.split("@", 1)[0]
+
+        default_limit = max(1, self._settings.auth_default_token_limit)
+        default_chat_quota = max(0, self._settings.chat_token_default_quota)
+
         if user:
-            user.email = profile.email
-            user.display_name = profile.name
+            if user.email != email:
+                user.email = email
+            if display_name and user.display_name != display_name:
+                user.display_name = display_name
+            if not user.account_type or user.account_type == "legacy":
+                user.account_type = "email"
+            if not user.token_limit or user.token_limit <= 0:
+                user.token_limit = default_limit
+            if user.demo_code is not None:
+                user.demo_code = None
+            self._sync_chat_quota(user, default_chat_quota)
             await self._session.flush()
             return user
 
         user = User(
-            external_id=profile.subject,
-            email=profile.email,
-            display_name=profile.name,
+            external_id=subject,
+            email=email,
+            display_name=display_name,
             locale="zh-CN",
+            account_type="email",
+            token_limit=default_limit,
         )
+        self._sync_chat_quota(user, default_chat_quota)
         self._session.add(user)
         await self._session.flush()
         return user
+
+    async def _get_or_create_demo_user(self, entry: DemoCodeEntry) -> User:
+        stmt = select(User).where(User.demo_code == entry.code).limit(1)
+        result = await self._session.execute(stmt)
+        user = result.scalar_one_or_none()
+
+        display_name = entry.label or f"Demo {entry.code}"
+        email = self._demo_email(entry.code)
+        token_limit = entry.token_limit or self._settings.auth_demo_token_limit
+        chat_quota = (
+            entry.chat_token_quota
+            if entry.chat_token_quota is not None
+            else self._settings.chat_token_demo_quota
+        )
+
+        if user:
+            if user.account_type != "demo":
+                user.account_type = "demo"
+            if user.display_name != display_name:
+                user.display_name = display_name
+            if user.email != email:
+                user.email = email
+            if not user.token_limit or user.token_limit <= 0 or entry.token_limit:
+                user.token_limit = max(1, token_limit)
+            self._sync_chat_quota(user, chat_quota)
+            await self._session.flush()
+            return user
+
+        user = User(
+            external_id=f"demo:{entry.code}",
+            email=email,
+            display_name=display_name,
+            locale="zh-CN",
+            account_type="demo",
+            demo_code=entry.code,
+            token_limit=max(1, token_limit),
+        )
+        self._sync_chat_quota(user, chat_quota)
+        self._session.add(user)
+        await self._session.flush()
+        return user
+
+    async def _enforce_token_limit(self, user: User, limit: int) -> None:
+        limit = max(0, limit)
+        if limit == 0:
+            return
+
+        now = self._now()
+        stmt = (
+            select(func.count(RefreshToken.id))
+            .where(
+                RefreshToken.user_id == user.id,
+                RefreshToken.revoked_at.is_(None),
+                RefreshToken.expires_at > now,
+            )
+            .limit(1)
+        )
+        result = await self._session.execute(stmt)
+        active_tokens = result.scalar_one() or 0
+        if active_tokens >= limit:
+            raise ValueError("Достигнут лимит активных сессий для этого аккаунта.")
 
     async def _issue_tokens(
         self,
@@ -221,7 +271,6 @@ class AuthService:
         self._session.add(refresh_record)
         await self._session.flush()
 
-        # Standard OAuth2 bearer token type.
         return TokenResponse(
             access_token=access_token,
             refresh_token=refresh_token,
@@ -229,37 +278,36 @@ class AuthService:
             expires_in=self._settings.access_token_ttl,
         )
 
-    async def _find_user_by_phone(self, phone_number: str) -> User | None:
-        stmt = select(User).where(User.phone_number == phone_number).limit(1)
-        result = await self._session.execute(stmt)
-        return result.scalar_one_or_none()
-
-    async def _get_or_create_user_by_phone(self, phone_number: str) -> User:
-        user = await self._find_user_by_phone(phone_number)
-        if user:
-            return user
-
-        user = User(phone_number=phone_number, locale="zh-CN")
-        self._session.add(user)
-        await self._session.flush()
-        return user
+    def _resolve_token_limit(self, user: User, *, override: int | None = None) -> int:
+        if override and override > 0:
+            return override
+        if user.token_limit and user.token_limit > 0:
+            return user.token_limit
+        if user.account_type == "demo":
+            return max(1, self._settings.auth_demo_token_limit)
+        return max(1, self._settings.auth_default_token_limit)
 
     def _hash_secret(self, value: str) -> str:
         return hashlib.sha256(value.encode("utf-8")).hexdigest()
 
-    def _generate_otp(self) -> str:
-        digits = "0123456789"
-        return "".join(secrets.choice(digits) for _ in range(6))
-
-    def _normalize_phone(self, phone_number: str, country_code: str | None) -> str:
-        digits = "".join(ch for ch in phone_number if ch.isdigit())
-        if not digits:
-            return ""
-        prefix = country_code or "+86"
-        prefix_digits = prefix if prefix.startswith("+") else f"+{prefix}"
-        if prefix_digits == "+86" and len(digits) > 11:
-            digits = digits[-11:]
-        return f"{prefix_digits}{digits}" if digits else ""
+    def _demo_email(self, code: str) -> str:
+        slug = re.sub(r"[^a-z0-9]+", "-", code.lower()).strip("-")
+        slug = slug or "demo"
+        return f"{slug}@demo.local"
 
     def _now(self) -> datetime:
         return datetime.now(tz=timezone.utc)
+
+    def _sync_chat_quota(self, user: User, quota: int) -> None:
+        normalized_quota = quota if quota >= 0 else 0
+        user.chat_token_quota = normalized_quota
+        if user.chat_tokens_remaining is None:
+            user.chat_tokens_remaining = normalized_quota
+        else:
+            if user.chat_tokens_remaining > normalized_quota:
+                user.chat_tokens_remaining = normalized_quota
+            if user.chat_tokens_remaining < 0:
+                user.chat_tokens_remaining = 0
+
+
+__all__ = ["AuthService", "OAuth2Identity"]

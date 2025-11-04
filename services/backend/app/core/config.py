@@ -23,6 +23,24 @@ class AppSettings(BaseSettings):
     refresh_token_ttl: int = Field(default=60 * 60 * 24 * 30, alias="REFRESH_TOKEN_TTL")
     otp_expiry_seconds: int = Field(default=300, alias="OTP_EXPIRY_SECONDS")
     otp_attempt_limit: int = Field(default=5, alias="OTP_ATTEMPT_LIMIT")
+    auth_default_token_limit: int = Field(default=3, alias="AUTH_DEFAULT_TOKEN_LIMIT")
+    auth_demo_token_limit: int = Field(default=1, alias="AUTH_DEMO_TOKEN_LIMIT")
+    chat_token_default_quota: int = Field(
+        default=50, alias="CHAT_TOKEN_DEFAULT_QUOTA"
+    )
+    chat_token_demo_quota: int = Field(
+        default=15, alias="CHAT_TOKEN_DEMO_QUOTA"
+    )
+    oauth2_proxy_email_header: str = Field(
+        default="X-Auth-Request-Email", alias="OAUTH2_PROXY_EMAIL_HEADER"
+    )
+    oauth2_proxy_user_header: str = Field(
+        default="X-Auth-Request-User", alias="OAUTH2_PROXY_USER_HEADER"
+    )
+    oauth2_proxy_name_header: str = Field(
+        default="X-Auth-Request-Preferred-Username", alias="OAUTH2_PROXY_NAME_HEADER"
+    )
+    demo_code_file: Optional[str] = Field(default=None, alias="DEMO_CODE_FILE")
 
     openai_api_key: Optional[SecretStr] = Field(default=None, alias="OPENAI_API_KEY")
     azure_openai_endpoint: Optional[str] = Field(default=None, alias="AZURE_OPENAI_ENDPOINT")
