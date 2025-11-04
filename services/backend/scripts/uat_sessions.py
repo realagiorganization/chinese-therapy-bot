@@ -12,7 +12,15 @@ from typing import Iterable
 from uuid import UUID
 
 from app.core.database import get_session_factory
-from app.schemas.pilot_uat import PilotUATIssue, PilotUATSessionCreate
+from app.schemas.pilot_uat import (
+    PilotUATGroupSummary,
+    PilotUATIssue,
+    PilotUATIssueSummary,
+    PilotUATSessionCreate,
+    PilotUATSessionFilters,
+    PilotUATSessionResponse,
+    PilotUATSessionSummary,
+)
 from app.services.pilot_uat import PilotUATService
 
 
@@ -60,6 +68,37 @@ def build_parser() -> argparse.ArgumentParser:
         "--cohort",
         type=str,
         help="Override cohort for all imported rows (falls back to CSV column).",
+    )
+
+    report_parser = subparsers.add_parser(
+        "report",
+        help="Generate a markdown digest summarizing recorded UAT sessions.",
+    )
+    report_parser.add_argument("--cohort", help="Filter report data by cohort code.")
+    report_parser.add_argument(
+        "--environment",
+        help="Filter by environment (qa, pilot, prod, etc.).",
+    )
+    report_parser.add_argument(
+        "--since",
+        dest="occurred_after",
+        help="Only include sessions that occurred on/after this ISO8601 timestamp.",
+    )
+    report_parser.add_argument(
+        "--until",
+        dest="occurred_before",
+        help="Only include sessions that occurred on/before this ISO8601 timestamp.",
+    )
+    report_parser.add_argument(
+        "--limit",
+        type=int,
+        default=5,
+        help="Number of recent sessions to append to the digest (default: 5).",
+    )
+    report_parser.add_argument(
+        "--output",
+        type=Path,
+        help="If provided, write the markdown digest to this file path.",
     )
 
     return parser
@@ -169,6 +208,132 @@ async def _import_records(args: argparse.Namespace) -> None:
         print(f"Imported {created} UAT session(s) from {args.path}.")
 
 
+async def _generate_report(args: argparse.Namespace) -> None:
+    session_factory = get_session_factory()
+    async with session_factory() as db_session:
+        service = PilotUATService(db_session)
+        filters = PilotUATSessionFilters(
+            cohort=args.cohort,
+            environment=args.environment,
+            occurred_after=_parse_datetime(args.occurred_after),
+            occurred_before=_parse_datetime(args.occurred_before),
+        )
+        summary = await service.summarize_sessions(filters)
+        list_response = await service.list_sessions(filters, limit=args.limit, offset=0)
+        markdown = render_markdown_digest(summary, list_response.items)
+
+    output_path: Path | None = args.output
+    if output_path:
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        output_path.write_text(markdown, encoding="utf-8")
+    print(markdown)
+
+
+def render_markdown_digest(
+    summary: PilotUATSessionSummary,
+    recent_sessions: Iterable[PilotUATSessionResponse],
+) -> str:
+    """Render a human-readable markdown digest for pilot UAT activity."""
+    lines: list[str] = ["# Pilot UAT Digest", ""]
+    lines.extend(_render_summary_metrics(summary))
+    lines.append("")
+    lines.extend(_render_issue_table(summary.issues_by_severity))
+    lines.append("")
+    lines.extend(_render_group_table("Sessions by Platform", summary.sessions_by_platform))
+    lines.append("")
+    lines.extend(_render_group_table("Sessions by Environment", summary.sessions_by_environment))
+    lines.append("")
+    lines.extend(_render_recent_sessions(recent_sessions))
+    return "\n".join(lines).strip() + "\n"
+
+
+def _render_summary_metrics(summary: PilotUATSessionSummary) -> list[str]:
+    if summary.total_sessions == 0:
+        return ["No pilot UAT sessions have been recorded yet."]
+
+    def _format_optional(value: float | None) -> str:
+        return f"{value:.2f}" if value is not None else "n/a"
+
+    return [
+        f"- Total sessions: **{summary.total_sessions}**",
+        f"- Distinct participants: **{summary.distinct_participants}**",
+        f"- Average satisfaction: **{_format_optional(summary.average_satisfaction)} / 5**",
+        f"- Average trust: **{_format_optional(summary.average_trust)} / 5**",
+        f"- Sessions reporting blockers: **{summary.sessions_with_blockers}**",
+    ]
+
+
+def _render_issue_table(issues: Iterable[PilotUATIssueSummary]) -> list[str]:
+    issues = list(issues)
+    if not issues:
+        return ["## Issue Counts by Severity", "", "_No issues logged yet._"]
+
+    lines = ["## Issue Counts by Severity", "", "| Severity | Count |", "| --- | --- |"]
+    for issue in issues:
+        label = issue.severity or "unspecified"
+        lines.append(f"| {label} | {issue.count} |")
+    return lines
+
+
+def _render_group_table(
+    title: str,
+    groups: Iterable[PilotUATGroupSummary],
+) -> list[str]:
+    groups = list(groups)
+    if not groups:
+        return [f"## {title}", "", "_No data available._"]
+
+    def _format_optional(value: float | None) -> str:
+        return f"{value:.2f}" if value is not None else "n/a"
+
+    lines = [
+        f"## {title}",
+        "",
+        "| Key | Sessions | Avg. Satisfaction | Avg. Trust |",
+        "| --- | --- | --- | --- |",
+    ]
+    for group in groups:
+        lines.append(
+            f"| {group.key} | {group.total} | {_format_optional(group.average_satisfaction)} | "
+            f"{_format_optional(group.average_trust)} |"
+        )
+    return lines
+
+
+def _render_recent_sessions(
+    sessions: Iterable[PilotUATSessionResponse],
+) -> list[str]:
+    sessions = list(sessions)
+    if not sessions:
+        return ["## Recent Sessions", "", "_No sessions to display._"]
+
+    lines = ["## Recent Sessions", ""]
+    for session in sessions:
+        timestamp = session.session_date.astimezone(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
+        alias = session.participant_alias or "anonymous"
+        platform = session.platform or "unspecified"
+        highlights = session.highlights or "—"
+        blockers = session.blockers or "—"
+        lines.extend(
+            [
+                f"### {timestamp} · {alias} · {platform}",
+                f"- Satisfaction: **{session.satisfaction_score} / 5**, Trust: "
+                f"**{session.trust_score if session.trust_score is not None else 'n/a'} / 5**",
+                f"- Facilitator: {session.facilitator or 'unspecified'} · Scenario: "
+                f"{session.scenario or 'unspecified'}",
+                f"- Highlights: {highlights}",
+                f"- Blockers: {blockers}",
+            ]
+        )
+        if session.issues:
+            issue_lines = ", ".join(f"{issue.severity or 'unspecified'} – {issue.title}" for issue in session.issues)
+            lines.append(f"- Issues: {issue_lines}")
+        if session.action_items:
+            lines.append(f"- Action Items: {', '.join(session.action_items)}")
+        lines.append("")
+    return lines
+
+
 def _parse_issue(raw: str) -> PilotUATIssue:
     severity = title = notes = None
     if raw:
@@ -236,6 +401,8 @@ def cli(argv: list[str] | None = None) -> None:
         asyncio.run(_log_record(args))
     elif args.command == "import":
         asyncio.run(_import_records(args))
+    elif args.command == "report":
+        asyncio.run(_generate_report(args))
     else:  # pragma: no cover - argparse enforces choices
         parser.print_help()
 

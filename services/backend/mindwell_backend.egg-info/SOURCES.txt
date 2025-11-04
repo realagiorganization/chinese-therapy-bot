@@ -39,6 +39,7 @@ app/integrations/llm.py
 app/integrations/sms.py
 app/integrations/storage.py
 app/integrations/therapists.py
+app/integrations/wechat.py
 app/models/__init__.py
 app/models/base.py
 app/models/entities.py
@@ -92,6 +93,7 @@ scripts/manage_pilot_cohort.py
 scripts/pilot_followups.py
 scripts/summarize_pilot_feedback.py
 scripts/uat_sessions.py
+tests/test_alert_dispatcher.py
 tests/test_analytics_service.py
 tests/test_app.py
 tests/test_asr_service.py
