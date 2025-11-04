@@ -29,6 +29,11 @@
     "google_code_label": "Authorization code",
     "google_cta": "Continue with Google",
     "google_submitting": "Signing in…",
+    "wechat_section": "WeChat sign-in (dev sandbox)",
+    "wechat_hint": "Enter a WeChat mini program authorization code (js_code) to simulate sign-in.",
+    "wechat_code_label": "Authorization code or js_code",
+    "wechat_cta": "Continue with WeChat",
+    "wechat_submitting": "Signing in with WeChat…",
     "logout": "Sign out",
     "errors": {
       "phone_required": "Please enter a phone number.",
@@ -36,6 +41,8 @@
       "google_code_required": "Provide the Google authorization code.",
       "sms_unknown": "We couldn’t send the code. Try again shortly.",
       "google_unknown": "Google sign-in failed. Try again.",
+      "wechat_code_required": "Enter the WeChat authorization code.",
+      "wechat_unknown": "WeChat sign-in failed. Try again.",
       "challenge_missing": "Request a new code before verifying."
     }
   },

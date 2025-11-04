@@ -123,6 +123,38 @@ export async function exchangeGoogleCode(options: {
   };
 }
 
+export async function exchangeWeChatCode(options: {
+  code: string;
+  sessionId?: string;
+  redirectUri?: string;
+}): Promise<TokenPair> {
+  const endpoint = `${getApiBaseUrl()}/api/auth/token`;
+  const response = await fetch(endpoint, {
+    method: "POST",
+    headers: buildAuthHeaders(),
+    body: JSON.stringify({
+      provider: "wechat",
+      code: options.code,
+      session_id: options.sessionId ?? null,
+      redirect_uri: options.redirectUri ?? null
+    })
+  });
+
+  if (!response.ok) {
+    const payload = asRecord(await parseJson(response));
+    const detail = asString(payload?.detail, `WeChat login failed (${response.status}).`);
+    throw new Error(detail);
+  }
+
+  const payload = asRecord((await response.json()) as unknown) ?? {};
+  return {
+    accessToken: asString(payload.access_token),
+    refreshToken: asString(payload.refresh_token),
+    expiresIn: asNumber(payload.expires_in),
+    tokenType: asString(payload.token_type, "bearer") || "bearer"
+  };
+}
+
 export async function refreshToken(options: {
   refreshToken: string;
   sessionId?: string;

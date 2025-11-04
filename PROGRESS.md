@@ -1,9 +1,11 @@
 # MindWell Implementation Progress
 
 ### Verification Snapshot
+- Recreated backend virtualenv and installed `mindwell-backend` with dev extras to satisfy test dependencies (`pip install -e .[dev]`).
+- Ran the backend suite via `pytest`; latest run 2025-11-04T02:16Z produced 87 passing tests on Python 3.11.14 (baseline run previously logged at 80 passed in 9.39s).
 - Confirmed referenced Phase 0/1 design artifacts exist under `docs/` (e.g., `docs/phase0_foundations.md`, `docs/phase1_product_design.md`) and align with completed checkboxes.
 - Validated Terraform modules for remote state, AKS, observability, and secret management under `infra/terraform/`, matching Phase 2 completed tasks.
-- Installed backend dependencies (`pip install -e .[dev]`) and ran `pytest` to verify the backend suite passes after recent service additions (latest run: `pytest`, 79 passed on 2025-11-05T12:08 UTC).
+- Installed backend dependencies (`pip install -e .[dev]`) and kept the regression suite green (2025-11-04T02:16Z `pytest` run: 87 passed; historical log retained for the 2025-11-05T12:08Z 79-pass baseline capture).
 - Spot-checked backend services (chat, summaries, feature flags) to ensure the implementations cited in Phase 3 are present and wired into FastAPI dependencies.
 - Verified automatic locale detection end-to-end (`services/backend/app/services/language_detection.py:1`, `services/backend/app/services/chat.py:28`, `clients/web/src/hooks/useChatSession.ts:134`, `clients/mobile/src/screens/ChatScreen.tsx:134`), including new unit coverage in `services/backend/tests/test_language_detection.py:1`.
 - Revalidated streaming chat and guardrail tooling align with Phase 4/5 milestones (`clients/web/src/hooks/useChatSession.ts:1`, `services/backend/app/services/evaluation.py:1`).
@@ -14,13 +16,16 @@
 - Delivered pilot feedback intake persistence + API to capture pilot cohort sentiment for Phase 6 UAT tracking (`services/backend/app/models/entities.py:381`, `services/backend/app/api/routes/feedback.py:1`, `services/backend/tests/test_feedback_service.py:1`, `services/backend/tests/test_feedback_api.py:1`).
 - Added pilot cohort roster management model, service, API, CLI, and regression tests so recruitment can proceed with structured tracking (`services/backend/app/models/entities.py:414`, `services/backend/app/services/pilot_cohort.py:1`, `services/backend/app/api/routes/pilot_cohort.py:1`, `services/backend/scripts/manage_pilot_cohort.py:1`, `services/backend/tests/test_pilot_cohort_service.py:1`, `services/backend/tests/test_pilot_cohort_api.py:1`).
 - Implemented pilot cohort follow-up automation delivering templated outreach recommendations and CLI tooling (`services/backend/app/services/pilot_cohort.py:1`, `services/backend/app/api/routes/pilot_cohort.py:1`, `services/backend/scripts/pilot_followups.py:1`, `services/backend/tests/test_pilot_cohort_service.py:1`, `services/backend/tests/test_pilot_cohort_api.py:1`).
-- Added `/api/feedback/pilot/summary` endpoint so product and research can ingest aggregated UAT metrics; validated via expanded regression suite (`services/backend/app/api/routes/feedback.py:1`, `services/backend/tests/test_feedback_api.py:1`, pytest 80 passed on 2025-11-03T19:08Z).
+- Added `/api/feedback/pilot/summary` endpoint so product and research can ingest aggregated UAT metrics; validated via expanded regression suite (`services/backend/app/api/routes/feedback.py:1`, `services/backend/tests/test_feedback_api.py:1`, tracked by the latest 87-pass pytest run on 2025-11-04T02:16Z).
 - Confirmed infrastructure automation and CI coverage for mobile clients match Phase 2/7 claims (`infra/terraform/azure_postgres.tf:1`, `.github/workflows/ci.yml:1`).
 - README now documents end-to-end frontend/mobile setup workflows as required by DEV_PLAN (`README.md:70`, `README.md:90`).
-- Ran `terraform init`/`validate` against `infra/terraform` with azurerm 3.117 to resolve provider schema updates (AKS monitor metrics, Key Vault retention, scheduled query alerts, consumption budget) and generated a reproducible `.terraform.lock.hcl`.
+- Ran `terraform init`/`validate` against `infra/terraform` with azurerm 3.117 to resolve provider schema updates (AKS monitor metrics, Key Vault retention, scheduled query alerts, consumption budget) and generated a reproducible `.terraform.lock.hcl` (pending rerun in this container because the Terraform CLI is unavailable).
 - Added Kubernetes CronJobs for automation agents (`mindwell-data-sync`, `mindwell-summary-scheduler`, `mindwell-monitoring-agent`) under `infra/kubernetes/agents/` and expanded the shared SecretProviderClass so workloads can pull App Insights, alerting, and AWS credentials from Key Vault.
+- Data Sync agent now emits JSON ingestion metrics to the path configured via `DATA_SYNC_METRICS_PATH`, with CronJob bootstrap logic ensuring directories exist for Monitoring ingestion (`services/backend/app/agents/data_sync.py`, `services/backend/tests/test_data_sync_agent.py`, `infra/kubernetes/agents/cronjob-data-sync.yaml`, `infra/kubernetes/agents/configmap.yaml`).
 - Hardened AWS Bedrock fallback integration to use `aioboto3.Session().client` and added regression coverage capturing Bedrock + heuristic streaming behavior (`services/backend/app/integrations/llm.py`, `services/backend/tests/test_llm_orchestrator.py`).
-- 2025-11-03T18:47Z: Re-audited completed milestones against repository state, reran `pytest` (76 passed), and validated Terraform configuration with Terraform 1.6.6 (`terraform init -backend=false` + `terraform validate` via `./.bin/terraform`); no discrepancies found. New pilot cohort tooling verified through API + service tests.
+- 2025-11-03T18:47Z: Re-audited completed milestones against repository state, reran `pytest` (76 passed), and validated Terraform configuration with Terraform 1.6.6 (`terraform init -backend=false` + `terraform validate` via `./.bin/terraform`); no discrepancies found. Follow-up verification 2025-11-04T02:16Z confirmed 87 passing tests with current feature set. New pilot cohort tooling verified through API + service tests.
+- Authored infrastructure preflight script and AKS provisioning runbook to accelerate outstanding Phase 2 apply work (`infra/scripts/check_cloud_prereqs.sh`, `docs/runbooks/aks_provisioning.md`).
+- Documented pilot cohort recruitment & UAT execution process to unblock the remaining Phase 6 user testing milestone (`docs/runbooks/pilot_cohort_recruitment.md`).
 
 ## Phase 0 – Foundations
 - [x] Review DEV_PLAN.md and existing documentation to align on scope and priorities.
@@ -42,8 +47,10 @@
 
 ## Phase 2 – Platform & Infrastructure Setup
 - [ ] Provision Azure AKS cluster, configure node pools, and set up cluster networking. *(Terraform definitions in `infra/terraform/azure_*.tf`; `terraform init`/`validate` succeeded locally on 2025-11-03 using Terraform 1.6.6, but plan/apply still pending cloud credentials.)*
+  - [x] Captured end-to-end apply steps and validation checks in `docs/runbooks/aks_provisioning.md`, including kubeconfig bootstrap and workload identity smoke tests.
   - [x] Configure remote Terraform state (Azure Storage/Key Vault) and document backend credentials.
   - [ ] Run `terraform plan`/`apply` for the dev subscription and capture kubeconfig bootstrap steps for CI runners. *(Helper script `infra/scripts/run_terraform_plan.sh`, kubeconfig bootstrap script, and GitHub workflow `.github/workflows/infra-plan.yml` now available; Terraform config validated locally but plan/apply still blocked pending cloud credentials.)*
+    - [x] Added `infra/scripts/check_cloud_prereqs.sh` to verify Terraform/Azure/AWS prerequisites before executing plan/apply wrappers.
   - [ ] Validate workload identity/OIDC by deploying a sample pod that fetches a Key Vault secret. *(Validation job scaffolded in `infra/kubernetes/samples/workload-identity-validation.yaml` and documented in `infra/kubernetes/samples/README.md`; run once AKS is provisioned.)*
 - [ ] Configure AWS S3 buckets for conversation logs, summaries, and media assets with appropriate IAM roles. *(Buckets + IAM role codified in `infra/terraform/aws_storage.tf`.)*
   - [x] Model cross-cloud AWS VPC, RDS, and automation agent infrastructure to host backend replicas and data sync workloads. *(See `infra/terraform/aws_network.tf`, `infra/terraform/aws_rds.tf`, `infra/terraform/aws_ec2_agents.tf`.)*
@@ -99,6 +106,7 @@
 - [x] Implement account onboarding/login flows (SMS, Google).
   - [x] Build OTP request/verification UI tied into backend throttling.
   - [x] Add Google OAuth web flow and token exchange using the stub client.
+  - [x] Introduced WeChat OAuth stubs end-to-end (FastAPI provider, web/mobile clients) so China-first cohorts can exercise third-party login without real credentials.
 - [x] Scaffold React Native/Expo mobile client with SMS + Google authentication and chat shell. *(see `clients/mobile/` for initial app structure and theming tied to shared tokens.)*
 - [x] Ship mobile therapist directory with in-app filters and detail view. *(New Expo tab integrates `TherapistDirectoryScreen`, `useTherapistDirectory`, and API-backed detail loading with graceful fallbacks.)*
 - [x] Ensure iOS optimization (gesture handling, offline caching, push notifications).
@@ -135,6 +143,8 @@
   - [x] Ship SAR CLI tooling and automated tests for export/deletion flows. *(New `DataSubjectService` + CLI scripts under `services/backend/scripts/` with coverage in `services/backend/tests/test_data_subject_service.py`.)*
 - [ ] Run user acceptance testing with pilot users and collect feedback for iteration.
   - [x] Draft pilot UAT plan, cohort targets, and success criteria. *(See `docs/uat_plan.md`.)*
+  - [x] Instrument structured session logging via `/api/uat/sessions` and the `mindwell-uat-sessions` CLI so facilitators can capture satisfaction, issues, and follow-up actions in real time (`services/backend/app/api/routes/pilot_uat.py`, `services/backend/app/services/pilot_uat.py`, `services/backend/scripts/uat_sessions.py`, `services/backend/tests/test_pilot_uat_service.py`, `services/backend/tests/test_pilot_uat_api.py`).
+  - [x] Authored recruitment + UAT execution runbook (`docs/runbooks/pilot_cohort_recruitment.md`) consolidating CLI workflows, reporting cadence, and backlog triage handoffs.
   - [ ] Recruit pilot cohort, capture structured feedback, and prioritize iteration backlog. *(`PilotFeedback` storage + `/api/feedback/pilot` endpoints now live; `plan_followups` + `mindwell-pilot-followups` automate outreach cadences, while real-world cohort recruitment + synthesis remain outstanding.)*
     - [x] Expose aggregated feedback summary API to feed dashboards and backlog triage (`/api/feedback/pilot/summary`, CLI `summarize_pilot_feedback.py`, regression in `services/backend/tests/test_feedback_api.py`).
     - [x] Build cohort roster management primitives (DB model, service, API, CLI) so Growth/UAT teams can stage recruitment and track status transitions (`services/backend/app/services/pilot_cohort.py`, `/api/pilot-cohort/*`, CLI `mindwell-pilot-cohort`).

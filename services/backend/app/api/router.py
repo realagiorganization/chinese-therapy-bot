@@ -10,6 +10,7 @@ from app.api.routes import (
     features,
     health,
     memory,
+    pilot_uat,
     pilot_cohort,
     reports,
     therapists,
@@ -34,4 +35,9 @@ api_router.include_router(
     pilot_cohort.router,
     prefix="/pilot-cohort",
     tags=["pilot-cohort"],
+)
+api_router.include_router(
+    pilot_uat.router,
+    prefix="/uat",
+    tags=["pilot-uat"],
 )

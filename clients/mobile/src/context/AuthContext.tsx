@@ -2,6 +2,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import {
   exchangeGoogleCode,
   exchangeSmsCode,
+  exchangeWeChatCode,
   requestSmsChallenge,
   type SmsChallengeResponse,
   type TokenResponse,
@@ -48,6 +49,7 @@ type AuthContextValue = {
   ) => Promise<void>;
   verifySms: (code: string) => Promise<void>;
   loginWithGoogle: (code: string, redirectUri?: string) => Promise<void>;
+  loginWithWeChat: (code: string, redirectUri?: string) => Promise<void>;
   logout: () => Promise<void>;
 };
 
@@ -230,6 +232,29 @@ export function AuthProvider({ children }: AuthProviderProps) {
     [],
   );
 
+  const loginWithWeChat = useCallback(
+    async (code: string, redirectUri?: string) => {
+      setVerifying(true);
+      setError(null);
+      try {
+        const response = await exchangeWeChatCode({ code, redirectUri });
+        const nextTokens = toTokenState(response);
+        setTokens(nextTokens);
+        setUserId(deriveUserId(nextTokens));
+        setStatus("authenticated");
+        await persistTokens(nextTokens);
+      } catch (err) {
+        console.warn("WeChat login failed", err);
+        setError(
+          err instanceof Error ? err.message : "WeChat login failed.",
+        );
+      } finally {
+        setVerifying(false);
+      }
+    },
+    [],
+  );
+
   const logout = useCallback(async () => {
     const currentUserId = userId;
     setTokens(null);
@@ -259,6 +284,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
       requestSms,
       verifySms,
       loginWithGoogle,
+      loginWithWeChat,
       logout,
     }),
     [
@@ -272,6 +298,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
       requestSms,
       verifySms,
       loginWithGoogle,
+      loginWithWeChat,
       logout,
     ],
   );

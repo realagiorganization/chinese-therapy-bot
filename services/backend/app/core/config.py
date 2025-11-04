@@ -48,6 +48,9 @@ class AppSettings(BaseSettings):
     s3_therapists_bucket: Optional[str] = Field(
         default=None, alias="S3_BUCKET_THERAPISTS"
     )
+    data_sync_metrics_path: Optional[str] = Field(
+        default=None, alias="DATA_SYNC_METRICS_PATH"
+    )
     s3_conversation_logs_prefix: Optional[str] = Field(
         default="conversations/", alias="S3_CONVERSATION_LOGS_PREFIX"
     )
@@ -92,6 +95,7 @@ class AppSettings(BaseSettings):
         default=None, alias="ASR_SERVICE_API_KEY"
     )
     wechat_app_id: Optional[str] = Field(default=None, alias="WECHAT_APP_ID")
+    wechat_app_secret: Optional[SecretStr] = Field(default=None, alias="WECHAT_APP_SECRET")
     token_refresh_ttl: Optional[int] = Field(default=None, alias="TOKEN_REFRESH_TTL")
     feature_flags: Optional[str] = Field(default=None, alias="FEATURE_FLAGS")
     openai_embedding_model: Optional[str] = Field(default=None, alias="OPENAI_EMBEDDING_MODEL")

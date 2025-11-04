@@ -461,3 +461,65 @@ class PilotCohortParticipant(Base):
         Index("ix_pilot_cohort_participants_status", "status"),
         Index("ix_pilot_cohort_participants_channel", "channel"),
     )
+
+
+class PilotUATSession(Base):
+    """Pilot user acceptance testing session log."""
+
+    __tablename__ = "pilot_uat_sessions"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
+    participant_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("pilot_cohort_participants.id", ondelete="set null"),
+        nullable=True,
+    )
+    cohort: Mapped[str] = mapped_column(String(64))
+    participant_alias: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    session_date: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=datetime.utcnow
+    )
+    facilitator: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    scenario: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    environment: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    platform: Mapped[str | None] = mapped_column(String(24), nullable=True)
+    device: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    satisfaction_score: Mapped[int] = mapped_column(Integer, default=3)
+    trust_score: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    highlights: Mapped[str | None] = mapped_column(Text, nullable=True)
+    blockers: Mapped[str | None] = mapped_column(Text, nullable=True)
+    notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    issues: Mapped[list[dict[str, Any]]] = mapped_column(
+        MutableList.as_mutable(JSON), default=list
+    )
+    action_items: Mapped[list[str]] = mapped_column(
+        MutableList.as_mutable(JSON), default=list
+    )
+    metadata_json: Mapped[dict[str, Any] | None] = mapped_column(
+        "metadata", MutableDict.as_mutable(JSON), nullable=True
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=datetime.utcnow
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=datetime.utcnow, onupdate=datetime.utcnow
+    )
+
+    participant: Mapped["PilotCohortParticipant | None"] = relationship(
+        "PilotCohortParticipant"
+    )
+
+    __table_args__ = (
+        Index("ix_pilot_uat_sessions_cohort_date", "cohort", "session_date"),
+        Index("ix_pilot_uat_sessions_participant", "participant_id"),
+        CheckConstraint(
+            "satisfaction_score BETWEEN 1 AND 5",
+            name="ck_pilot_uat_satisfaction_range",
+        ),
+        CheckConstraint(
+            "(trust_score IS NULL) OR (trust_score BETWEEN 1 AND 5)",
+            name="ck_pilot_uat_trust_range",
+        ),
+    )

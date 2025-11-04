@@ -52,6 +52,7 @@ and capture feedback to close Phase 6 of the development roadmap.
 - Tooling:
   - **Feedback capture:** Linear board `UAT-2025` with issue templates (bug, UX, suggestion).
   - **Feedback intake API:** Submit structured entries via `POST /api/feedback/pilot` (see §9) so facilitator notes land in the PilotFeedback table for analytics exports.
+  - **Session logging:** Capture end-to-end interview summaries via `POST /api/uat/sessions` or the `mindwell-uat-sessions` CLI to enrich operational dashboards.
   - **Session recordings:** Optional FullStory in web pilot environment; disable PII capture per `docs/data_governance.md`.
   - **Surveys:** Post-session Google Form capturing satisfaction, trust score, feature gaps.
 
@@ -111,7 +112,27 @@ and capture feedback to close Phase 6 of the development roadmap.
      }'
    ```
    The request stores data in the `pilot_feedback` table via the new `PilotFeedback` model.
-3. **Review aggregated feedback** with `GET /api/feedback/pilot?cohort=pilot-2025w4&minimum_trust_score=4` to filter by cohort, participant role, or trust score thresholds before copying items into the Linear board.
-4. **Synthesize insights** by exporting the JSON response and attaching key takeaways to the Week 4 Day 8 debrief.
+3. **Log the full session outcome** (issues, blockers, action items) through the dedicated endpoint or CLI for richer analytics:
+   ```bash
+   curl -X POST "$API_BASE/api/uat/sessions" \
+     -H "Authorization: Bearer $ACCESS_TOKEN" \
+     -H "Content-Type: application/json" \
+     -d '{
+       "cohort": "pilot-2025w4",
+       "participant_alias": "alice",
+       "environment": "qa",
+       "platform": "mobile",
+       "satisfaction_score": 4,
+       "trust_score": 3,
+       "issues": [
+         {"title": "Latency spike", "severity": "high", "notes": "Occurred after summary refresh"}
+       ],
+       "action_items": ["Review caching strategy"],
+       "metadata": {"device": "Redmi Note 11"}
+     }'
+   ```
+   CSV exports from observation notes can be imported with `mindwell-uat-sessions import sessions.csv --cohort pilot-2025w4` where columns match the CLI help text.
+4. **Review aggregated feedback** with `GET /api/feedback/pilot?cohort=pilot-2025w4&minimum_trust_score=4` to filter by cohort, participant role, or trust score thresholds before copying items into the Linear board.
+5. **Synthesize insights** by exporting API payloads and attaching key takeaways to the Week 4 Day 8 debrief.
 
 Update this document as the pilot progresses; archive the final version with outcomes appended.

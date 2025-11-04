@@ -7,6 +7,7 @@ from pydantic import BaseModel, Field
 class AuthProvider(str, Enum):
     SMS = "sms"
     GOOGLE = "google"
+    WECHAT = "wechat"
 
 
 class SMSLoginRequest(BaseModel):

@@ -11,6 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 
 from app.core.config import AppSettings
 from app.integrations.google import GoogleOAuthClient
+from app.integrations.wechat import WeChatProfile
 from app.integrations.sms import SMSProvider
 from app.models.entities import LoginChallenge, RefreshToken, User
 from app.schemas.auth import (
@@ -62,7 +63,9 @@ async def auth_session() -> AsyncSession:
     await engine.dispose()
 
 
-def make_auth_service(session: AsyncSession, sms_provider: StubSMSProvider) -> AuthService:
+def make_auth_service(
+    session: AsyncSession, sms_provider: StubSMSProvider, wechat_client: StubWeChatClient | None = None
+) -> AuthService:
     settings = AppSettings(
         JWT_SECRET_KEY="unit-test-secret",
         OTP_EXPIRY_SECONDS=120,
@@ -71,11 +74,13 @@ def make_auth_service(session: AsyncSession, sms_provider: StubSMSProvider) -> A
         REFRESH_TOKEN_TTL=3600,
     )
     google_client = GoogleOAuthClient(settings)
+    wechat_client = wechat_client or StubWeChatClient()
     return AuthService(
         session=session,
         settings=settings,
         sms_provider=sms_provider,
         google_client=google_client,
+        wechat_client=wechat_client,
     )
 
 
@@ -148,6 +153,29 @@ async def test_exchange_token_verifies_code_and_persists_refresh_token(
 
 
 @pytest.mark.asyncio
+async def test_exchange_token_wechat_creates_user(auth_session: AsyncSession) -> None:
+    sms_provider = StubSMSProvider()
+    wechat_client = StubWeChatClient()
+    service = make_auth_service(auth_session, sms_provider, wechat_client)
+
+    token_response = await service.exchange_token(
+        TokenExchangeRequest(
+            provider=AuthProvider.WECHAT,
+            code="wechat-dev-code",
+        )
+    )
+
+    assert token_response.access_token
+    assert token_response.refresh_token
+
+    stmt = select(User).where(User.external_id == "wechat-union-edoc-ved-tahcew")
+    result = await auth_session.execute(stmt)
+    user = result.scalar_one_or_none()
+    assert user is not None
+    assert user.display_name.startswith("测试用户")
+
+
+@pytest.mark.asyncio
 async def test_exchange_token_enforces_attempt_limits(
     auth_session: AsyncSession, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -181,3 +209,21 @@ async def test_exchange_token_enforces_attempt_limits(
     with pytest.raises(ValueError) as overflow_error:
         await service.exchange_token(request)
     assert "maximum verification attempts" in str(overflow_error.value).lower()
+class StubWeChatClient:
+    """Deterministic WeChat OAuth stub returning synthetic profiles."""
+
+    async def exchange_code(
+        self, code: str, redirect_uri: str | None = None
+    ) -> WeChatProfile:
+        if not code:
+            raise ValueError("Authorization code is missing.")
+        digest = code[::-1]
+        open_id = f"wechat-{digest}"
+        union_id = f"wechat-union-{digest}"
+        nickname = f"测试用户{len(code)}"
+        return WeChatProfile(
+            open_id=open_id,
+            union_id=union_id,
+            nickname=nickname,
+            locale="zh-CN",
+        )

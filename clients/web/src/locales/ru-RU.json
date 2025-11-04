@@ -29,6 +29,11 @@
     "google_code_label": "Авторизационный код",
     "google_cta": "Продолжить с Google",
     "google_submitting": "Входим…",
+    "wechat_section": "Вход через WeChat (режим разработки)",
+    "wechat_hint": "Введите тестовый код авторизации WeChat (например, js_code), чтобы смоделировать вход.",
+    "wechat_code_label": "Код авторизации / js_code",
+    "wechat_cta": "Войти через WeChat",
+    "wechat_submitting": "Подтверждаем вход через WeChat…",
     "logout": "Выйти",
     "errors": {
       "phone_required": "Введите номер телефона.",
@@ -36,6 +41,8 @@
       "google_code_required": "Введите авторизационный код Google.",
       "sms_unknown": "Не удалось отправить код. Повторите попытку позже.",
       "google_unknown": "Сбой входа через Google. Попробуйте ещё раз.",
+      "wechat_code_required": "Введите код авторизации WeChat.",
+      "wechat_unknown": "Не удалось войти через WeChat. Попробуйте позже.",
       "challenge_missing": "Сначала запросите новый код."
     }
   },

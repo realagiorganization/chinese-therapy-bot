@@ -29,6 +29,11 @@
     "google_code_label": "授權碼",
     "google_cta": "使用 Google 登入",
     "google_submitting": "登入中…",
+    "wechat_section": "微信登入（開發模式）",
+    "wechat_hint": "輸入微信授權碼（例如 js_code）即可模擬登入。",
+    "wechat_code_label": "授權碼或 js_code",
+    "wechat_cta": "使用微信登入",
+    "wechat_submitting": "正在驗證微信授權…",
     "logout": "登出",
     "errors": {
       "phone_required": "請填寫手機號碼。",
@@ -36,6 +41,8 @@
       "google_code_required": "請輸入 Google 授權碼。",
       "sms_unknown": "驗證碼發送失敗，請稍後再試。",
       "google_unknown": "Google 登入失敗，請稍後再試。",
+      "wechat_code_required": "請輸入微信授權碼。",
+      "wechat_unknown": "微信登入失敗，請稍後再試。",
       "challenge_missing": "請先取得驗證碼或重新發送。"
     }
   },

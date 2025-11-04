@@ -2,7 +2,12 @@ import { useCallback, useMemo, useState } from "react";
 import type { FormEvent } from "react";
 import { useTranslation } from "react-i18next";
 
-import { exchangeGoogleCode, exchangeSmsCode, requestSmsChallenge } from "../api/auth";
+import {
+  exchangeGoogleCode,
+  exchangeSmsCode,
+  exchangeWeChatCode,
+  requestSmsChallenge
+} from "../api/auth";
 import { useAuth } from "../auth/AuthContext";
 import { Button, Card, Typography } from "../design-system";
 import { LocaleSwitcher } from "./LocaleSwitcher";
@@ -30,6 +35,8 @@ export function LoginPanel() {
   const [error, setError] = useState<string | null>(null);
   const [googleCode, setGoogleCode] = useState("");
   const [googleStatus, setGoogleStatus] = useState<"idle" | "submitting">("idle");
+  const [wechatCode, setWeChatCode] = useState("");
+  const [wechatStatus, setWeChatStatus] = useState<"idle" | "submitting">("idle");
 
   const hasActiveChallenge = useMemo(() => {
     if (!challenge) {
@@ -135,6 +142,31 @@ export function LoginPanel() {
       }
     },
     [googleCode, setTokens, t]
+  );
+
+  const handleWeChatLogin = useCallback(
+    async (event?: FormEvent) => {
+      event?.preventDefault();
+      if (!wechatCode.trim()) {
+        setError(t("auth.errors.wechat_code_required"));
+        return;
+      }
+      setWeChatStatus("submitting");
+      setError(null);
+
+      try {
+        const tokenPair = await exchangeWeChatCode({ code: wechatCode.trim() });
+        setTokens({
+          accessToken: tokenPair.accessToken,
+          refreshToken: tokenPair.refreshToken,
+          expiresAt: computeExpiry(tokenPair.expiresIn)
+        });
+      } catch (err) {
+        setError(err instanceof Error ? err.message : t("auth.errors.wechat_unknown"));
+        setWeChatStatus("idle");
+      }
+    },
+    [wechatCode, setTokens, t]
   );
 
   const canRequestSms = smsStatus === "idle" || smsStatus === "sent";
@@ -294,6 +326,39 @@ export function LoginPanel() {
         </label>
         <Button type="submit" variant="secondary" disabled={googleStatus === "submitting"}>
           {googleStatus === "submitting" ? t("auth.google_submitting") : t("auth.google_cta")}
+        </Button>
+      </form>
+
+      <form
+        onSubmit={handleWeChatLogin}
+        style={{
+          display: "grid",
+          gap: "var(--mw-spacing-sm)"
+        }}
+      >
+        <Typography variant="overline" style={{ color: "var(--text-secondary)" }}>
+          {t("auth.wechat_section")}
+        </Typography>
+        <Typography variant="caption" style={{ color: "var(--text-secondary)" }}>
+          {t("auth.wechat_hint")}
+        </Typography>
+        <label style={{ display: "grid", gap: "4px", fontSize: "0.9rem" }}>
+          <span style={{ color: "var(--text-secondary)" }}>{t("auth.wechat_code_label")}</span>
+          <input
+            type="text"
+            value={wechatCode}
+            onChange={(event) => setWeChatCode(event.target.value)}
+            style={{
+              padding: "10px",
+              borderRadius: "var(--mw-radius-md)",
+              border: "1px solid var(--mw-border-subtle)",
+              fontSize: "1rem"
+            }}
+            placeholder="wechat-miniapp-code"
+          />
+        </label>
+        <Button type="submit" variant="ghost" disabled={wechatStatus === "submitting"}>
+          {wechatStatus === "submitting" ? t("auth.wechat_submitting") : t("auth.wechat_cta")}
         </Button>
       </form>
 

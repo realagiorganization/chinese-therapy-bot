@@ -49,5 +49,4 @@ The CronJobs mount the same CSI-backed secret volume as the backend Deployment t
 - `AWS_ACCESS_KEY_ID`
 - `AWS_SECRET_ACCESS_KEY`
 
-Ensure the corresponding Key Vault entries exist before rolling out the agents. The Monitoring agent stores JSON metrics snapshots under `MONITORING_METRICS_PATH`; by default this persists to an ephemeral directory inside the pod. Attach a persistent volume if historical retention is required.
-
+Ensure the corresponding Key Vault entries exist before rolling out the agents. The Data Sync agent writes ingestion metrics to `DATA_SYNC_METRICS_PATH` and the Monitoring agent stores JSON metrics snapshots under `MONITORING_METRICS_PATH`; by default both persist to ephemeral directories inside the pod. Attach a persistent volume if historical retention is required.

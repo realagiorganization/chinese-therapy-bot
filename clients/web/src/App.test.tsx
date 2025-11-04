@@ -21,7 +21,9 @@ function renderApp() {
 }
 
 describe("App", () => {
-  beforeEach(() => {
+  beforeEach(async () => {
+    await i18n.changeLanguage("zh-CN");
+
     const therapistResponse = {
       items: FALLBACK_THERAPISTS.map((therapist) => ({
         therapist_id: therapist.id,
@@ -186,6 +188,7 @@ describe("App", () => {
 
   afterEach(() => {
     vi.restoreAllMocks();
+    void i18n.changeLanguage("zh-CN");
     window.localStorage.clear();
   });
 

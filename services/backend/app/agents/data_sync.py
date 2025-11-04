@@ -10,7 +10,8 @@ from collections.abc import AsyncIterator, Callable, Iterable
 from contextlib import asynccontextmanager
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import Any, Protocol
+from pathlib import Path
+from typing import Any, Protocol, Sequence
 
 import aioboto3
 import httpx
@@ -139,6 +140,11 @@ class DataSyncAgent:
 
         self._settings = settings
         self._s3_client_factory = s3_client_factory or self._build_s3_client_factory()
+        self._metrics_path = (
+            Path(settings.data_sync_metrics_path).expanduser()
+            if settings.data_sync_metrics_path
+            else None
+        )
 
     def _build_s3_client_factory(self) -> Callable[..., AsyncIterator[Any]]:
         @asynccontextmanager
@@ -168,42 +174,45 @@ class DataSyncAgent:
 
         source_list = list(sources)
 
-        for source in source_list:
-            try:
-                records = await source.fetch()
-            except Exception as exc:
-                logger.exception("Failed to fetch therapists from %s", source.name)
-                result.errors.append(f"{source.name}: {exc}")
-                continue
-
-            result.total_raw += len(records)
-            for raw in records:
+        try:
+            for source in source_list:
                 try:
-                    normalized = self._normalize_record(raw, source_name=source.name)
-                except ValueError as exc:
-                    logger.warning("Skipping invalid record from %s: %s", source.name, exc)
-                    result.skipped += 1
+                    records = await source.fetch()
+                except Exception as exc:
+                    logger.exception("Failed to fetch therapists from %s", source.name)
+                    result.errors.append(f"{source.name}: {exc}")
                     continue
 
-                normalized_records.append(normalized)
+                result.total_raw += len(records)
+                for raw in records:
+                    try:
+                        normalized = self._normalize_record(raw, source_name=source.name)
+                    except ValueError as exc:
+                        logger.warning("Skipping invalid record from %s: %s", source.name, exc)
+                        result.skipped += 1
+                        continue
 
-        result.normalized = len(normalized_records)
-        if dry_run:
-            logger.info(
-                "Dry-run complete. Normalized %s records from %s sources.",
-                result.normalized,
-                len(source_list),
-            )
+                    normalized_records.append(normalized)
+
+            result.normalized = len(normalized_records)
+            if dry_run:
+                logger.info(
+                    "Dry-run complete. Normalized %s records from %s sources.",
+                    result.normalized,
+                    len(source_list),
+                )
+                return result
+
+            if not normalized_records:
+                logger.info("No normalized therapist records to publish.")
+                return result
+
+            key_prefix = prefix or self._settings.therapist_data_s3_prefix or "therapists/"
+            written = await self._write_records(normalized_records, key_prefix=key_prefix)
+            result.written = written
             return result
-
-        if not normalized_records:
-            logger.info("No normalized therapist records to publish.")
-            return result
-
-        key_prefix = prefix or self._settings.therapist_data_s3_prefix or "therapists/"
-        written = await self._write_records(normalized_records, key_prefix=key_prefix)
-        result.written = written
-        return result
+        finally:
+            self._record_metrics(result, sources=source_list, dry_run=dry_run)
 
     async def _write_records(
         self,
@@ -327,6 +336,43 @@ class DataSyncAgent:
         except (TypeError, ValueError):
             logger.debug("Unable to coerce price value %r", value)
             return None
+
+    def _record_metrics(
+        self,
+        result: SyncResult,
+        *,
+        sources: Sequence[TherapistSource],
+        dry_run: bool,
+    ) -> None:
+        if not self._metrics_path:
+            return
+
+        payload = {
+            "generated_at": datetime.now(timezone.utc).isoformat(),
+            "dry_run": dry_run,
+            "bucket": self._settings.s3_therapists_bucket,
+            "source_count": len(sources),
+            "sources": [source.name for source in sources],
+            "result": {
+                "total_raw": result.total_raw,
+                "normalized": result.normalized,
+                "written": result.written,
+                "skipped": result.skipped,
+                "errors": list(result.errors),
+            },
+        }
+
+        try:
+            target = self._metrics_path
+            if not target.suffix:
+                target = target / "data_sync_metrics.json"
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_text(
+                json.dumps(payload, ensure_ascii=False, indent=2),
+                encoding="utf-8",
+            )
+        except Exception as exc:  # pragma: no cover - defensive logging
+            logger.debug("Failed to persist data sync metrics: %s", exc, exc_info=exc)
 
 
 def _build_sources(args: argparse.Namespace) -> list[TherapistSource]:

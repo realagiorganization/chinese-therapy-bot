@@ -41,6 +41,7 @@ mindwell-analytics-agent = "app.agents.analytics:main"
 mindwell-pilot-feedback-report = "scripts.summarize_pilot_feedback:cli"
 mindwell-pilot-cohort = "scripts.manage_pilot_cohort:cli"
 mindwell-pilot-followups = "scripts.pilot_followups:main"
+mindwell-uat-sessions = "scripts.uat_sessions:cli"
 
 [build-system]
 requires = ["setuptools>=61", "wheel"]

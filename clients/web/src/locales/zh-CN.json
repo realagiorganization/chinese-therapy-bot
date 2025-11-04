@@ -29,6 +29,11 @@
     "google_code_label": "授权码",
     "google_cta": "使用 Google 登录",
     "google_submitting": "正在登录…",
+    "wechat_section": "微信登录（开发调试）",
+    "wechat_hint": "输入微信开发授权码（如 js_code）即可模拟登录。",
+    "wechat_code_label": "授权码或 js_code",
+    "wechat_cta": "使用微信登录",
+    "wechat_submitting": "正在验证微信授权…",
     "logout": "退出登录",
     "errors": {
       "phone_required": "请填写手机号。",
@@ -36,6 +41,8 @@
       "google_code_required": "请输入 Google 授权码。",
       "sms_unknown": "验证码发送失败，请稍后再试。",
       "google_unknown": "Google 登录失败，请稍后再试。",
+      "wechat_code_required": "请输入微信授权码。",
+      "wechat_unknown": "微信登录失败，请稍后再试。",
       "challenge_missing": "请先获取验证码或重新请求。"
     }
   },

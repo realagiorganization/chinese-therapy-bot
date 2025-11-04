@@ -12,6 +12,7 @@ from app.integrations.llm import ChatOrchestrator
 from app.integrations.sms import ConsoleSMSProvider, SMSProvider, TwilioSMSProvider
 from app.integrations.storage import ChatTranscriptStorage
 from app.integrations.therapists import TherapistDataStorage
+from app.integrations.wechat import WeChatOAuthClient
 from app.services.analytics import ProductAnalyticsService
 from app.services.asr import AutomaticSpeechRecognitionService
 from app.services.auth import AuthService
@@ -20,6 +21,7 @@ from app.services.evaluation import ResponseEvaluator
 from app.services.feature_flags import FeatureFlagService
 from app.services.feedback import PilotFeedbackService
 from app.services.pilot_cohort import PilotCohortService
+from app.services.pilot_uat import PilotUATService
 from app.services.language_detection import LanguageDetector
 from app.services.memory import ConversationMemoryService
 from app.services.recommendations import TherapistRecommendationService
@@ -29,6 +31,7 @@ from app.services.therapists import TherapistService
 
 _sms_provider: SMSProvider | None = None
 _google_client: GoogleOAuthClient | None = None
+_wechat_client: WeChatOAuthClient | None = None
 _orchestrator: ChatOrchestrator | None = None
 _storage: ChatTranscriptStorage | None = None
 _therapist_storage: TherapistDataStorage | None = None
@@ -57,7 +60,7 @@ async def get_auth_service(
 ) -> AuthService:
     """Provide AuthService instance."""
     settings = get_settings()
-    global _sms_provider, _google_client
+    global _sms_provider, _google_client, _wechat_client
     if _sms_provider is None:
         if (
             settings.twilio_account_sid
@@ -75,11 +78,14 @@ async def get_auth_service(
             _sms_provider = ConsoleSMSProvider()
     if _google_client is None:
         _google_client = GoogleOAuthClient(settings)
+    if _wechat_client is None:
+        _wechat_client = WeChatOAuthClient(settings)
     return AuthService(
         session=session,
         settings=settings,
         sms_provider=_sms_provider,
         google_client=_google_client,
+        wechat_client=_wechat_client,
     )
 
 
@@ -207,3 +213,10 @@ async def get_pilot_cohort_service(
 ) -> PilotCohortService:
     """Provide PilotCohortService for managing pilot cohorts."""
     return PilotCohortService(session)
+
+
+async def get_pilot_uat_service(
+    session: AsyncSession = Depends(get_db_session),
+) -> PilotUATService:
+    """Provide PilotUATService for logging UAT sessions."""
+    return PilotUATService(session)

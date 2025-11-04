@@ -93,3 +93,29 @@ export async function exchangeGoogleCode(params: {
     expiresIn: response.expires_in,
   };
 }
+
+export async function exchangeWeChatCode(params: {
+  code: string;
+  redirectUri?: string;
+}): Promise<TokenResponse> {
+  const response = await apiRequest<{
+    access_token: string;
+    refresh_token: string;
+    token_type: string;
+    expires_in: number;
+  }>("/auth/token", {
+    method: "POST",
+    body: {
+      provider: "wechat",
+      code: params.code,
+      redirect_uri: params.redirectUri,
+    },
+  });
+
+  return {
+    accessToken: response.access_token,
+    refreshToken: response.refresh_token,
+    tokenType: response.token_type,
+    expiresIn: response.expires_in,
+  };
+}

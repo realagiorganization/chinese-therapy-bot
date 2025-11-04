@@ -39,6 +39,7 @@ The backend reads configuration from environment variables via `AppSettings` (`s
 - `S3_CONVERSATION_LOGS_PREFIX`: Key prefix for transcript uploads (default `conversations/`).
 - `S3_MEDIA_BUCKET`: Optional bucket for audio attachments or rich media served to clients.
 - `THERAPIST_DATA_S3_PREFIX`: Overrides the default therapist data prefix (`therapists/`) during ingestion.
+- `DATA_SYNC_METRICS_PATH`: File or directory path where the Data Sync agent writes its ingestion metrics snapshot for downstream monitoring.
 - `BEDROCK_REGION`: AWS region hosting the Bedrock fallback model.
 - `BEDROCK_MODEL_ID`: Model identifier used when invoking AWS Bedrock as an LLM fallback.
 - `SMS_SENDER_ID`: Sender identifier registered with the SMS provider (defaults to provider-specific value when omitted).
@@ -54,7 +55,8 @@ The backend reads configuration from environment variables via `AppSettings` (`s
 - `ASR_SERVICE_API_KEY`: Credential for server-side automatic speech recognition.
 - `APP_INSIGHTS_APP_ID`: Azure Application Insights application identifier used by the Monitoring Agent to query metrics.
 - `APP_INSIGHTS_API_KEY`: API key granting query access to Application Insights for observability checks.
-- `WECHAT_APP_ID`: Application identifier enabling WeChat voice input integration.
+- `WECHAT_APP_ID`: Application identifier enabling WeChat integrations (voice input + OAuth preview).
+- `WECHAT_APP_SECRET`: Secret accompanying `WECHAT_APP_ID` for real WeChat OAuth flows (optional in dev; required in prod).
 - `FEATURE_FLAGS`: JSON or comma-separated string defining default feature toggles at startup.
 - `JWT_ALGORITHM`: Signing algorithm for JWT tokens (default `HS256`).
 - `ACCESS_TOKEN_TTL`: Access token lifetime in seconds (default `3600`).

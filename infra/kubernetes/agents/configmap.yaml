@@ -10,6 +10,7 @@ data:
   THERAPIST_DEFAULT_LOCALE: zh-CN
   DATA_SYNC_SOURCES: https://example.com/datasets/therapists.json
   DATA_SYNC_DRY_RUN: "false"
+  DATA_SYNC_METRICS_PATH: /tmp/data-sync/metrics.json
   S3_SUMMARIES_BUCKET: mindwell-dev-summaries
   S3_CONVERSATION_LOGS_BUCKET: mindwell-dev-conversations
   SUMMARY_SCHEDULER_MODE: both

@@ -70,6 +70,7 @@
 ### **Infrastructure & Platform**
 
 - Terraform baseline revalidated locally on 2025-11-03 with Terraform 1.6.6 (`terraform init -backend=false`, `terraform validate`). Execution of `run_terraform_plan.sh` / `run_terraform_apply.sh` stays blocked pending Azure service principal + AWS role credentials; once supplied, apply outputs (AKS kubeconfig, S3 bucket ARNs, IAM role ARN) will be captured for CI runners.
+- 2025-11-04: Added `infra/scripts/check_cloud_prereqs.sh` and the AKS provisioning runbook (`docs/runbooks/aks_provisioning.md`) so platform engineers can perform preflight checks and follow a guided apply/validation sequence when credentials land.
 
 ### **Business Logic & Backend**
 
@@ -101,11 +102,13 @@
 - Structured intake ✅ *(`PilotFeedback` persistence + `/api/feedback/pilot` endpoints with regression tests `test_feedback_service.py` / `test_feedback_api.py` capture cohort sentiment and blockers.)*
 - Feedback aggregation CLI ✅ *(`mindwell-pilot-feedback-report` summarizes sentiment/trust/usability scores and top tags to inform backlog triage.)*
 - Feedback summary API ✅ *(`/api/feedback/pilot/summary` unlocks dashboard integrations for backlog prioritization.)*
+- UAT session logging ✅ *(New `PilotUATSession` model + `/api/uat/sessions` API and `mindwell-uat-sessions` CLI capture facilitator logs with regression coverage in `services/backend/tests/test_pilot_uat_service.py` and `services/backend/tests/test_pilot_uat_api.py`.)*
 
 #### **Pilot Cohort Recruitment**
 
 - Participant roster management ✅ *(New `PilotCohortParticipant` model, service `/api/pilot-cohort`, and CLI `mindwell-pilot-cohort` track invites/onboarding with regression coverage in `test_pilot_cohort_service.py` / `test_pilot_cohort_api.py`.)*
 - Cohort engagement automation ✅ *(`plan_followups` heuristics, `/api/pilot-cohort/participants/followups`, and CLI `mindwell-pilot-followups` surface templated outreach and cadence planning.)*
+- Operational runbook ✅ *(`docs/runbooks/pilot_cohort_recruitment.md`) aligns recruitment, facilitation, and backlog triage steps so the remaining UAT milestone can be executed without additional engineering support.*
 
 #### **Therapist Data**
 
@@ -222,7 +225,7 @@
 
 ## **8. Additional Notes**
 
-- Integration with Google and other third-party account management platforms in progress.
+- Integration with Google and WeChat third-party account management platforms available in dev (full production credential exchange still a future milestone).
 - Release artefact pipeline `.github/workflows/release.yml` produces backend wheels plus web/mobile bundles for tag builds and manual dispatch.
 - Investor/partner summary brief lives in `docs/investor_partner_brief.md` for fundraising and partnership outreach.
 

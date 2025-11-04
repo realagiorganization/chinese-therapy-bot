@@ -12,6 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import AppSettings
 from app.integrations.google import GoogleOAuthClient, GoogleProfile
+from app.integrations.wechat import WeChatOAuthClient, WeChatProfile
 from app.integrations.sms import SMSProvider
 from app.models import LoginChallenge, RefreshToken, User
 from app.schemas.auth import (
@@ -33,11 +34,13 @@ class AuthService:
         settings: AppSettings,
         sms_provider: SMSProvider,
         google_client: GoogleOAuthClient,
+        wechat_client: WeChatOAuthClient,
     ):
         self._session = session
         self._settings = settings
         self._sms_provider = sms_provider
         self._google_client = google_client
+        self._wechat_client = wechat_client
 
     async def initiate_sms_login(self, payload: SMSLoginRequest) -> LoginChallengeResponse:
         phone_number = self._normalize_phone(payload.phone_number, payload.country_code)
@@ -92,6 +95,11 @@ class AuthService:
         if payload.provider == AuthProvider.GOOGLE:
             profile = await self._google_client.exchange_code(payload.code, payload.redirect_uri)
             user = await self._upsert_google_user(profile)
+            return await self._issue_tokens(user, session_id=payload.session_id)
+
+        if payload.provider == AuthProvider.WECHAT:
+            profile = await self._wechat_client.exchange_code(payload.code, payload.redirect_uri)
+            user = await self._upsert_wechat_user(profile)
             return await self._issue_tokens(user, session_id=payload.session_id)
 
         raise ValueError(f"Unsupported auth provider {payload.provider}.")
@@ -176,6 +184,27 @@ class AuthService:
             email=profile.email,
             display_name=profile.name,
             locale="zh-CN",
+        )
+        self._session.add(user)
+        await self._session.flush()
+        return user
+
+    async def _upsert_wechat_user(self, profile: WeChatProfile) -> User:
+        external_id = profile.union_id or profile.open_id
+        stmt = select(User).where(User.external_id == external_id).limit(1)
+        result = await self._session.execute(stmt)
+        user = result.scalar_one_or_none()
+        if user:
+            user.display_name = profile.nickname or user.display_name
+            if profile.locale:
+                user.locale = profile.locale
+            await self._session.flush()
+            return user
+
+        user = User(
+            external_id=external_id,
+            display_name=profile.nickname or "MindWell 用户",
+            locale=profile.locale or "zh-CN",
         )
         self._session.add(user)
         await self._session.flush()

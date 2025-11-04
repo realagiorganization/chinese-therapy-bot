@@ -61,6 +61,7 @@ export function LoginScreen() {
     requestSms,
     verifySms,
     loginWithGoogle,
+    loginWithWeChat,
     isRequestingSms,
     isVerifying,
     challenge,
@@ -72,6 +73,7 @@ export function LoginScreen() {
   const [phoneNumber, setPhoneNumber] = useState("");
   const [verificationCode, setVerificationCode] = useState("");
   const [googleCode, setGoogleCode] = useState("");
+  const [wechatCode, setWeChatCode] = useState("");
 
   const hasActiveChallenge = useMemo(() => {
     if (!challenge) {
@@ -232,6 +234,23 @@ export function LoginScreen() {
               label="使用 Google 登录"
               onPress={() => loginWithGoogle(googleCode)}
               disabled={googleCode.trim().length === 0 || isVerifying}
+              loading={isVerifying}
+            />
+          </View>
+
+          <View style={styles.sectionGap}>
+            <Text style={styles.label}>微信登录</Text>
+            <TextInput
+              value={wechatCode}
+              onChangeText={setWeChatCode}
+              style={styles.input}
+              placeholder="js_code 或授权码"
+              autoCapitalize="none"
+            />
+            <Button
+              label="使用微信登录"
+              onPress={() => loginWithWeChat(wechatCode)}
+              disabled={wechatCode.trim().length === 0 || isVerifying}
               loading={isVerifying}
             />
           </View>
