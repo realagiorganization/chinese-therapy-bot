@@ -265,7 +265,7 @@ export function LoginPanel() {
               border: "1px solid var(--mw-border-subtle)",
               fontSize: "1rem"
             }}
-            placeholder="you@example.com"
+            placeholder={t("auth.email_placeholder")}
             autoComplete="email"
           />
         </label>
@@ -302,7 +302,7 @@ export function LoginPanel() {
               fontSize: "1rem",
               letterSpacing: "2px"
             }}
-            placeholder="DEMO-TEAM"
+            placeholder={t("auth.demo_placeholder")}
           />
         </label>
         <Button type="submit" variant="secondary" disabled={demoStatus === "submitting"}>

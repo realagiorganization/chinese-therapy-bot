@@ -115,6 +115,7 @@ async function ensureLocaleResources(locale: string | null | undefined): Promise
   }
 
   const fetchTask = (async () => {
+    let shouldReapplyLanguage = false;
     try {
       const apiBaseUrl = getApiBaseUrl();
       const response = await fetch(`${apiBaseUrl}/api/translation/batch`, {
@@ -139,12 +140,17 @@ async function ensureLocaleResources(locale: string | null | undefined): Promise
       if (typeof i18n.reloadResources === "function") {
         await i18n.reloadResources([normalized]);
       }
+      const active = normalizeLocale(i18n.language ?? i18n.resolvedLanguage);
+      shouldReapplyLanguage = (active ?? BASE_LOCALE).toLowerCase() === normalized.toLowerCase();
     } catch (error) {
       if (typeof console !== "undefined") {
         console.warn("Dynamic locale loading failed", error);
       }
     } finally {
       pendingLocaleLoads.delete(normalized);
+      if (shouldReapplyLanguage) {
+        void i18n.changeLanguage(normalized);
+      }
     }
   })();
 
@@ -164,21 +170,16 @@ if (!i18n.isInitialized) {
       escapeValue: false
     }
   });
-} else {
-  const current = normalizeLocale(i18n.resolvedLanguage ?? i18n.language);
-  if (!current || current !== initialLocale) {
-    void setAppLanguage(initialLocale);
-  }
 }
 
-const resolved = normalizeLocale(i18n.resolvedLanguage ?? i18n.language ?? initialLocale) ?? BASE_LOCALE;
+const startingLocale = normalizeLocale(i18n.language ?? initialLocale) ?? BASE_LOCALE;
 
 if (typeof document !== "undefined") {
-  document.documentElement.lang = resolved;
+  document.documentElement.lang = startingLocale;
 }
 
-persistLocale(resolved);
-void ensureLocaleResources(resolved);
+persistLocale(startingLocale);
+void ensureLocaleResources(startingLocale);
 
 i18n.on("languageChanged", (language) => {
   const normalized = normalizeLocale(language) ?? BASE_LOCALE;
@@ -190,12 +191,6 @@ i18n.on("languageChanged", (language) => {
 });
 
 export default i18n;
-
-export async function setAppLanguage(locale: string): Promise<void> {
-  const normalized = normalizeLocale(locale) ?? BASE_LOCALE;
-  await ensureLocaleResources(normalized);
-  await i18n.changeLanguage(normalized);
-}
 
 function flattenResource(
   resource: Record<string, unknown>,
