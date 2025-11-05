@@ -1,7 +1,8 @@
-import type { ChangeEvent } from "react";
+import { useState, type ChangeEvent } from "react";
 import { useTranslation } from "react-i18next";
 
 import { Typography } from "../design-system";
+import { setAppLanguage } from "../i18n/config";
 
 const supportedLocales = [
   { code: "zh-CN", labelKey: "locale.zh_cn" },
@@ -16,6 +17,7 @@ type LocaleSwitcherProps = {
 
 export function LocaleSwitcher({ compact = false }: LocaleSwitcherProps) {
   const { i18n, t } = useTranslation();
+  const [pendingLocale, setPendingLocale] = useState<string | null>(null);
 
   const resolveLocale = (code: string | undefined): string => {
     if (!code) {
@@ -25,10 +27,14 @@ export function LocaleSwitcher({ compact = false }: LocaleSwitcherProps) {
     return match ? match.code : supportedLocales[0].code;
   };
 
-  const currentLocale = resolveLocale(i18n.resolvedLanguage ?? i18n.language);
+  const currentLocale = resolveLocale(pendingLocale ?? i18n.language ?? i18n.resolvedLanguage);
 
   const handleChange = (event: ChangeEvent<HTMLSelectElement>) => {
-    i18n.changeLanguage(event.target.value);
+    const nextLocale = resolveLocale(event.target.value);
+    setPendingLocale(nextLocale);
+    void setAppLanguage(nextLocale).finally(() => {
+      setPendingLocale(null);
+    });
   };
 
   return (

@@ -194,3 +194,14 @@ async def get_feedback_service(
 ) -> PilotFeedbackService:
     """Provide PilotFeedbackService for UAT feedback flows."""
     return PilotFeedbackService(session)
+
+
+async def get_translation_service() -> TranslationService:
+    """Provide singleton TranslationService instance."""
+    global _translation_service, _orchestrator
+    if _translation_service is None:
+        settings = get_settings()
+        if _orchestrator is None:
+            _orchestrator = ChatOrchestrator(settings)
+        _translation_service = TranslationService(_orchestrator)
+    return _translation_service

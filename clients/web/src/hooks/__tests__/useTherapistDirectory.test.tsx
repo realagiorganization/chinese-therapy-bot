@@ -17,23 +17,23 @@ const mockLoadTherapists = mocks.loadTherapists as ReturnType<typeof vi.fn>;
 const SAMPLE_THERAPISTS: TherapistSummary[] = [
   {
     id: "alpha",
-    name: "顾向晨",
-    title: "认知行为治疗师",
+    name: "Avery Chen",
+    title: "Cognitive behavioural therapist",
     specialties: ["CBT", "Mindfulness"],
-    languages: ["zh-CN"],
+    languages: ["en-US"],
     price: 460,
     recommended: true,
-    availability: ["周三 20:00"]
+    availability: ["Wednesday 20:00"]
   },
   {
     id: "bravo",
     name: "Morgan Li",
-    title: "家庭治疗顾问",
+    title: "Family therapy consultant",
     specialties: ["Family Therapy"],
     languages: ["en-US", "zh-CN"],
     price: 620,
     recommended: false,
-    availability: ["周五 19:30"]
+    availability: ["Friday 19:30"]
   }
 ];
 

@@ -19,23 +19,25 @@ const SAMPLE_MODULES: ExploreModule[] = [
   {
     id: "breathing",
     moduleType: "breathing_exercise",
-    title: "四步呼吸练习",
-    description: "快速缓解焦虑。",
+    title: "Four-step breathing reset",
+    description: "A quick routine to ease anxious spikes.",
     durationMinutes: 5,
     cadenceLabel: "4-7-8",
     steps: [],
-    recommendedFrequency: "睡前练习",
-    ctaLabel: "开始",
+    recommendedFrequency: "Practice before bed",
+    ctaLabel: "Begin",
     ctaAction: "/breathing"
   },
   {
     id: "trending",
     moduleType: "trending_topics",
-    title: "热门主题",
-    description: "近期焦点",
-    topics: [{ name: "压力管理", momentum: 68, trend: "up", summary: "继续保持呼吸练习。" }],
-    insights: ["保持规律作息"],
-    ctaLabel: "查看建议",
+    title: "Popular themes",
+    description: "Highlights from recent sessions.",
+    topics: [
+      { name: "Stress management", momentum: 68, trend: "up", summary: "Keep pairing it with your breathing work." }
+    ],
+    insights: ["Maintain a consistent wind-down routine"],
+    ctaLabel: "View suggestions",
     ctaAction: "/trends"
   }
 ] as ExploreModule[];
@@ -72,7 +74,7 @@ describe("useExploreModules", () => {
     seedAuthStorage();
     mocks.loadExploreModules.mockReset();
     mocks.loadExploreModules.mockResolvedValue({
-      locale: "zh-CN",
+      locale: "en-US",
       modules: SAMPLE_MODULES,
       evaluatedFlags: { explore_breathing: true, explore_trending: true },
       source: "api"
@@ -84,7 +86,7 @@ describe("useExploreModules", () => {
   });
 
   it("loads modules and exposes evaluated feature flags", async () => {
-    const { result } = renderHook(() => useExploreModules("zh-CN"), {
+    const { result } = renderHook(() => useExploreModules("en-US"), {
       wrapper: withAuthProvider
     });
 

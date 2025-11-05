@@ -105,7 +105,7 @@ export default function App() {
             {t("journey.streak", { days: 7 })}
           </Typography>
           <Typography variant="display" style={{ color: "#0F172A" }}>
-            {t("app.welcome", { name: "晨曦" })}
+            {t("app.welcome", { name: "Aurora" })}
           </Typography>
           <Typography variant="subtitle" style={{ color: "rgba(15,23,42,0.72)" }}>
             {t("app.tagline")}
