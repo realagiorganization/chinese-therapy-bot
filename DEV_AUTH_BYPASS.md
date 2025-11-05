@@ -22,3 +22,8 @@
 ## Resetting state
 - Use the **Sign out** button in the header or clear the `mindwell:auth` key to return to the login screen.
 - When experimenting with oauth2-proxy, also clear the proxy cookies (default `_oauth2_proxy`) to force a full reauthentication cycle.
+
+## Локальная обвязка oauth2-proxy
+- В каталоге `infra/local/oauth2-proxy/` лежит `docker-compose.yml` и пример `.env` файла для быстрого запуска прокси рядом с локальным бекендом.
+- Скопируйте `.env.oauth2-proxy.example` в `~/.config/mindwell/oauth2-proxy.env`, заполните значениями своего OIDC-провайдера (не забудьте `OAUTH2_PROXY_COOKIE_SECURE=false` и `OAUTH2_PROXY_SKIP_AUTH_PREFLIGHT=true` для локальной разработки) и запустите `docker compose up -d` в этом каталоге.
+- Установите для фронтенда `VITE_API_BASE_URL=http://localhost:4180`, чтобы запросы к `/api/*` шли через прокси и формировали нужные заголовки `X-Auth-Request-*`.

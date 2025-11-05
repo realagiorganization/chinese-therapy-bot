@@ -67,6 +67,15 @@ The backend reads configuration from environment variables via `AppSettings` (`s
 - `ALERT_WEBHOOK_URL`: Optional HTTPS webhook endpoint (e.g. Slack, Teams) that receives Monitoring Agent alert payloads.
 - `ALERT_CHANNEL`: Optional channel or room override supplied with alert webhook payloads.
 
+### oauth2-proxy Deployment
+- `OAUTH2_PROXY_MANAGED_IDENTITY_CLIENT_ID`: Client ID of the managed identity authorised to read oauth2-proxy secrets from Azure Key Vault. Reuse the backend identity if a dedicated one is not available.
+- `OAUTH2_PROXY_REDIRECT_URL`: Fully qualified callback URL served by oauth2-proxy (e.g. `https://api.dev.mindwell.cn/oauth2/callback`).
+- `OAUTH2_PROXY_OIDC_ISSUER_URL`: OpenID Connect issuer for the upstream identity provider (Azure AD, Google Workspace, etc.).
+- `OAUTH2_PROXY_EMAIL_DOMAINS`: Comma-separated list of allowed email domains for authentication.
+- `OAUTH2_PROXY_WHITELIST_DOMAINS`: Domains for which oauth2-proxy should set session cookies (`mindwell.cn`, `.mindwell.cn`, etc.).
+- `OAUTH2_PROXY_COOKIE_DOMAIN`: Cookie domain shared with the frontend so browser sessions persist across subdomains.
+- `OAUTH2_PROXY_UPSTREAMS`: Comma-separated upstream URLs protected by oauth2-proxy (defaults to the internal `http://mindwell-backend.mindwell.svc.cluster.local` service).
+
 ### Notes
 - When Azure OpenAI variables are omitted, the orchestrator falls back to OpenAI (if configured) and deterministic heuristics for development environments.
 - Supplying `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` is unnecessary when running on infrastructure with an attached IAM role (AKS workload identity or EC2 instance profiles).

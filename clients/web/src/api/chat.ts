@@ -186,6 +186,7 @@ export async function* streamChatTurn(
   const endpoint = `${getApiBaseUrl()}/api/chat/message`;
   const response = await fetch(endpoint, {
     method: "POST",
+    credentials: "include",
     headers: withAuthHeaders({
       "Content-Type": "application/json",
       Accept: "text/event-stream"
@@ -303,6 +304,7 @@ export async function sendChatTurn(
   const endpoint = `${getApiBaseUrl()}/api/chat/message`;
   const response = await fetch(endpoint, {
     method: "POST",
+    credentials: "include",
     headers: withAuthHeaders({
       "Content-Type": "application/json",
       Accept: "application/json"

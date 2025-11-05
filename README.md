@@ -90,9 +90,11 @@ Use `mindwell-monitoring-agent --dry-run` to verify telemetry access without dis
    ```
 2. Create a `.env.local` (or export) with at minimum:
    ```bash
-   VITE_API_BASE_URL=http://localhost:8000
+   # Для email-логина укажите порт локального oauth2-proxy
+   VITE_API_BASE_URL=http://localhost:4180
    ```
    The web client appends `/api` paths internally; point this base URL at the oauth2-proxy-protected MindWell backend.
+   Without oauth2-proxy you can temporarily leave `http://localhost:8000`, но в этом случае доступен только вход по демо-кодам.
 3. Start the dev server with hot module reload:
    ```bash
    npm run dev
@@ -117,10 +119,11 @@ Use `mindwell-monitoring-agent --dry-run` to verify telemetry access without dis
    Ensure Xcode (for iOS) or Android Studio/SDK (for Android) are installed before running the native builds.
 2. Configure runtime environment variables (read from `app.config.ts`):
    ```bash
-   echo "EXPO_PUBLIC_API_BASE_URL=http://localhost:8000" >> .env.local
+   echo "EXPO_PUBLIC_API_BASE_URL=http://localhost:4180" >> .env.local
    echo "EXPO_PUBLIC_SPEECH_REGION=eastasia" >> .env.local
    ```
    Additional keys (speech API credentials, push notification secrets) are documented in `ENVS.md`.
+   Если oauth2-proxy не запущен, можно указать `http://localhost:8000`, однако мобильное приложение тоже будет ограничено демо-авторизацией.
 3. Launch the development server:
    ```bash
    npm run start                # Metro bundler

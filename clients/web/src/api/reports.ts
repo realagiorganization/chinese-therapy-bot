@@ -397,6 +397,7 @@ async function requestJourneyReports(userId: string, locale: string): Promise<Jo
   }
   const endpoint = `${baseUrl}/api/reports/${userId}?${params.toString()}`;
   const response = await fetch(endpoint, {
+    credentials: "include",
     headers: withAuthHeaders({
       Accept: "application/json"
     })

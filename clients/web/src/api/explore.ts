@@ -542,6 +542,7 @@ async function requestExploreModules(userId: string, locale: string): Promise<Ex
   }
 
   const response = await fetch(`${baseUrl}/api/explore/modules?${params.toString()}`, {
+    credentials: "include",
     headers: withAuthHeaders({
       Accept: "application/json"
     })

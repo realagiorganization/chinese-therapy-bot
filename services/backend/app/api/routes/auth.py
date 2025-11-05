@@ -8,15 +8,45 @@ from app.services.auth import AuthService, OAuth2Identity
 router = APIRouter()
 
 
+def _resolve_header(request: Request, candidates: list[str]) -> str | None:
+    """Return the first non-empty header value from the provided candidate list."""
+    seen = set()
+    for name in candidates:
+        normalized = name.strip()
+        if not normalized:
+            continue
+        key = normalized.lower()
+        if key in seen:
+            continue
+        seen.add(key)
+        value = request.headers.get(normalized)
+        if value:
+            return value
+    return None
+
+
 def _extract_oauth_identity(request: Request, settings: AppSettings) -> OAuth2Identity:
-    email = request.headers.get(settings.oauth2_proxy_email_header)
+    primary_email_header = settings.oauth2_proxy_email_header
+    email_candidates = [
+        primary_email_header,
+        "X-Auth-Request-Email",
+        "X-Forwarded-Email",
+    ]
+    email = _resolve_header(request, email_candidates)
     if not email:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Прокси аутентификации не передал email пользователя.",
         )
 
-    subject = request.headers.get(settings.oauth2_proxy_user_header) or email
+    primary_user_header = settings.oauth2_proxy_user_header
+    subject_candidates = [
+        primary_user_header,
+        "X-Auth-Request-User",
+        "X-Forwarded-User",
+    ]
+    subject = _resolve_header(request, subject_candidates) or email
+
     name_header = settings.oauth2_proxy_name_header or ""
     name = request.headers.get(name_header) if name_header else None
     return OAuth2Identity(subject=subject, email=email, name=name)

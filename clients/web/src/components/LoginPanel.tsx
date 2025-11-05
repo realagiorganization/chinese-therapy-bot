@@ -3,37 +3,15 @@ import type { FormEvent } from "react";
 import { useTranslation } from "react-i18next";
 
 import { AuthError, exchangeOAuthSession, loginWithDemoCode } from "../api/auth";
+import { getAuthProxyUrl } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
 import { Button, Card, Typography } from "../design-system";
 import { LocaleSwitcher } from "./LocaleSwitcher";
 
-const EMAIL_STORAGE_KEY = "mindwell:login:email";
 const OAUTH_PENDING_KEY = "mindwell:oauth:pending";
 
 type EmailStatus = "idle" | "checking" | "redirecting";
 type DemoStatus = "idle" | "submitting";
-
-function readStoredEmail(): string {
-  if (typeof window === "undefined") {
-    return "";
-  }
-  try {
-    return window.localStorage.getItem(EMAIL_STORAGE_KEY) ?? "";
-  } catch {
-    return "";
-  }
-}
-
-function persistEmail(value: string): void {
-  if (typeof window === "undefined") {
-    return;
-  }
-  try {
-    window.localStorage.setItem(EMAIL_STORAGE_KEY, value);
-  } catch {
-    // ignore storage failures
-  }
-}
 
 function setPendingOAuth(status: boolean): void {
   if (typeof window === "undefined") {
@@ -65,7 +43,7 @@ export function LoginPanel() {
   const { t } = useTranslation();
   const { setTokens } = useAuth();
 
-  const [email, setEmail] = useState<string>(() => readStoredEmail());
+  const [email, setEmail] = useState("");
   const [demoCode, setDemoCode] = useState("");
   const [emailStatus, setEmailStatus] = useState<EmailStatus>("idle");
   const [demoStatus, setDemoStatus] = useState<DemoStatus>("idle");
@@ -129,36 +107,63 @@ export function LoginPanel() {
   }, [setTokens, t]);
 
   const handleEmailSubmit = useCallback(
-    (event: FormEvent) => {
+    (event: FormEvent<HTMLFormElement>) => {
       event.preventDefault();
       skipOAuthRef.current = false;
-      const trimmed = email.trim();
+      const form = event.currentTarget;
+      const formData = new FormData(form);
+      const emailEntry = formData.get("email");
+      const emailElement = form.elements.namedItem("email") as HTMLInputElement | null;
+      const rawEmail =
+        typeof emailEntry === "string"
+          ? emailEntry
+          : emailElement?.value !== undefined
+            ? emailElement.value
+            : "";
+      const trimmed = rawEmail.trim();
       if (!trimmed) {
         setError(t("auth.errors.email_required"));
         return;
       }
       setError(null);
-      persistEmail(trimmed);
+      setEmail(trimmed);
       setPendingOAuth(true);
       setEmailStatus("redirecting");
 
       if (typeof window !== "undefined") {
         const base = window.location.origin;
         const redirectTarget = `${base}${window.location.pathname}`;
-        const search = new URLSearchParams({
-          rd: redirectTarget,
-          login_hint: trimmed
-        });
-        window.location.assign(`/oauth2/start?${search.toString()}`);
+        const search = new URLSearchParams();
+        search.set("rd", redirectTarget);
+        search.set("prompt", "select_account");
+        if (trimmed) {
+          search.set("login_hint", trimmed);
+          const domain = trimmed.split("@")[1]?.toLowerCase();
+          if (domain) {
+            search.set("hd", domain);
+          }
+        }
+        const oauthStartUrl = `${getAuthProxyUrl("/oauth2/start")}?${search.toString()}`;
+        window.location.assign(oauthStartUrl);
       }
     },
     [email, t]
   );
 
   const handleDemoLogin = useCallback(
-    async (event: FormEvent) => {
+    async (event: FormEvent<HTMLFormElement>) => {
       event.preventDefault();
-      const trimmed = demoCode.trim();
+      const form = event.currentTarget;
+      const formData = new FormData(form);
+      const codeEntry = formData.get("demo_code");
+      const codeElement = form.elements.namedItem("demo_code") as HTMLInputElement | null;
+      const rawCode =
+        typeof codeEntry === "string"
+          ? codeEntry
+          : codeElement?.value !== undefined
+            ? codeElement.value
+            : "";
+      const trimmed = rawCode.trim();
       if (!trimmed) {
         setError(t("auth.errors.demo_required"));
         return;
@@ -179,6 +184,7 @@ export function LoginPanel() {
           expiresAt: Date.now() + tokens.expiresIn * 1000
         });
         setDemoStatus("idle");
+        setDemoCode(trimmed);
       } catch (err) {
         setDemoStatus("idle");
         if (err instanceof AuthError) {
@@ -250,6 +256,7 @@ export function LoginPanel() {
           <span style={{ color: "var(--text-secondary)" }}>{t("auth.email_label")}</span>
           <input
             type="email"
+            name="email"
             value={email}
             onChange={(event) => setEmail(event.target.value)}
             style={{
@@ -285,6 +292,7 @@ export function LoginPanel() {
           <span style={{ color: "var(--text-secondary)" }}>{t("auth.demo_label")}</span>
           <input
             type="text"
+            name="demo_code"
             value={demoCode}
             onChange={(event) => setDemoCode(event.target.value)}
             style={{
