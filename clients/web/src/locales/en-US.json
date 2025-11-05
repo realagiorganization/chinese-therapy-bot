@@ -12,6 +12,43 @@
     "cta_invite": "Invite a friend to MindWell",
     "voice_hint": "Voice input, emotional summaries, and daily companionship included."
   },
+  "uat": {
+    "title": "Pilot UAT insights",
+    "cohortLabel": "Cohort: {{cohort}}",
+    "source": {
+      "api": "Source: live UAT metrics",
+      "fallback": "Source: illustrative data"
+    },
+    "state": {
+      "loading": "Loading pilot UAT metrics…",
+      "error": "We couldn’t load UAT insights. Try again shortly."
+    },
+    "stats": {
+      "totalSessions": "Logged sessions",
+      "distinctParticipants": "Participants",
+      "averageSatisfaction": "Avg. satisfaction",
+      "averageTrust": "Avg. trust",
+      "sessionsWithBlockers": "Sessions with blockers"
+    },
+    "sections": {
+      "severity": "Issue severity distribution",
+      "platforms": "Platform performance",
+      "environments": "Environment comparison",
+      "backlog": "Prioritized backlog"
+    },
+    "severity": {
+      "high": "High",
+      "medium": "Medium",
+      "low": "Low",
+      "unspecified": "Unspecified"
+    },
+    "platformSummary": "{{total}} sessions · Satisfaction {{satisfaction}} · Trust {{trust}}",
+    "environmentSummary": "{{total}} sessions · Satisfaction {{satisfaction}} · Trust {{trust}}",
+    "backlog": {
+      "meta": "{{occurrences}} occurrences · {{participants}} impacted · Last seen {{date}}",
+      "actions": "Next actions: {{actions}}"
+    }
+  },
   "auth": {
     "title": "Sign in to MindWell",
     "subtitle": "Use an SMS code or Google account to continue your journey.",

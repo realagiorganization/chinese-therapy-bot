@@ -200,6 +200,44 @@ export type TrendingTopicsModule = {
   insights: string[];
 };
 
+export type PilotUATIssueSummary = {
+  severity: string;
+  count: number;
+};
+
+export type PilotUATGroupSummary = {
+  key: string;
+  total: number;
+  averageSatisfaction: number | null;
+  averageTrust: number | null;
+};
+
+export type PilotUATSessionSummary = {
+  totalSessions: number;
+  distinctParticipants: number;
+  averageSatisfaction: number | null;
+  averageTrust: number | null;
+  sessionsWithBlockers: number;
+  issuesBySeverity: PilotUATIssueSummary[];
+  sessionsByPlatform: PilotUATGroupSummary[];
+  sessionsByEnvironment: PilotUATGroupSummary[];
+};
+
+export type PilotUATBacklogItem = {
+  title: string;
+  severity: string;
+  occurrences: number;
+  affectedParticipants: number;
+  latestSessionDate: string;
+  sampleNotes: string[];
+  actionItems: string[];
+};
+
+export type PilotUATBacklogResponse = {
+  total: number;
+  items: PilotUATBacklogItem[];
+};
+
 export type ExploreModule = BreathingModule | PsychoeducationModule | TrendingTopicsModule;
 
 export type ExploreModulesResponse = {

@@ -69,6 +69,7 @@ app/services/evaluation.py
 app/services/explore.py
 app/services/feature_flags.py
 app/services/feedback.py
+app/services/knowledge_base.py
 app/services/language_detection.py
 app/services/memory.py
 app/services/monitoring.py
@@ -79,6 +80,8 @@ app/services/reports.py
 app/services/summaries.py
 app/services/templates.py
 app/services/therapists.py
+app/utils/__init__.py
+app/utils/pilot_samples.py
 mindwell_backend.egg-info/PKG-INFO
 mindwell_backend.egg-info/SOURCES.txt
 mindwell_backend.egg-info/dependency_links.txt
@@ -89,9 +92,11 @@ scripts/__init__.py
 scripts/delete_user_data.py
 scripts/export_user_data.py
 scripts/find_user.py
+scripts/generate_pilot_samples.py
 scripts/manage_pilot_cohort.py
 scripts/pilot_followups.py
 scripts/summarize_pilot_feedback.py
+scripts/uat_dry_run.py
 scripts/uat_sessions.py
 tests/test_alert_dispatcher.py
 tests/test_analytics_service.py
@@ -106,11 +111,13 @@ tests/test_evaluation.py
 tests/test_explore_service.py
 tests/test_feedback_api.py
 tests/test_feedback_service.py
+tests/test_knowledge_base_service.py
 tests/test_language_detection.py
 tests/test_llm_orchestrator.py
 tests/test_monitoring_service.py
 tests/test_pilot_cohort_api.py
 tests/test_pilot_cohort_service.py
+tests/test_pilot_samples.py
 tests/test_pilot_uat_api.py
 tests/test_pilot_uat_service.py
 tests/test_recommendations.py
@@ -120,4 +127,5 @@ tests/test_storage.py
 tests/test_summaries.py
 tests/test_template_service.py
 tests/test_therapist_service.py
+tests/test_uat_sessions_cli.py
 tests/test_voice_api.py

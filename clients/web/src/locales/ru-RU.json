@@ -12,6 +12,43 @@
     "cta_invite": "Пригласить друга в MindWell",
     "voice_hint": "Доступны голосовой ввод, эмоциональные сводки и ежедневное сопровождение."
   },
+  "uat": {
+    "title": "Инсайты пилотного UAT",
+    "cohortLabel": "Когорта: {{cohort}}",
+    "source": {
+      "api": "Источник: живые метрики UAT",
+      "fallback": "Источник: демонстрационные данные"
+    },
+    "state": {
+      "loading": "Загружаем метрики пилотного тестирования…",
+      "error": "Не удалось получить данные UAT. Повторите попытку позже."
+    },
+    "stats": {
+      "totalSessions": "Зарегистрированные сессии",
+      "distinctParticipants": "Участники",
+      "averageSatisfaction": "Средняя удовлетворённость",
+      "averageTrust": "Среднее доверие",
+      "sessionsWithBlockers": "Сессии с препятствиями"
+    },
+    "sections": {
+      "severity": "Распределение по серьёзности",
+      "platforms": "Состояние по платформам",
+      "environments": "Сравнение окружений",
+      "backlog": "Приоритезированная очередь"
+    },
+    "severity": {
+      "high": "Высокая",
+      "medium": "Средняя",
+      "low": "Низкая",
+      "unspecified": "Не указано"
+    },
+    "platformSummary": "{{total}} сессий · Удовлетворённость {{satisfaction}} · Доверие {{trust}}",
+    "environmentSummary": "{{total}} сессий · Удовлетворённость {{satisfaction}} · Доверие {{trust}}",
+    "backlog": {
+      "meta": "{{occurrences}} случаев · затронуто {{participants}} участников · Последний раз {{date}}",
+      "actions": "Следующие шаги: {{actions}}"
+    }
+  },
   "auth": {
     "title": "Войдите в MindWell",
     "subtitle": "Используйте SMS-код или аккаунт Google, чтобы продолжить.",

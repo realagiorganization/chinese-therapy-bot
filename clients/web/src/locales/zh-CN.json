@@ -12,6 +12,43 @@
     "cta_invite": "邀请朋友体验 MindWell",
     "voice_hint": "支持语音输入、情绪总结与每日陪伴"
   },
+  "uat": {
+    "title": "试点用户验收洞察",
+    "cohortLabel": "试点批次：{{cohort}}",
+    "source": {
+      "api": "数据源：实时 UAT 指标",
+      "fallback": "数据源：示例数据"
+    },
+    "state": {
+      "loading": "正在加载 UAT 指标…",
+      "error": "暂时无法获取 UAT 数据，请稍后重试。"
+    },
+    "stats": {
+      "totalSessions": "记录会话数",
+      "distinctParticipants": "参与用户数",
+      "averageSatisfaction": "平均满意度",
+      "averageTrust": "平均信任度",
+      "sessionsWithBlockers": "含阻碍会话"
+    },
+    "sections": {
+      "severity": "问题严重度分布",
+      "platforms": "平台表现",
+      "environments": "环境对比",
+      "backlog": "优先处理事项"
+    },
+    "severity": {
+      "high": "高优先级",
+      "medium": "中优先级",
+      "low": "低优先级",
+      "unspecified": "未标注"
+    },
+    "platformSummary": "共 {{total}} 场 · 满意度 {{satisfaction}} · 信任度 {{trust}}",
+    "environmentSummary": "共 {{total}} 场 · 满意度 {{satisfaction}} · 信任度 {{trust}}",
+    "backlog": {
+      "meta": "出现 {{occurrences}} 次 · 影响 {{participants}} 位参与者 · 最近 {{date}}",
+      "actions": "建议行动：{{actions}}"
+    }
+  },
   "auth": {
     "title": "登录 MindWell",
     "subtitle": "使用短信验证码或 Google 账号开始你的陪伴之旅。",

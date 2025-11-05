@@ -27,6 +27,33 @@ poetry shell  # or source .venv/bin/activate, depending on your setup
 
 ---
 
+## 1b. Dry-Run the Pilot Workflow (Optional but Recommended)
+
+Before inviting real participants, rehearse the full data flow with synthetic data:
+
+1. Ensure you have a local database ready and access to the Alembic migrations (`DATABASE_URL` must point to a writable instance).
+2. Run the dry-run helper to generate sample participants, feedback, and UAT sessions, then materialize a Markdown summary:
+
+   ```bash
+   python services/backend/scripts/uat_dry_run.py \
+     --database-url sqlite+aiosqlite:///./uat_dry_run.db \
+     --init-db \
+     --generate-samples \
+     --overwrite-samples \
+     --purge-existing \
+     --cohort pilot-demo \
+     --seed 42 \
+     --report-path docs/uat_dry_run_report.md
+   ```
+
+   - Add `--participants`, `--feedback`, or `--uat-sessions` to enlarge the sample.
+   - Omit `--init-db` if your schema is already migrated; leaving it on helps first-time rehearsals.
+3. Review `docs/uat_dry_run_report.md` to confirm the backlog, sentiment, and cohort metrics look sensible before onboarding live testers.
+
+> ⚠️ If migrations are missing in your checkout, the `--init-db` step will fail; run against an environment that already has the pilot tables or apply the outstanding revisions manually.
+
+---
+
 ## 2. Seed the Pilot Cohort Roster
 
 1. Prepare a CSV with the headers documented in `services/backend/scripts/manage_pilot_cohort.py` (minimum recommended columns: `alias,email,phone,locale,status,source,tags,consent`).

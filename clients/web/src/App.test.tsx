@@ -197,8 +197,9 @@ describe("App", () => {
     expect(await screen.findByText(/MindWell 心理陪伴/)).toBeInTheDocument();
     expect(await screen.findByText(/支持语音输入/)).toBeInTheDocument();
     expect(await screen.findByText(/疗愈陪伴对话/)).toBeInTheDocument();
-    expect(await screen.findByText(/旅程报告/)).toBeInTheDocument();
-    expect(globalThis.fetch).toHaveBeenCalledTimes(4);
+    const journeyLabels = await screen.findAllByText(/旅程报告/);
+    expect(journeyLabels.some((node) => node.textContent?.trim() === "旅程报告")).toBe(true);
+    expect(globalThis.fetch).toHaveBeenCalledTimes(6);
   });
 
   it("switches to English locale", async () => {

@@ -11,7 +11,7 @@ web client, infrastructure-as-code, and the supporting automation services descr
 - Persistent conversation history with daily/weekly summaries and keyword memory.
 - Therapist discovery directory with recommendation rationales and locale-aware content.
 - Journey dashboard surfacing recent insights, highlight cards, and transcript drill-downs.
-- Explore modules for breathing exercises, psychoeducation, and dynamic feature rollouts.
+- Explore modules for breathing exercises, psychoeducation, and dynamic feature rollouts powered by feature flags and knowledge-base-driven personalization.
 - Voice input (browser and server ASR) plus optional text-to-speech playback.
 - SMS OTP and Google OAuth login flows with refresh-token rotation.
 - Automation agents for data sync, summary scheduling, CI runner orchestration, and monitoring.
@@ -164,6 +164,7 @@ Use `mindwell-pilot-followups --cohort pilot-2025w6 --horizon-days 7` to generat
 - Monitoring Agent raises alerts when thresholds or budget guardrails (defined in Terraform) are breached.
 - Configure `APP_INSIGHTS_APP_ID`, `APP_INSIGHTS_API_KEY`, and spend thresholds before scheduling
   `mindwell-monitoring-agent` in production.
+- Run `mindwell-monitoring-diagnose --format table --details` for a one-off health check before enabling alert dispatch.
 - Optionally point `MONITORING_METRICS_PATH` to a writable location so each run emits a JSON snapshot
   (`{"generated_at": "...", "alerts": [...]}`) for downstream ingestion or dashboards.
 - S3 versioning and lifecycle policies guard conversation transcripts, summaries, and therapist media.

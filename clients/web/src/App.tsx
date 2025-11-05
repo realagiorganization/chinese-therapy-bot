@@ -8,6 +8,7 @@ import { LoginPanel } from "./components/LoginPanel";
 import { JourneyDashboard } from "./components/JourneyDashboard";
 import { LocaleSwitcher } from "./components/LocaleSwitcher";
 import { TherapistDirectory } from "./components/TherapistDirectory";
+import { UATDashboard } from "./components/UATDashboard";
 
 type HighlightCard = {
   id: string;
@@ -133,6 +134,7 @@ export default function App() {
         <ChatPanel />
 
         <JourneyDashboard locale={i18n.language} />
+        <UATDashboard />
         <ExploreModules locale={i18n.language} />
 
         <section

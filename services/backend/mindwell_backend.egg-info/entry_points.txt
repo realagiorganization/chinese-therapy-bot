@@ -6,6 +6,7 @@ mindwell-monitoring-agent = app.agents.monitoring:main
 mindwell-pilot-cohort = scripts.manage_pilot_cohort:cli
 mindwell-pilot-feedback-report = scripts.summarize_pilot_feedback:cli
 mindwell-pilot-followups = scripts.pilot_followups:main
+mindwell-pilot-samples = scripts.generate_pilot_samples:cli
 mindwell-retention-cleanup = app.agents.retention_cleanup:main
 mindwell-summary-scheduler = app.agents.summary_scheduler:main
 mindwell-uat-sessions = scripts.uat_sessions:cli

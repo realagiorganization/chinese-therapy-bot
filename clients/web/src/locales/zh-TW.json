@@ -12,6 +12,43 @@
     "cta_invite": "邀請朋友體驗 MindWell",
     "voice_hint": "支援語音輸入、情緒摘要與每日陪伴"
   },
+  "uat": {
+    "title": "試點驗收洞察",
+    "cohortLabel": "試點批次：{{cohort}}",
+    "source": {
+      "api": "資料來源：即時 UAT 指標",
+      "fallback": "資料來源：示例數據"
+    },
+    "state": {
+      "loading": "正在載入 UAT 指標…",
+      "error": "暫時無法取得 UAT 數據，請稍後再試。"
+    },
+    "stats": {
+      "totalSessions": "記錄會話數",
+      "distinctParticipants": "參與人數",
+      "averageSatisfaction": "平均滿意度",
+      "averageTrust": "平均信任度",
+      "sessionsWithBlockers": "含阻礙會話"
+    },
+    "sections": {
+      "severity": "問題嚴重度分佈",
+      "platforms": "平台表現",
+      "environments": "環境對比",
+      "backlog": "優先處理清單"
+    },
+    "severity": {
+      "high": "高優先",
+      "medium": "中優先",
+      "low": "低優先",
+      "unspecified": "未標註"
+    },
+    "platformSummary": "共 {{total}} 場 · 滿意度 {{satisfaction}} · 信任度 {{trust}}",
+    "environmentSummary": "共 {{total}} 場 · 滿意度 {{satisfaction}} · 信任度 {{trust}}",
+    "backlog": {
+      "meta": "出現 {{occurrences}} 次 · 影響 {{participants}} 位參與者 · 最近 {{date}}",
+      "actions": "建議行動：{{actions}}"
+    }
+  },
   "auth": {
     "title": "登入 MindWell",
     "subtitle": "透過簡訊驗證碼或 Google 帳號展開療癒旅程。",

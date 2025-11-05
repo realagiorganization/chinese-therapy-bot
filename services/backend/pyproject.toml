@@ -45,6 +45,7 @@ mindwell-pilot-cohort = "scripts.manage_pilot_cohort:cli"
 mindwell-pilot-followups = "scripts.pilot_followups:main"
 mindwell-uat-sessions = "scripts.uat_sessions:cli"
 mindwell-pilot-samples = "scripts.generate_pilot_samples:cli"
+mindwell-monitoring-diagnose = "scripts.monitoring_diagnose:main"
 
 [build-system]
 requires = ["setuptools>=61", "wheel"]
