@@ -174,9 +174,9 @@ class ReportsService:
         daily = [
             DailyReport(
                 report_date=today - timedelta(days=offset),
-                title=f"第 {offset + 1} 天回顾",
-                spotlight="保持呼吸练习，情绪稳定有所提升。",
-                summary="用户持续进行正念练习，焦虑触发次数下降。",
+                title=f"Day {offset + 1} reflection",
+                spotlight="Keep up the breathing practice; emotional stability is improving.",
+                summary="The user continues mindfulness routines and is logging fewer anxiety triggers.",
                 mood_delta=1,
             )
             for offset in range(3)
@@ -185,9 +185,9 @@ class ReportsService:
         weekly = [
             WeeklyReport(
                 week_start=today - timedelta(days=7),
-                themes=["压力管理", "睡眠质量"],
-                highlights="成功建立睡前放松流程。",
-                action_items=["保持睡前日记", "每周安排一次户外活动"],
+                themes=["Stress management", "Sleep quality"],
+                highlights="A relaxing bedtime routine is in place and working.",
+                action_items=["Keep a bedtime journal", "Plan one outdoor activity this week"],
                 risk_level="low",
             )
         ]
@@ -202,13 +202,13 @@ class ReportsService:
                 ConversationMessage(
                     message_id="00000000-0000-0000-0000-000000000101",
                     role="user",
-                    content="最近工作压力有点大，晚上总是睡不好。",
+                    content="Work stress has been intense lately and sleep keeps slipping away.",
                     created_at=fallback_timestamp,
                 ),
                 ConversationMessage(
                     message_id="00000000-0000-0000-0000-000000000102",
                     role="assistant",
-                    content="我们先尝试一个呼吸练习，帮助身体放松，然后记录下影响睡眠的想法，好吗？",
+                    content="Let's start with a breathing exercise to relax your body and jot down the thoughts affecting your rest.",
                     created_at=fallback_timestamp,
                 ),
             ],

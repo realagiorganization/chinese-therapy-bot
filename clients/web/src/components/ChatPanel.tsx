@@ -7,6 +7,7 @@ import { Button, Card, Typography } from "../design-system";
 import { useChatSession, type ChatTranscriptMessage } from "../hooks/useChatSession";
 import { useServerTranscriber } from "../hooks/useServerTranscriber";
 import { useChatTemplates } from "../hooks/useChatTemplates";
+import { formatTherapistDisplayName } from "../utils/therapistDisplayName";
 
 type SpeechRecognitionAlternativeLike = {
   transcript?: string;
@@ -393,7 +394,9 @@ export function ChatPanel({ className }: ChatPanelProps) {
     clearError,
     recommendations,
     memoryHighlights,
-    resolvedLocale
+    resolvedLocale,
+    quotaExceeded,
+    dismissQuotaPrompt
   } = useChatSession(locale);
   const sessionLocale = resolvedLocale || locale;
   const {
@@ -434,6 +437,30 @@ export function ChatPanel({ className }: ChatPanelProps) {
     return error ?? serverVoiceError;
   }, [error, serverVoiceError]);
 
+  const subscriptionPlans = useMemo(
+    () => [
+      {
+        key: "starter",
+        name: t("subscription.plans.starter.name"),
+        price: t("subscription.plans.starter.price"),
+        description: t("subscription.plans.starter.description")
+      },
+      {
+        key: "plus",
+        name: t("subscription.plans.plus.name"),
+        price: t("subscription.plans.plus.price"),
+        description: t("subscription.plans.plus.description")
+      },
+      {
+        key: "pro",
+        name: t("subscription.plans.pro.name"),
+        price: t("subscription.plans.pro.price"),
+        description: t("subscription.plans.pro.description")
+      }
+    ],
+    [t]
+  );
+
   const templateTopicLabel = useCallback(
     (topic: string) => {
       const fallback = topic.replace(/[_-]/g, " ");
@@ -468,6 +495,11 @@ export function ChatPanel({ className }: ChatPanelProps) {
   const handleTemplateRetry = useCallback(() => {
     refetchTemplates();
   }, [refetchTemplates]);
+
+  const handleSubscriptionClose = useCallback(() => {
+    dismissQuotaPrompt();
+    clearError();
+  }, [dismissQuotaPrompt, clearError]);
 
   useEffect(() => {
     const container = transcriptContainerRef.current;
@@ -656,7 +688,8 @@ export function ChatPanel({ className }: ChatPanelProps) {
     if (serverVoiceError) {
       clearServerError();
     }
-  }, [error, clearError, serverVoiceError, clearServerError]);
+    dismissQuotaPrompt();
+  }, [error, clearError, serverVoiceError, clearServerError, dismissQuotaPrompt]);
 
   return (
     <Card
@@ -666,7 +699,8 @@ export function ChatPanel({ className }: ChatPanelProps) {
       style={{
         display: "grid",
         gap: "var(--mw-spacing-md)",
-        background: "linear-gradient(180deg, rgba(255,255,255,0.96) 0%, rgba(226,232,240,0.35) 100%)"
+        background: "linear-gradient(180deg, rgba(255,255,255,0.96) 0%, rgba(226,232,240,0.35) 100%)",
+        position: "relative"
       }}
     >
       <div
@@ -1056,7 +1090,12 @@ export function ChatPanel({ className }: ChatPanelProps) {
                     }}
                   >
                     <Typography variant="body" style={{ fontWeight: 600 }}>
-                      {recommendation.name} · {recommendation.title}
+                      {formatTherapistDisplayName(
+                        recommendation.therapistId,
+                        recommendation.name,
+                        t
+                      )}{" "}
+                      · {recommendation.title}
                     </Typography>
                     <Typography variant="caption" style={{ color: "var(--text-secondary)" }}>
                       {recommendation.specialties.slice(0, 3).join(" · ")}
@@ -1069,6 +1108,90 @@ export function ChatPanel({ className }: ChatPanelProps) {
               </div>
             </div>
           )}
+        </div>
+      )}
+
+      {quotaExceeded && (
+        <div
+          style={{
+            position: "absolute",
+            inset: 0,
+            background: "rgba(15,23,42,0.55)",
+            backdropFilter: "blur(6px)",
+            display: "grid",
+            placeItems: "center",
+            padding: "var(--mw-spacing-lg)",
+            zIndex: 10
+          }}
+        >
+          <Card
+            elevated
+            padding="lg"
+            style={{
+              maxWidth: "480px",
+              width: "100%",
+              display: "grid",
+              gap: "var(--mw-spacing-md)",
+              background: "linear-gradient(180deg, rgba(255,255,255,0.98) 0%, rgba(226,232,240,0.5) 100%)",
+              boxShadow: "0 24px 60px rgba(15,23,42,0.35)"
+            }}
+          >
+            <div style={{ display: "grid", gap: "4px" }}>
+              <Typography variant="title">{t("subscription.title")}</Typography>
+              <Typography variant="caption" style={{ color: "var(--text-secondary)" }}>
+                {t("subscription.message")}
+              </Typography>
+            </div>
+
+            <div
+              style={{
+                display: "grid",
+                gap: "var(--mw-spacing-sm)"
+              }}
+            >
+              {subscriptionPlans.map((plan) => (
+                <div
+                  key={plan.key}
+                  style={{
+                    border: "1px solid rgba(148,163,184,0.35)",
+                    borderRadius: "var(--mw-radius-md)",
+                    padding: "var(--mw-spacing-sm)",
+                    background: "#FFFFFF",
+                    display: "grid",
+                    gap: "6px"
+                  }}
+                >
+                  <div
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "baseline",
+                      gap: "var(--mw-spacing-sm)"
+                    }}
+                  >
+                    <Typography variant="subtitle">{plan.name}</Typography>
+                    <Typography variant="caption" style={{ color: "var(--text-secondary)" }}>
+                      {plan.price}
+                    </Typography>
+                  </div>
+                  <Typography variant="caption" style={{ color: "var(--text-secondary)", lineHeight: 1.5 }}>
+                    {plan.description}
+                  </Typography>
+                  <Button type="button" disabled>
+                    {t("subscription.cta")}
+                  </Button>
+                </div>
+              ))}
+            </div>
+
+            <Typography variant="caption" style={{ color: "var(--text-secondary)" }}>
+              {t("subscription.comingSoon")}
+            </Typography>
+
+            <Button type="button" variant="secondary" onClick={handleSubscriptionClose}>
+              {t("subscription.close")}
+            </Button>
+          </Card>
         </div>
       )}
     </Card>

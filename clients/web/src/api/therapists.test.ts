@@ -18,14 +18,14 @@ describe("loadTherapists", () => {
       items: [
         {
           therapist_id: "t-1",
-          name: "张老师",
-          title: "注册心理咨询师",
-          specialties: ["焦虑调节"],
-          languages: ["zh-CN"],
+          name: "Alex Zhang",
+          title: "Licensed counseling psychologist",
+          specialties: ["Anxiety regulation"],
+          languages: ["en-US"],
           price_per_session: 520,
           currency: "CNY",
           is_recommended: true,
-          availability: ["周五 20:00"]
+          availability: ["Friday 20:00"]
         }
       ]
     };
@@ -43,9 +43,9 @@ describe("loadTherapists", () => {
     expect(result.therapists).toHaveLength(1);
     expect(result.therapists[0]).toMatchObject({
       id: "t-1",
-      name: "张老师",
-      specialties: ["焦虑调节"],
-      languages: ["zh-CN"],
+      name: "Alex Zhang",
+      specialties: ["Anxiety regulation"],
+      languages: ["en-US"],
       recommended: true,
       price: 520
     });

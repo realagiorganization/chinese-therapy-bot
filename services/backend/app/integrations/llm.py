@@ -132,6 +132,63 @@ class ChatOrchestrator:
         for chunk in self._chunk_text(fallback_reply):
             yield chunk
 
+    async def translate_text(
+        self,
+        text: str,
+        *,
+        target_locale: str,
+        source_locale: str | None = None,
+        max_tokens: int = 320,
+    ) -> str:
+        """Translate free-form text to the specified locale."""
+        if not text:
+            return ""
+
+        normalized_target = self._normalize_locale(target_locale)
+        normalized_source = self._normalize_locale(source_locale) if source_locale else None
+        if normalized_source and normalized_source == normalized_target:
+            return text
+
+        messages = self._build_translation_messages(
+            text,
+            target_locale=normalized_target,
+            source_locale=normalized_source,
+        )
+
+        if self._azure_client:
+            try:
+                response = await self._azure_client.chat.completions.create(
+                    model=self._settings.azure_openai_deployment,
+                    messages=messages,
+                    temperature=0.1,
+                    max_tokens=max_tokens,
+                )
+                content = response.choices[0].message.content if response.choices else None
+                if content:
+                    return content.strip()
+            except Exception as exc:  # pragma: no cover - network failure path
+                logger.warning("Azure OpenAI translation failed; attempting fallback.", exc_info=exc)
+
+        if self._openai_client:
+            try:
+                response = await self._openai_client.chat.completions.create(
+                    model="gpt-3.5-turbo",
+                    messages=messages,
+                    temperature=0.1,
+                    max_tokens=max_tokens,
+                )
+                content = response.choices[0].message.content if response.choices else None
+                if content:
+                    return content.strip()
+            except Exception as exc:  # pragma: no cover - network failure path
+                logger.warning("OpenAI translation failed; attempting heuristic fallback.", exc_info=exc)
+
+        return self._heuristic_translation_text(
+            text,
+            target_locale=normalized_target,
+            source_locale=normalized_source,
+        )
+
     async def summarize_conversation(
         self,
         history: list[dict[str, str]],
@@ -379,6 +436,80 @@ class ChatOrchestrator:
             chunks.append(buffer.strip())
 
         return chunks
+
+    def _build_translation_messages(
+        self,
+        text: str,
+        *,
+        target_locale: str,
+        source_locale: str | None,
+    ) -> list[dict[str, str]]:
+        instructions = self._translation_instructions(target_locale, source_locale)
+        return [
+            {"role": "system", "content": instructions},
+            {"role": "user", "content": text},
+        ]
+
+    def _translation_instructions(self, target_locale: str, source_locale: str | None) -> str:
+        target_label = self._locale_label(target_locale)
+        if source_locale:
+            source_label = self._locale_label(source_locale)
+            return (
+                f"You are a certified clinical translator. Convert the user message from {source_label} "
+                f"into {target_label}. Preserve the original meaning, tone, and formatting. "
+                "Do not include footnotes or additional commentary. Return only the translated text."
+            )
+        return (
+            f"You are a certified clinical translator. Render the user message in {target_label}. "
+            "Preserve the meaning, tone, and formatting. Return only the translated text."
+        )
+
+    def _locale_label(self, locale: str) -> str:
+        normalized = self._normalize_locale(locale)
+        return {
+            "zh-cn": "Simplified Chinese",
+            "zh-tw": "Traditional Chinese",
+            "en-us": "English",
+            "ru-ru": "Russian",
+        }.get(normalized, locale or "the target language")
+
+    def _normalize_locale(self, locale: str | None) -> str:
+        if not locale:
+            return ""
+        return locale.replace("_", "-").lower()
+
+    def _heuristic_translation_text(
+        self,
+        text: str,
+        *,
+        target_locale: str,
+        source_locale: str | None,
+    ) -> str:
+        normalized_source = source_locale or ""
+        if target_locale == normalized_source:
+            return text
+
+        if normalized_source == "zh-cn" and target_locale == "zh-tw":
+            return (
+                text.replace("疗", "療")
+                .replace("虑", "慮")
+                .replace("复", "復")
+                .replace("国", "國")
+                .replace("专", "專")
+                .replace("级", "級")
+                .replace("术", "術")
+            )
+        if normalized_source == "zh-tw" and target_locale == "zh-cn":
+            return (
+                text.replace("療", "疗")
+                .replace("慮", "虑")
+                .replace("復", "复")
+                .replace("國", "国")
+                .replace("專", "专")
+                .replace("級", "级")
+                .replace("術", "术")
+            )
+        return text
 
     def _build_summary_messages(
         self,

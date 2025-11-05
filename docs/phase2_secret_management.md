@@ -5,7 +5,7 @@ This document closes the outstanding **Phase 2** checklist items around secret g
 ## 1. Source of Truth
 
 - **Azure Key Vault (`kv-mindwell-<env>`):** Authoritative store for application runtime secrets consumed by workloads on AKS (database credentials, JWT signing keys, LLM API keys mirrored from AWS).
-- **AWS Secrets Manager (`mindwell/<env>/...`):** Holds upstream credentials managed by third parties (OpenAI, Bedrock, SMS provider). Replicated into Key Vault via the Data Sync agent and rotation automation.
+- **AWS Secrets Manager (`mindwell/<env>/...`):** Holds upstream credentials managed by third parties (OpenAI, Bedrock, oauth2-proxy cookie secret). Replicated into Key Vault via the Data Sync agent and rotation automation.
 - **Terraform Outputs:** `aks_managed_identity_client_id`, `aks_managed_identity_principal_id`, and `aks_kubelet_identity_object_id` expose the identities that require secret access and feed CI/CD automation.
 
 ## 2. Access Model
@@ -20,7 +20,7 @@ This document closes the outstanding **Phase 2** checklist items around secret g
 | --- | --- | --- | --- |
 | LLM keys (OpenAI, Bedrock) | AWS Secrets Manager | 45 days | GitHub Actions workflow `llm-key-rotation.yml` (to be authored) fetches new keys, updates AWS Secret, then syncs to Key Vault via Data Sync agent job `agents/data_sync.py`. |
 | Database password | Azure Key Vault | 90 days | Terraform rotates the initial password. Ongoing rotations use `az postgres flexible-server` CLI automation invoked by the CI Runner agent, writing back to the `postgres-admin-password` secret. |
-| SMS provider token | AWS Secrets Manager | 60 days | Provider self-service portal resets token; automation script updates the secret and triggers Data Sync agent to refresh Key Vault copy. |
+| oauth2-proxy cookie secret | AWS Secrets Manager | 90 days | Rotation job updates the shared secret, restarts oauth2-proxy + backend deployments to pick up new value. |
 | JWT signing keys | Azure Key Vault | 180 days | Manual approval runbook using `az keyvault key rotate` plus Helm release to restart backend pods. |
 
 > **Alerting:** Monitoring Agent watches Key Vault near-expiry events (7-day lookahead) and posts to the on-call Slack channel.

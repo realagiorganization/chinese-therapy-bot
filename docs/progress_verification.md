@@ -23,7 +23,7 @@ These notes capture evidence that the completed checklist items in `PROGRESS.md`
 - S3 transcript and summary storage integrations reside in `services/backend/app/integrations/storage.py:1-179`.
 - Therapist recommendation engine with embeddings and heuristics is in `services/backend/app/services/recommendations.py:1-180`.
 - Conversation memory service with keyword filtering and summarization is defined in `services/backend/app/services/memory.py:1-200`.
-- Google OAuth stub, OTP throttling, and token rotation support are codified across `services/backend/app/services/auth.py:1-220` and `app/api/routes/auth.py:1-160`, aligning with the Phase 3 identity management checklist.
+- oauth2-proxy session exchange, demo-code validation, and token rotation support are codified across `services/backend/app/services/auth.py` and `app/api/routes/auth.py`, aligning with the Phase 3 identity management checklist.
 
 ## Phase 4 – Frontend Experience
 - React web client with localization, journey reports, and therapist flows has supporting tests in `clients/web/src/App.test.tsx:1-131`.
@@ -32,7 +32,7 @@ These notes capture evidence that the completed checklist items in `PROGRESS.md`
 
 ## Mobile Client Scaffold
 - Expo-based React Native application lives under `clients/mobile/`, with app entry in `clients/mobile/App.tsx:1-200` wiring shared theming and auth context.
-- SMS + Google login flows are implemented in `clients/mobile/src/screens/LoginScreen.tsx:1-200` backed by context logic in `clients/mobile/src/context/AuthContext.tsx:1-240`.
+- Email (oauth2-proxy) plus demo-code flows are implemented in `clients/mobile/src/screens/LoginScreen.tsx` backed by `clients/mobile/src/context/AuthContext.tsx`; parity with the web experience remains in progress for upstream identity callbacks.
 - Chat shell consuming the FastAPI backend exists at `clients/mobile/src/screens/ChatScreen.tsx:1-960`, delegating API interaction to `clients/mobile/src/services/chat.ts:1-140`.
 - ✅ Mobile voice playback now matches the DEV_PLAN claims: Expo Speech–backed TTS with adjustable rate/pitch and a disable toggle lives in `clients/mobile/src/context/VoiceSettingsContext.tsx:1-200`, `clients/mobile/src/hooks/useVoicePlayback.ts:1-140`, and `clients/mobile/src/screens/ChatScreen.tsx:600-920`.
 

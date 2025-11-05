@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Iterable
 from statistics import mean
 
 from app.schemas.explore import (
@@ -16,6 +17,7 @@ from app.schemas.explore import (
 from app.schemas.reports import JourneyReportsResponse
 from app.services.feature_flags import FeatureFlagService
 from app.services.reports import ReportsService
+from app.services.translation import TranslationService
 
 
 class ExploreService:
@@ -25,9 +27,12 @@ class ExploreService:
         self,
         feature_flags: FeatureFlagService,
         reports_service: ReportsService,
+        *,
+        translator: TranslationService | None = None,
     ) -> None:
         self._feature_flags = feature_flags
         self._reports_service = reports_service
+        self._translator = translator
 
     async def build_modules(self, *, user_id: str, locale: str = "zh-CN") -> ExploreModulesResponse:
         evaluated: dict[str, bool] = {}
@@ -65,45 +70,87 @@ class ExploreService:
 
         return ExploreModulesResponse(locale=locale, modules=modules, evaluated_flags=evaluated)
 
-    async def _build_breathing_module(self, *, locale: str, reports: JourneyReportsResponse | None = None) -> BreathingExerciseModule:  # noqa: ARG002
-        """Return a localized breathing exercise module."""
-        if self._is_chinese(locale):
+    async def _build_breathing_module(
+        self,
+        *,
+        locale: str,
+        reports: JourneyReportsResponse | None = None,  # noqa: ARG002
+    ) -> BreathingExerciseModule:
+        """Return a breathing module translated at runtime."""
+        step_data = [
+            {
+                "label": "Posture",
+                "instruction": "Sit or stand tall, relax your shoulders, close your eyes.",
+                "duration": 10,
+            },
+            {
+                "label": "Inhale 4 Count",
+                "instruction": "Inhale through the nose while counting 1-2-3-4.",
+                "duration": 16,
+            },
+            {
+                "label": "Hold 7 Count",
+                "instruction": "Hold gently for seven beats without tensing your neck.",
+                "duration": 28,
+            },
+            {
+                "label": "Exhale 8 Count",
+                "instruction": "Exhale slowly through the mouth, feeling your chest soften.",
+                "duration": 32,
+            },
+        ]
+        base_strings = {
+            "title": "Guided Breathing Session",
+            "description": "A five-minute pace-reset that slows breathing and lowers heart rate.",
+            "cadence": "4-7-8 cadence",
+            "frequency": "Practice 2-3 rounds before bed or when anxiety spikes.",
+            "cta": "Start breathing guide",
+        }
+
+        if self._should_translate(locale):
+            payload: dict[str, str] = {
+                "title": base_strings["title"],
+                "description": base_strings["description"],
+                "cadence": base_strings["cadence"],
+                "frequency": base_strings["frequency"],
+                "cta": base_strings["cta"],
+            }
+            for index, step in enumerate(step_data):
+                payload[f"step_label_{index}"] = step["label"]
+                payload[f"step_instruction_{index}"] = step["instruction"]
+
+            translated = await self._translate_mapping(payload, locale=locale)
             steps = [
-                BreathingStep(label="准备姿势", instruction="坐直或站立，放松肩颈，闭上眼睛。", duration_seconds=10),
-                BreathingStep(label="吸气 4 拍", instruction="缓慢用鼻吸气，心中默数 1-2-3-4。", duration_seconds=16),
-                BreathingStep(label="屏息 7 拍", instruction="保持肺部充盈，默数 1-7，注意放松肩膀。", duration_seconds=28),
-                BreathingStep(label="呼气 8 拍", instruction="通过嘴巴缓慢呼气，感受胸腔逐渐放松。", duration_seconds=32),
+                BreathingStep(
+                    label=translated[f"step_label_{index}"],
+                    instruction=translated[f"step_instruction_{index}"],
+                    duration_seconds=step["duration"],
+                )
+                for index, step in enumerate(step_data)
             ]
-            cadence_label = "4-7-8 呼吸节奏"
-            description = "快速缓和心率的放松练习，约 5 分钟即可完成。"
-            frequency = "睡前或焦虑感上升时练习 2-3 轮。"
-            cta_label = "开始 4-7-8 呼吸"
-        elif self._is_russian(locale):
-            steps = [
-                BreathingStep(label="Поза", instruction="Сядьте или встаньте прямо, опустите плечи и по желанию закройте глаза.", duration_seconds=10),
-                BreathingStep(label="Вдох на 4", instruction="Вдохните через нос, считая 1-2-3-4.", duration_seconds=16),
-                BreathingStep(label="Пауза на 7", instruction="Мягко задержите дыхание на семь счётов, не напрягая шею.", duration_seconds=28),
-                BreathingStep(label="Выдох на 8", instruction="Плавно выдыхайте через рот, чувствуя, как грудная клетка смягчается.", duration_seconds=32),
-            ]
-            cadence_label = "Ритм 4-7-8"
-            description = "Пятиминутная практика, которая выравнивает дыхание и помогает снять напряжение."
-            frequency = "Повторяйте 2–3 цикла перед сном или при всплеске тревоги."
-            cta_label = "Запустить дыхательную практику"
+            title = translated["title"]
+            description = translated["description"]
+            cadence_label = translated["cadence"]
+            frequency = translated["frequency"]
+            cta_label = translated["cta"]
         else:
             steps = [
-                BreathingStep(label="Posture", instruction="Sit or stand tall, relax your shoulders, close your eyes.", duration_seconds=10),
-                BreathingStep(label="Inhale 4 Count", instruction="Inhale through the nose while counting 1-2-3-4.", duration_seconds=16),
-                BreathingStep(label="Hold 7 Count", instruction="Hold gently for seven beats without tensing your neck.", duration_seconds=28),
-                BreathingStep(label="Exhale 8 Count", instruction="Exhale slowly through the mouth, feeling your chest soften.", duration_seconds=32),
+                BreathingStep(
+                    label=step["label"],
+                    instruction=step["instruction"],
+                    duration_seconds=step["duration"],
+                )
+                for step in step_data
             ]
-            cadence_label = "4-7-8 cadence"
-            description = "A five-minute pace-reset that slows breathing and lowers heart rate."
-            frequency = "Practice 2-3 rounds before bed or when anxiety spikes."
-            cta_label = "Start breathing guide"
+            title = base_strings["title"]
+            description = base_strings["description"]
+            cadence_label = base_strings["cadence"]
+            frequency = base_strings["frequency"]
+            cta_label = base_strings["cta"]
 
         return BreathingExerciseModule(
             id="breathing-reset",
-            title=self._localize(locale, zh="今日呼吸练习", en="Guided Breathing Session", ru="Дыхательная практика дня"),
+            title=title,
             description=description,
             cadence_label=cadence_label,
             steps=steps,
@@ -121,94 +168,67 @@ class ExploreService:
         """Return psychoeducation articles aligned with recent themes."""
         themes = self._collect_recent_themes(reports)
         if not themes:
-            themes = self._fallback_themes(locale)
+            themes = self._fallback_themes()
 
         primary_theme = themes[0]
 
-        if self._is_chinese(locale):
-            description = "结合你近期的对话主题，为你精选的心理教育内容。"
-            resources = [
-                PsychoeducationResource(
-                    id="micro-steps",
-                    title="把焦虑拆成 3 个可执行微任务",
-                    summary="学习如何用具体行动打破焦虑循环，例如呼吸练习、记录触发点和自我肯定。",
-                    read_time_minutes=6,
-                    tags=[primary_theme, "自我觉察"],
-                ),
-                PsychoeducationResource(
-                    id="sleep-hygiene",
-                    title="睡眠节律重建指南",
-                    summary="通过晚间放松仪式、光照管理和睡前写作帮助大脑进入休息状态。",
-                    read_time_minutes=5,
-                    tags=["睡眠卫生", "放松训练"],
-                ),
-                PsychoeducationResource(
-                    id="body-scan",
-                    title="3 分钟身体扫描音频",
-                    summary="用简短的正念扫描练习快速检测紧绷部位，逐步释放压力。",
-                    read_time_minutes=3,
-                    tags=["正念练习"],
-                    resource_type="audio",
-                ),
-            ]
-            title = "疗愈知识精选"
-            cta_label = "查看完整资料"
-        elif self._is_russian(locale):
-            description = "Подборка материалов по психообразованию, которая отражает темы ваших недавних разговоров."
-            resources = [
-                PsychoeducationResource(
-                    id="micro-steps",
-                    title="Три микрошага против тревоги",
-                    summary="Как прервать тревожный круг с помощью дыхания, фиксации триггеров и поддерживающих фраз.",
-                    read_time_minutes=6,
-                    tags=[primary_theme, "саморегуляция"],
-                ),
-                PsychoeducationResource(
-                    id="sleep-hygiene",
-                    title="Восстанавливаем ритм сна",
-                    summary="Вечерний ритуал с управлением светом, заметками и расслаблением тела помогает мозгу перейти в отдых.",
-                    read_time_minutes=5,
-                    tags=["гигиена сна", "расслабление"],
-                ),
-                PsychoeducationResource(
-                    id="body-scan",
-                    title="Трёхминутное сканирование тела",
-                    summary="Короткое аудио, помогающее заметить зажимы, смягчить дыхание и вернуть внимание в тело.",
-                    read_time_minutes=3,
-                    tags=["осознанность"],
-                    resource_type="audio",
-                ),
-            ]
-            title = "Подборка знаний для поддержки"
-            cta_label = "Открыть подборку материалов"
-        else:
-            description = "Personalized psychoeducation picks that mirror your recent conversations."
-            resources = [
-                PsychoeducationResource(
-                    id="micro-steps",
-                    title="Break anxiety into micro-actions",
-                    summary="A three-step framework for interrupting anxious spirals with breathing, logging, and reframing.",
-                    read_time_minutes=6,
-                    tags=[primary_theme, "self-awareness"],
-                ),
-                PsychoeducationResource(
-                    id="sleep-hygiene",
-                    title="Rebuild your sleep rhythm",
-                    summary="Design a gentle wind-down routine using light cues, journaling, and body relaxation.",
-                    read_time_minutes=5,
-                    tags=["sleep hygiene", "relaxation"],
-                ),
-                PsychoeducationResource(
-                    id="body-scan",
-                    title="Body scan in 3 minutes",
-                    summary="Short guided audio to locate tension, soften breathing, and re-anchor attention.",
-                    read_time_minutes=3,
-                    tags=["mindfulness"],
-                    resource_type="audio",
-                ),
-            ]
-            title = "Featured psychoeducation"
-            cta_label = "Open resource hub"
+        resources = [
+            PsychoeducationResource(
+                id="micro-steps",
+                title="Break anxiety into micro-actions",
+                summary="A three-step framework for interrupting anxious spirals with breathing, logging, and reframing.",
+                read_time_minutes=6,
+                tags=[primary_theme, "self-awareness"],
+            ),
+            PsychoeducationResource(
+                id="sleep-hygiene",
+                title="Rebuild your sleep rhythm",
+                summary="Design a gentle wind-down routine using light cues, journaling, and body relaxation.",
+                read_time_minutes=5,
+                tags=["sleep hygiene", "relaxation"],
+            ),
+            PsychoeducationResource(
+                id="body-scan",
+                title="Body scan in 3 minutes",
+                summary="Short guided audio to locate tension, soften breathing, and re-anchor attention.",
+                read_time_minutes=3,
+                tags=["mindfulness"],
+                resource_type="audio",
+            ),
+        ]
+
+        title = "Featured psychoeducation"
+        description = "Personalized psychoeducation picks that mirror your recent conversations."
+        cta_label = "Open resource hub"
+
+        if self._should_translate(locale):
+            mapping: dict[str, str] = {
+                "title": title,
+                "description": description,
+                "cta": cta_label,
+            }
+            for index, resource in enumerate(resources):
+                mapping[f"resource_title_{index}"] = resource.title
+                mapping[f"resource_summary_{index}"] = resource.summary
+
+            translated = await self._translate_mapping(mapping, locale=locale)
+            translated_resources: list[PsychoeducationResource] = []
+            for index, resource in enumerate(resources):
+                translated_resources.append(
+                    PsychoeducationResource(
+                        id=resource.id,
+                        title=translated[f"resource_title_{index}"],
+                        summary=translated[f"resource_summary_{index}"],
+                        read_time_minutes=resource.read_time_minutes,
+                        tags=await self._translate_list(resource.tags, locale=locale),
+                        resource_type=resource.resource_type,
+                        url=resource.url,
+                    )
+                )
+            resources = translated_resources
+            title = translated["title"]
+            description = translated["description"]
+            cta_label = translated["cta"]
 
         return PsychoeducationModule(
             id="psychoeducation",
@@ -227,26 +247,21 @@ class ExploreService:
     ) -> TrendingTopicsModule:
         topics = self._collect_recent_themes(reports)
         if not topics:
-            topics = self._fallback_themes(locale)
+            topics = self._fallback_themes()
 
         daily_deltas = [report.mood_delta for report in reports.daily if report.mood_delta is not None]
         average_mood = mean(daily_deltas) if daily_deltas else 0.0
         trend = "up" if average_mood > 0.4 else "down" if average_mood < -0.4 else "steady"
         base_momentum = 68 if trend == "up" else 48 if trend == "steady" else 36
 
-        is_chinese = self._is_chinese(locale)
-        is_russian = self._is_russian(locale)
-
         localized_topics: list[TrendingTopic] = []
-        for index, topic in enumerate(topics[:3]):
+        topic_names = topics[:3]
+        summaries: list[str] = []
+        for index, topic in enumerate(topic_names):
             adjustment = max(-12, min(12, int(round(average_mood * 10))))
             momentum = max(20, min(95, base_momentum - index * 6 + adjustment))
-            if is_chinese:
-                summary = f"与你讨论「{topic}」的频率提升，本周可尝试搭配深呼吸或记忆提要。"
-            elif is_russian:
-                summary = f"Тема «{topic}» звучит всё чаще; можно дополнить её дыханием или заметками в дневник."
-            else:
-                summary = f"Discussions around “{topic}” are gaining traction; pair it with breathing or journaling."
+            summary = f'Discussions around "{topic}" are gaining traction; pair it with breathing or journaling.'
+            summaries.append(summary)
             localized_topics.append(
                 TrendingTopic(
                     name=topic,
@@ -262,15 +277,38 @@ class ExploreService:
         if reports.weekly:
             insights.append(reports.weekly[0].highlights)
         if not insights:
-            insights = self._fallback_insights(locale)
+            insights = self._fallback_insights()
 
-        title = self._localize(locale, zh="当前关注焦点", en="Trending focus areas", ru="Актуальные темы внимания")
-        description = self._localize(
-            locale,
-            zh="根据你的近期对话与总结，以下主题最值得继续跟进。",
-            en="Based on your latest chats and summaries, these themes deserve extra attention.",
-            ru="С опорой на ваши недавние диалоги и сводки эти темы стоит исследовать дальше.",
+        title = "Trending focus areas"
+        description = (
+            "Based on your latest chats and summaries, these themes deserve extra attention."
         )
+        cta_label = "View practice ideas"
+
+        if self._should_translate(locale):
+            mapping = {
+                "title": title,
+                "description": description,
+                "cta": cta_label,
+            }
+            translated = await self._translate_mapping(mapping, locale=locale)
+            translated_names = await self._translate_list(topic_names, locale=locale)
+            translated_summaries = await self._translate_list(summaries, locale=locale)
+            translated_insights = await self._translate_list(insights, locale=locale)
+
+            localized_topics = [
+                TrendingTopic(
+                    name=translated_names[index],
+                    momentum=topic.momentum,
+                    trend=topic.trend,
+                    summary=translated_summaries[index],
+                )
+                for index, topic in enumerate(localized_topics)
+            ]
+            insights = translated_insights
+            title = translated["title"]
+            description = translated["description"]
+            cta_label = translated["cta"]
 
         return TrendingTopicsModule(
             id="trending-topics",
@@ -278,7 +316,7 @@ class ExploreService:
             description=description,
             topics=localized_topics,
             insights=insights[:3],
-            cta_label=self._localize(locale, zh="查看练习建议", en="View practice ideas", ru="Посмотреть идеи практик"),
+            cta_label=cta_label,
             cta_action="/app/trends",
         )
 
@@ -303,40 +341,42 @@ class ExploreService:
                 break
         return themes
 
-    def _fallback_themes(self, locale: str) -> list[str]:
-        if self._is_chinese(locale):
-            return ["压力管理", "睡眠节律", "情绪调节"]
-        if self._is_russian(locale):
-            return ["Управление стрессом", "Режим сна", "Эмоциональная регуляция"]
+    def _fallback_themes(self) -> list[str]:
         return ["Stress management", "Sleep rhythm", "Emotion regulation"]
 
-    def _fallback_insights(self, locale: str) -> list[str]:
-        if self._is_chinese(locale):
-            return [
-                "保持每晚 10 分钟的放松仪式有助于缩短入睡时间。",
-                "记录触发点并练习 4-7-8 呼吸可以在 2 分钟内稳定心率。",
-            ]
-        if self._is_russian(locale):
-            return [
-                "Десятиминутный вечерний ритуал помогает быстрее засыпать.",
-                "Запись триггеров и один цикл дыхания 4-7-8 стабилизируют сердечный ритм за пару минут.",
-            ]
+    def _fallback_insights(self) -> list[str]:
         return [
             "A ten-minute wind-down ritual helps shorten sleep onset time.",
             "Logging triggers plus a 4-7-8 breathing round steadies heart rate within minutes.",
         ]
 
-    def _localize(self, locale: str, *, zh: str, en: str, ru: str | None = None) -> str:
-        if self._is_chinese(locale):
-            return zh
-        if self._is_russian(locale):
-            return ru or en
-        return en
+    def _should_translate(self, locale: str) -> bool:
+        if not self._translator:
+            return False
+        return not self._translator.are_locales_equivalent(locale, "en-US")
 
-    def _is_chinese(self, locale: str) -> bool:
-        normalized = locale.lower()
-        return normalized.startswith("zh")
+    async def _translate_list(self, values: Iterable[str], *, locale: str) -> list[str]:
+        items = list(values)
+        if not items or not self._should_translate(locale):
+            return items
+        assert self._translator is not None
+        return await self._translator.translate_list(
+            items,
+            target_locale=locale,
+            source_locale="en-US",
+        )
 
-    def _is_russian(self, locale: str) -> bool:
-        normalized = locale.lower()
-        return normalized.startswith("ru")
+    async def _translate_mapping(self, mapping: dict[str, str], *, locale: str) -> dict[str, str]:
+        if not mapping:
+            return {}
+        if not self._should_translate(locale):
+            return dict(mapping)
+        assert self._translator is not None
+        keys = list(mapping.keys())
+        values = [mapping[key] for key in keys]
+        translated_values = await self._translator.translate_list(
+            values,
+            target_locale=locale,
+            source_locale="en-US",
+        )
+        return {key: translated_values[index] for index, key in enumerate(keys)}

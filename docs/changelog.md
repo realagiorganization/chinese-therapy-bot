@@ -6,7 +6,7 @@ Document major product and infrastructure milestones for stakeholder visibility.
 - Migrated chat orchestration to dual-provider LLM stack with streaming SSE support.
 - Delivered therapist directory (web + mobile) with locale-aware filters and recommendation hints.
 - Enabled conversation memory capture, daily/weekly summary agents, and analytics event pipeline.
-- Rounded out authentication via SMS OTP + Google OAuth stubs backed by token rotation.
+- Rounded out authentication via oauth2-proxy email sessions and demo-code allowlist backed by token rotation.
 - Bootstrapped CI across backend/web/mobile and published infrastructure Terraform plans for AKS + AWS storage.
 
 ## 2025-01-17 — v0.1.1 (Agent Hardening)

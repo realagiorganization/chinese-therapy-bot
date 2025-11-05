@@ -11,7 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 from app.models.entities import ChatMessage, ChatSession, User
 from app.schemas.chat import ChatRequest
 from app.schemas.therapists import TherapistRecommendation
-from app.services.chat import ChatService
+from app.services.chat import ChatService, TokenQuotaExceeded
 
 
 class StubOrchestrator:
@@ -165,3 +165,46 @@ async def test_stream_turn_emits_events_and_persists_transcript(chat_session: As
     db_messages = await chat_session.execute(select(ChatMessage))
     stored = db_messages.scalars().all()
     assert len(stored) == 2
+
+
+@pytest.mark.asyncio
+async def test_chat_turn_respects_token_quota(chat_session: AsyncSession) -> None:
+    orchestrator = StubOrchestrator()
+    storage = StubTranscriptStorage()
+    memory = StubMemoryService()
+    recommendations = StubRecommendationService()
+
+    service = ChatService(
+        chat_session,
+        orchestrator,
+        storage,
+        memory_service=memory,
+        recommendation_service=recommendations,
+    )
+    service._settings.chat_token_default_quota = 1
+
+    user_id = uuid4()
+    payload = ChatRequest(
+        user_id=user_id,
+        message="我最近压力很大。",
+        locale="zh-CN",
+        session_id=None,
+        enable_streaming=False,
+    )
+
+    response = await service.process_turn(payload)
+    assert response.reply.content
+
+    with pytest.raises(TokenQuotaExceeded):
+        await service.process_turn(
+            ChatRequest(
+                user_id=user_id,
+                message="能再指导一次呼吸练习吗？",
+                locale="zh-CN",
+                session_id=response.session_id,
+                enable_streaming=False,
+            )
+        )
+
+    db_user = (await chat_session.execute(select(User).where(User.id == user_id))).scalar_one()
+    assert db_user.chat_tokens_remaining == 0

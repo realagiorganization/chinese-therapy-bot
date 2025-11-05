@@ -25,10 +25,11 @@ export function LocaleSwitcher({ compact = false }: LocaleSwitcherProps) {
     return match ? match.code : supportedLocales[0].code;
   };
 
-  const currentLocale = resolveLocale(i18n.resolvedLanguage ?? i18n.language);
+  const currentLocale = resolveLocale(i18n.language ?? i18n.resolvedLanguage);
 
   const handleChange = (event: ChangeEvent<HTMLSelectElement>) => {
-    i18n.changeLanguage(event.target.value);
+    const nextLocale = resolveLocale(event.target.value);
+    void i18n.changeLanguage(nextLocale);
   };
 
   return (

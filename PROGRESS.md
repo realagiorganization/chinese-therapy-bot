@@ -5,7 +5,8 @@
 - Validated Terraform modules for remote state, AKS, observability, and secret management under `infra/terraform/`, matching Phase 2 completed tasks.
 - Installed backend dependencies (`pip install .[dev]`) and ran `pytest` to verify the 62-test suite passes after recent service additions (latest run: `pytest`, 62 passed).
 - Spot-checked backend services (chat, summaries, feature flags) to ensure the implementations cited in Phase 3 are present and wired into FastAPI dependencies.
-- Verified automatic locale detection end-to-end (`services/backend/app/services/language_detection.py:1`, `services/backend/app/services/chat.py:28`, `clients/web/src/hooks/useChatSession.ts:134`, `clients/mobile/src/screens/ChatScreen.tsx:134`), including new unit coverage in `services/backend/tests/test_language_detection.py:1`.
+- Verified automatic locale detection and therapist profile translation (`services/backend/app/services/language_detection.py`, `services/backend/app/services/translation.py`, `services/backend/app/services/therapists.py`) with client hooks consuming localized payloads (`clients/web/src/hooks/useChatSession.ts`, `clients/mobile/src/screens/ChatScreen.tsx`).
+- Revalidated streaming chat fallback now downgrades to a non-streamed turn on SSE drop events (`clients/web/src/hooks/useChatSession.ts`, `services/backend/app/api/routes/chat.py`), eliminating the visible “Поток прервался” error for transient failures.
 - Revalidated streaming chat and guardrail tooling align with Phase 4/5 milestones (`clients/web/src/hooks/useChatSession.ts:1`, `services/backend/app/services/evaluation.py:1`).
 - Added regression coverage + FastAPI routing for `/api/chat/stream` and legacy `/therapy/chat/stream` SSE endpoints to close Phase 7 bug tracker item (`services/backend/app/api/routes/chat.py:1`, `services/backend/tests/test_chat_api.py:1`).
 - Ensured chat template dataset loads from packaged resources or local fallback, keeping Phase 5 template tooling functional (`services/backend/app/services/templates.py:1`, `services/backend/tests/test_template_service.py:1`).
@@ -56,10 +57,10 @@
 - [x] Scaffold backend service (FastAPI) with modular architecture. *(see `docs/phase3_backend_scaffold.md` & `services/backend/`)*
 - [x] Define SQLAlchemy persistence layer covering users, therapists, chat sessions/messages, and summary tables.
 - [x] Integrate async database access for chat, therapist directory, and reports services with graceful seed fallbacks.
-- [x] Implement SMS OTP challenge persistence with expiration, throttling, and SMS provider abstraction.
-  - [x] Added Twilio-backed SMS provider for production OTP delivery with automated tests covering request/response handling.
+- [x] Implement oauth2-proxy backed email authentication with session exchange and token quotas.
+  - [x] Added demo-code registry with per-code token limits and automated tests covering allowlist validation.
 - [x] Implement token issuance with JWT access/refresh tokens, rotation, and token renewal endpoint.
-- [x] Integrate Google OAuth code verification stub and user identity linking.
+- [x] Replace Google OAuth stub with oauth2-proxy identity headers and email-based account linking.
 - [x] Build chat service for message ingestion, streaming responses, and persistence to database/S3. *(FastAPI endpoint now supports SSE streaming with transcript archival.)*
 - [x] Integrate AI model orchestrator (Azure OpenAI primary, AWS Bedrock fallback) with prompt templates.
 - [x] Persist chat transcripts and metadata to AWS S3 conversation logs bucket. *(ChatTranscriptStorage now streams per-message JSON events alongside transcript snapshots.)*
@@ -91,10 +92,10 @@
 - [x] Prototype Explore page content modules and personalization hooks.
   - [x] Define placeholder content blocks (breathing exercises, psychoeducation, trending topics).
   - [x] Connect modules to feature flag service for staged rollouts.
-- [x] Implement account onboarding/login flows (SMS, Google).
+- [x] Implement account onboarding/login flows (oauth2-proxy email + demo codes).
   - [x] Build OTP request/verification UI tied into backend throttling.
-  - [x] Add Google OAuth web flow and token exchange using the stub client.
-- [x] Scaffold React Native/Expo mobile client with SMS + Google authentication and chat shell. *(see `clients/mobile/` for initial app structure and theming tied to shared tokens.)*
+  - [x] Document oauth2-proxy header mapping and local fallback behaviour for development.
+- [x] Scaffold React Native/Expo mobile client with oauth2-proxy email + demo-code authentication and chat shell. *(see `clients/mobile/` for initial app structure and theming tied to shared tokens.)*
 - [x] Ship mobile therapist directory with in-app filters and detail view. *(New Expo tab integrates `TherapistDirectoryScreen`, `useTherapistDirectory`, and API-backed detail loading with graceful fallbacks.)*
 - [x] Ensure iOS optimization (gesture handling, offline caching, push notifications).
   - [x] Validate React Native/Expo builds against Apple HIG-aligned interactions. *(Checklist captured in `docs/mobile_performance.md` under “Gesture & Interaction Validation”; haptic tab feedback + safe-area banner wiring lives in `clients/mobile/App.tsx:1`, `clients/mobile/src/components/ConnectivityBanner.tsx:1`, with Metro alias support in `clients/mobile/babel.config.js:1`.)*

@@ -25,7 +25,7 @@ and capture feedback to close Phase 6 of the development roadmap.
 ## 3. Test Scenarios
 
 1. **Onboarding & Authentication**
-   - SMS OTP enrollment (primary), Google OAuth (secondary).
+   - Email login via oauth2-proxy (primary), demo-code fallback (secondary).
    - Device hand-off: login web → mobile; verify session continuity.
 2. **Chat Experience**
    - Start a new session; observe voice input (browser + mobile).

@@ -51,6 +51,7 @@ export async function loadChatTemplates(options: LoadOptions = {}): Promise<Chat
   }
 
   const response = await fetch(endpoint, {
+    credentials: "include",
     headers: withAuthHeaders({
       Accept: "application/json"
     }),

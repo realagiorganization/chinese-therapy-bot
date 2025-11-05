@@ -7,14 +7,13 @@ from app.core.config import get_settings
 from app.core.database import get_session_factory
 from app.integrations.asr import AzureSpeechTranscriber
 from app.integrations.embeddings import EmbeddingClient
-from app.integrations.google import GoogleOAuthClient
 from app.integrations.llm import ChatOrchestrator
-from app.integrations.sms import ConsoleSMSProvider, SMSProvider, TwilioSMSProvider
 from app.integrations.storage import ChatTranscriptStorage
 from app.integrations.therapists import TherapistDataStorage
 from app.services.analytics import ProductAnalyticsService
 from app.services.asr import AutomaticSpeechRecognitionService
 from app.services.auth import AuthService
+from app.services.demo_codes import DemoCodeRegistry
 from app.services.chat import ChatService
 from app.services.evaluation import ResponseEvaluator
 from app.services.feature_flags import FeatureFlagService
@@ -25,9 +24,9 @@ from app.services.recommendations import TherapistRecommendationService
 from app.services.reports import ReportsService
 from app.services.templates import ChatTemplateService
 from app.services.therapists import TherapistService
+from app.services.translation import TranslationService
 
-_sms_provider: SMSProvider | None = None
-_google_client: GoogleOAuthClient | None = None
+_demo_registry: DemoCodeRegistry | None = None
 _orchestrator: ChatOrchestrator | None = None
 _storage: ChatTranscriptStorage | None = None
 _therapist_storage: TherapistDataStorage | None = None
@@ -36,6 +35,7 @@ _response_evaluator: ResponseEvaluator | None = None
 _asr_service: AutomaticSpeechRecognitionService | None = None
 _template_service: ChatTemplateService | None = None
 _language_detector: LanguageDetector | None = None
+_translation_service: TranslationService | None = None
 
 
 async def get_db_session() -> AsyncGenerator[AsyncSession, None]:
@@ -56,29 +56,16 @@ async def get_auth_service(
 ) -> AuthService:
     """Provide AuthService instance."""
     settings = get_settings()
-    global _sms_provider, _google_client
-    if _sms_provider is None:
-        if (
-            settings.twilio_account_sid
-            and settings.twilio_auth_token
-            and (settings.twilio_from_number or settings.twilio_messaging_service_sid)
-        ):
-            auth_token = settings.twilio_auth_token.get_secret_value()  # type: ignore[union-attr]
-            _sms_provider = TwilioSMSProvider(
-                settings.twilio_account_sid,
-                auth_token,
-                from_number=settings.twilio_from_number,
-                messaging_service_sid=settings.twilio_messaging_service_sid,
-            )
-        else:
-            _sms_provider = ConsoleSMSProvider()
-    if _google_client is None:
-        _google_client = GoogleOAuthClient(settings)
+    global _demo_registry
+    if _demo_registry is None:
+        _demo_registry = DemoCodeRegistry(
+            settings.demo_code_file,
+            settings.chat_token_demo_quota,
+        )
     return AuthService(
         session=session,
         settings=settings,
-        sms_provider=_sms_provider,
-        google_client=_google_client,
+        demo_registry=_demo_registry,
     )
 
 
@@ -87,7 +74,7 @@ async def get_chat_service(
     ) -> ChatService:
     """Provide ChatService instance."""
     settings = get_settings()
-    global _orchestrator, _storage, _embedding_client, _therapist_storage, _language_detector
+    global _orchestrator, _storage, _embedding_client, _therapist_storage, _language_detector, _translation_service
     if _orchestrator is None:
         _orchestrator = ChatOrchestrator(settings)
     if _storage is None:
@@ -98,6 +85,8 @@ async def get_chat_service(
         _therapist_storage = TherapistDataStorage(settings)
     if _language_detector is None:
         _language_detector = LanguageDetector()
+    if _translation_service is None:
+        _translation_service = TranslationService(_orchestrator)
 
     analytics_service = ProductAnalyticsService(session)
     memory_service = ConversationMemoryService(session, _orchestrator)
@@ -105,6 +94,7 @@ async def get_chat_service(
         session,
         storage=_therapist_storage,
         analytics_service=analytics_service,
+        translation_service=_translation_service,
     )
     recommendation_service = TherapistRecommendationService(
         session,
@@ -127,14 +117,19 @@ async def get_therapist_service(
 ) -> TherapistService:
     """Provide TherapistService instance."""
     settings = get_settings()
-    global _therapist_storage
+    global _therapist_storage, _orchestrator, _translation_service
     if _therapist_storage is None:
         _therapist_storage = TherapistDataStorage(settings)
+    if _orchestrator is None:
+        _orchestrator = ChatOrchestrator(settings)
+    if _translation_service is None:
+        _translation_service = TranslationService(_orchestrator)
     analytics_service = ProductAnalyticsService(session)
     return TherapistService(
         session,
         storage=_therapist_storage,
         analytics_service=analytics_service,
+        translation_service=_translation_service,
     )
 
 
@@ -199,3 +194,14 @@ async def get_feedback_service(
 ) -> PilotFeedbackService:
     """Provide PilotFeedbackService for UAT feedback flows."""
     return PilotFeedbackService(session)
+
+
+async def get_translation_service() -> TranslationService:
+    """Provide singleton TranslationService instance."""
+    global _translation_service, _orchestrator
+    if _translation_service is None:
+        settings = get_settings()
+        if _orchestrator is None:
+            _orchestrator = ChatOrchestrator(settings)
+        _translation_service = TranslationService(_orchestrator)
+    return _translation_service

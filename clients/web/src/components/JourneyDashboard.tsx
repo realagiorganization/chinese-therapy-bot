@@ -11,7 +11,17 @@ type JourneyDashboardProps = {
 type DetailTab = "summary" | "transcript";
 
 function resolveLocale(locale: string): string {
-  if (locale.startsWith("en")) {
+  const normalized = (locale ?? "").toLowerCase();
+  if (normalized.startsWith("zh-tw") || normalized.startsWith("zh_hant")) {
+    return "zh-TW";
+  }
+  if (normalized.startsWith("zh")) {
+    return "zh-CN";
+  }
+  if (normalized.startsWith("ru")) {
+    return "ru-RU";
+  }
+  if (normalized.startsWith("en")) {
     return "en-US";
   }
   return "zh-CN";

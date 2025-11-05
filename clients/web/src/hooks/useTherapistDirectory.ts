@@ -26,7 +26,7 @@ const INITIAL_FILTERS: TherapistFilters = {
   maxPrice: undefined
 };
 
-export function useTherapistDirectory(): TherapistDirectoryState {
+export function useTherapistDirectory(locale: string): TherapistDirectoryState {
   const [therapists, setTherapists] = useState<TherapistSummary[]>([]);
   const [filters, setFiltersState] = useState<TherapistFilters>(INITIAL_FILTERS);
   const [source, setSource] = useState<"api" | "fallback" | null>(null);
@@ -39,7 +39,7 @@ export function useTherapistDirectory(): TherapistDirectoryState {
     async function load() {
       setIsLoading(true);
       try {
-        const result = await loadTherapists();
+        const result = await loadTherapists(locale);
         if (!cancelled) {
           setTherapists(result.therapists);
           setSource(result.source);
@@ -61,7 +61,7 @@ export function useTherapistDirectory(): TherapistDirectoryState {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [locale]);
 
   const specialties = useMemo(() => {
     const pool = new Set<string>();

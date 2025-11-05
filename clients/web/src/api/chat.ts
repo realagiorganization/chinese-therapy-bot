@@ -14,6 +14,18 @@ type ParsedEvent = {
   data: string;
 };
 
+export class ChatError extends Error {
+  status: number;
+  code?: string;
+
+  constructor(message: string, status: number, code?: string) {
+    super(message);
+    this.name = "ChatError";
+    this.status = status;
+    this.code = code;
+  }
+}
+
 function isChatRole(value: unknown): value is ChatMessage["role"] {
   return value === "user" || value === "assistant" || value === "system";
 }
@@ -143,6 +155,30 @@ function asJson(value: string): unknown {
   }
 }
 
+async function parseErrorResponse(response: Response, fallback: string): Promise<{ message: string; code?: string }> {
+  const defaultMessage = `${fallback} (${response.status})`;
+  let message = defaultMessage;
+  let code: string | undefined;
+
+  try {
+    const payload = asRecord(await response.json());
+    if (payload) {
+      const detail = asString(payload.detail) || asString(payload.message);
+      if (detail) {
+        message = detail;
+      }
+      const codeCandidate = asString(payload.code);
+      if (codeCandidate) {
+        code = codeCandidate;
+      }
+    }
+  } catch {
+    // ignore JSON parse errors
+  }
+
+  return { message, code };
+}
+
 export async function* streamChatTurn(
   request: ChatTurnRequest,
   options?: { signal?: AbortSignal }
@@ -150,6 +186,7 @@ export async function* streamChatTurn(
   const endpoint = `${getApiBaseUrl()}/api/chat/message`;
   const response = await fetch(endpoint, {
     method: "POST",
+    credentials: "include",
     headers: withAuthHeaders({
       "Content-Type": "application/json",
       Accept: "text/event-stream"
@@ -165,7 +202,11 @@ export async function* streamChatTurn(
   });
 
   if (!response.ok) {
-    throw new Error(`Chat request failed with status ${response.status}`);
+    const { message, code } = await parseErrorResponse(
+      response,
+      "Chat request failed"
+    );
+    throw new ChatError(message, response.status, code);
   }
 
   const contentType = response.headers.get("content-type") ?? "";
@@ -236,7 +277,10 @@ export async function* streamChatTurn(
           case "error":
             yield {
               type: "error",
-              data: { detail: asString(payloadRecord.detail, "Streaming error") }
+              data: {
+                detail: asString(payloadRecord.detail, "Streaming error"),
+                code: asString(payloadRecord.code) || undefined
+              }
             };
             break;
           default:
@@ -260,10 +304,11 @@ export async function sendChatTurn(
   const endpoint = `${getApiBaseUrl()}/api/chat/message`;
   const response = await fetch(endpoint, {
     method: "POST",
-    headers: {
+    credentials: "include",
+    headers: withAuthHeaders({
       "Content-Type": "application/json",
       Accept: "application/json"
-    },
+    }),
     body: JSON.stringify({
       user_id: request.userId,
       session_id: request.sessionId ?? null,
@@ -275,7 +320,11 @@ export async function sendChatTurn(
   });
 
   if (!response.ok) {
-    throw new Error(`Chat request failed with status ${response.status}`);
+    const { message, code } = await parseErrorResponse(
+      response,
+      "Chat request failed"
+    );
+    throw new ChatError(message, response.status, code);
   }
 
   const payload = await response.json();

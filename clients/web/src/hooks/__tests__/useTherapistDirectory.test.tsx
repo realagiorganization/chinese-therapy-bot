@@ -17,23 +17,23 @@ const mockLoadTherapists = mocks.loadTherapists as ReturnType<typeof vi.fn>;
 const SAMPLE_THERAPISTS: TherapistSummary[] = [
   {
     id: "alpha",
-    name: "顾向晨",
-    title: "认知行为治疗师",
+    name: "Avery Chen",
+    title: "Cognitive behavioural therapist",
     specialties: ["CBT", "Mindfulness"],
-    languages: ["zh-CN"],
+    languages: ["en-US"],
     price: 460,
     recommended: true,
-    availability: ["周三 20:00"]
+    availability: ["Wednesday 20:00"]
   },
   {
     id: "bravo",
     name: "Morgan Li",
-    title: "家庭治疗顾问",
+    title: "Family therapy consultant",
     specialties: ["Family Therapy"],
     languages: ["en-US", "zh-CN"],
     price: 620,
     recommended: false,
-    availability: ["周五 19:30"]
+    availability: ["Friday 19:30"]
   }
 ];
 
@@ -47,10 +47,12 @@ describe("useTherapistDirectory", () => {
   });
 
   it("derives unique specialties and languages from the therapist pool", async () => {
-    const { result } = renderHook(() => useTherapistDirectory());
+    const locale = "ru-RU";
+    const { result } = renderHook(() => useTherapistDirectory(locale));
 
     await waitFor(() => expect(result.current.isLoading).toBe(false));
 
+    expect(mockLoadTherapists).toHaveBeenCalledWith(locale);
     expect(result.current.source).toBe("api");
     expect(result.current.specialties).toEqual(["CBT", "Family Therapy", "Mindfulness"]);
     expect(result.current.languages).toEqual(["en-US", "zh-CN"]);
@@ -60,10 +62,12 @@ describe("useTherapistDirectory", () => {
   });
 
   it("applies filters and can reset to the initial dataset", async () => {
-    const { result } = renderHook(() => useTherapistDirectory());
+    const locale = "en-US";
+    const { result } = renderHook(() => useTherapistDirectory(locale));
 
     await waitFor(() => expect(result.current.isLoading).toBe(false));
 
+    expect(mockLoadTherapists).toHaveBeenLastCalledWith(locale);
     act(() => {
       result.current.setFilters(() => ({
         specialty: undefined,

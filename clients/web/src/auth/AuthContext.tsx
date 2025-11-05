@@ -1,5 +1,6 @@
 import { createContext, useCallback, useContext, useMemo, useState } from "react";
 
+import { decodeJwt } from "../utils/jwt";
 import { clearTokenState, setTokenState } from "./tokenStore";
 
 type AuthTokens = {
@@ -8,17 +9,22 @@ type AuthTokens = {
   expiresAt: number;
 };
 
+type AuthState = AuthTokens & {
+  userId: string;
+};
+
 type AuthContextValue = {
   status: "loading" | "authenticated" | "unauthenticated";
-  tokens: AuthTokens | null;
+  tokens: AuthState | null;
   isAuthenticated: boolean;
+  userId: string | null;
   setTokens: (tokens: AuthTokens) => void;
   clearTokens: () => void;
 };
 
 const STORAGE_KEY = "mindwell:auth";
 
-function parseStoredTokens(): AuthTokens | null {
+function parseStoredTokens(): AuthState | null {
   if (typeof window === "undefined") {
     return null;
   }
@@ -39,7 +45,18 @@ function parseStoredTokens(): AuthTokens | null {
       window.localStorage.removeItem(STORAGE_KEY);
       return null;
     }
-    return { accessToken, refreshToken, expiresAt };
+    const storedUserId = typeof parsed?.userId === "string" ? parsed.userId.trim() : "";
+    const payload = decodeJwt(accessToken);
+    const tokenUserId =
+      typeof payload?.sub === "string" && payload.sub.trim().length > 0
+        ? payload.sub.trim()
+        : null;
+    const userId = tokenUserId ?? (storedUserId.length > 0 ? storedUserId : null);
+    if (!userId) {
+      window.localStorage.removeItem(STORAGE_KEY);
+      return null;
+    }
+    return { accessToken, refreshToken, expiresAt, userId };
   } catch {
     return null;
   }
@@ -52,7 +69,7 @@ type AuthProviderProps = {
 };
 
 export function AuthProvider({ children }: AuthProviderProps) {
-  const [tokens, setTokensState] = useState<AuthTokens | null>(() => {
+  const [tokens, setTokensState] = useState<AuthState | null>(() => {
     const initial = parseStoredTokens();
     if (initial) {
       setTokenState(initial);
@@ -64,15 +81,39 @@ export function AuthProvider({ children }: AuthProviderProps) {
   );
 
   const setTokens = useCallback((next: AuthTokens) => {
-    setTokensState(next);
-    setTokenState(next);
+    const payload = decodeJwt(next.accessToken);
+    const userId =
+      typeof payload?.sub === "string" && payload.sub.trim().length > 0
+        ? payload.sub.trim()
+        : null;
+    if (!userId) {
+      console.warn("Полученный токен не содержит идентификатор пользователя (sub).");
+      clearTokenState();
+      setTokensState(null);
+      if (typeof window !== "undefined") {
+        window.localStorage.removeItem(STORAGE_KEY);
+      }
+      setStatus("unauthenticated");
+      return;
+    }
+
+    const resolved: AuthState = {
+      accessToken: next.accessToken,
+      refreshToken: next.refreshToken,
+      expiresAt: next.expiresAt,
+      userId
+    };
+
+    setTokensState(resolved);
+    setTokenState(resolved);
     if (typeof window !== "undefined") {
       window.localStorage.setItem(
         STORAGE_KEY,
         JSON.stringify({
           accessToken: next.accessToken,
           refreshToken: next.refreshToken,
-          expiresAt: next.expiresAt
+          expiresAt: next.expiresAt,
+          userId
         })
       );
     }
@@ -93,6 +134,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
       status,
       tokens,
       isAuthenticated: Boolean(tokens && tokens.expiresAt > Date.now()),
+      userId: tokens?.userId ?? null,
       setTokens,
       clearTokens
     }),

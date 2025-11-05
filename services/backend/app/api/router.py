@@ -11,6 +11,7 @@ from app.api.routes import (
     health,
     memory,
     reports,
+    translation,
     therapists,
     voice,
 )
@@ -29,3 +30,4 @@ api_router.include_router(voice.router, prefix="/voice", tags=["voice"])
 api_router.include_router(explore.router, prefix="/explore", tags=["explore"])
 api_router.include_router(analytics.router, prefix="/analytics", tags=["analytics"])
 api_router.include_router(feedback.router, prefix="/feedback", tags=["feedback"])
+api_router.include_router(translation.router, prefix="/translation", tags=["translation"])

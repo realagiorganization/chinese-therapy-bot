@@ -1,28 +1,29 @@
 # Developer Auth Bypass
 
-## Google OAuth sandbox flow
-- Open the web client (http://localhost:5173) and choose **Google sign-in (dev sandbox)**.
-- Enter any non-empty string (e.g. `demo-oauth-code`) into the authorization code field.
-- Submit the form; the frontend sends a `POST http://localhost:8000/api/auth/token` payload of `{"provider":"google","code":"<your value>"}`.
-- The backend responds with a synthetic token pair via `AuthService.exchange_token`, after which the app unlocks and the frontend persists the pair.
-- Rationale: the local backend uses the stubbed `GoogleOAuthClient`, which hashes whatever code you supply and returns a synthetic Google profile without an external exchange (`services/backend/app/integrations/google.py`).
+## Email oauth2-proxy flow (default)
+- Start the backend (`mindwell-api`) alongside oauth2-proxy configured to protect the `/api/*` routes.
+- Open the web client (http://localhost:5173) and provide your email in the first form. Submitting the form redirects the browser to `/oauth2/start?rd=<current_page>` with the email in `login_hint`.
+- After completing the upstream login, oauth2-proxy forwards identity headers (`X-Auth-Request-Email`, `X-Auth-Request-User`, etc.) to the backend.
+- After returning from oauth2-proxy the login panel detects the pending oauth flag set by the email button, calls `POST /api/auth/session`, and stores the resulting JWT/refresh tokens via `AuthContext.setTokens`. The page no longer exchanges oauth sessions implicitly unless the user initiated the email flow.
+- Rationale: the backend now trusts oauth2-proxy as the primary identity provider instead of performing its own OTP or Google code exchange.
 
 ### Token storage snapshot
-- Successful Google or SMS flows end up in `AuthContext.setTokens`, which writes a single `localStorage` entry `mindwell:auth`.
-- The stored JSON looks like `{"accessToken":"<JWT>","refreshToken":"<opaque string>","expiresAt":1700000000000}`; `expiresAt` is a UTC epoch in milliseconds.
-- Tokens are also mirrored in the in-memory `tokenStore` module so API calls can attach the bearer header.
+- Successful email or demo flows persist tokens through `AuthContext.setTokens`, storing `mindwell:auth` in `localStorage` and mirroring state in `tokenStore`.
+- Stored JSON resembles `{"accessToken":"<JWT>","refreshToken":"<opaque>","expiresAt":1700000000000}` with an epoch expiry in milliseconds.
+- Clearing the entry or calling `AuthContext.clearTokens` drops authentication state immediately.
 
-### Troubleshooting the Google sandbox
-- Seeing **Not found** under the form means the `/api/auth/token` request returned HTTP 404 instead of the token payload.
-- Verify the backend dev server is running on port `8000` and that `VITE_API_BASE_URL` (if set) still points at that origin.
-- Keep `VITE_API_BASE_URL` as `http://localhost:8000` (no trailing `/api`); the web client already appends `/api/auth/...`, so including `/api` twice produces the 404s (`/api/api/auth/*`).
-- FastAPI mounts the auth routes under `/api/auth/*` (`services/backend/app/api/router.py`); a different base URL or stale proxy configuration will lead to the 404 response.
-
-## SMS OTP flow (optional)
-- Start the backend; in local mode it instantiates `ConsoleSMSProvider`.
-- Request an SMS code in the login panel. The generated OTP is printed in the backend logs (`[SMS] Dispatching OTP ...`).
-- Enter the logged code to complete login if you prefer testing the SMS path.
-- Provider wiring lives in `services/backend/app/api/deps.py`, which selects the console provider when Twilio credentials are absent.
+## Demo code exchange (allowlisted)
+- Administrators maintain an allowlist in the JSON file referenced by `DEMO_CODE_FILE` (sample: `config/demo_codes.json`).
+- Each entry supports `chat_token_quota` (chat turns before the subscription prompt). If omitted, the backend falls back to `CHAT_TOKEN_DEMO_QUOTA`.
+- Enter a permitted code in the second form on the login panel; the frontend submits `POST /api/auth/demo` with that value.
+- The backend validates the code against the registry, provisions a dedicated demo `User` for that exact code (or loads the existing one), enforces the demo chat quota, and returns JWT/refresh tokens. Demo users are isolated from email accounts; chat credits are tracked per-code.
+- When chat tokens reach zero, the web client renders a subscription overlay and blocks further chat submissions until the quota is replenished.
 
 ## Resetting state
-- Use the **Sign out** button in the header or clear `localStorage` key `mindwell:auth` to return to the login screen when needed.
+- Use the **Sign out** button in the header or clear the `mindwell:auth` key to return to the login screen.
+- When experimenting with oauth2-proxy, also clear the proxy cookies (default `_oauth2_proxy`) to force a full reauthentication cycle.
+
+## Локальная обвязка oauth2-proxy
+- В каталоге `infra/local/oauth2-proxy/` лежит `docker-compose.yml` и пример `.env` файла для быстрого запуска прокси рядом с локальным бекендом.
+- Скопируйте `.env.oauth2-proxy.example` в `~/.config/mindwell/oauth2-proxy.env`, заполните значениями своего OIDC-провайдера (не забудьте `OAUTH2_PROXY_COOKIE_SECURE=false` и `OAUTH2_PROXY_SKIP_AUTH_PREFLIGHT=true` для локальной разработки) и запустите `docker compose up -d` в этом каталоге.
+- Установите для фронтенда `VITE_API_BASE_URL=http://localhost:4180`, чтобы запросы к `/api/*` шли через прокси и формировали нужные заголовки `X-Auth-Request-*`.

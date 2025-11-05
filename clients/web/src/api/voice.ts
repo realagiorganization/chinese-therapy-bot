@@ -23,6 +23,7 @@ export async function transcribeAudio(blob: Blob, locale: string): Promise<Trans
 
   const response = await fetch(endpoint, {
     method: "POST",
+    credentials: "include",
     headers: withAuthHeaders(),
     body: formData
   });

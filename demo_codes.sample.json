@@ -1,0 +1,14 @@
+{
+  "codes": [
+    {
+      "code": "DEMO-TEAM",
+      "label": "MindWell Internal Demo",
+      "chat_token_quota": 25
+    },
+    {
+      "code": "DEMO-GUEST",
+      "label": "Guest Preview",
+      "chat_token_quota": 10
+    }
+  ]
+}

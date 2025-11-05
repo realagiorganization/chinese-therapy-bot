@@ -1,5 +1,13 @@
 # Automation & Agent Notes
 
+## Codex CLI Agent
+- Всегда отвечает пользователю на русском языке.
+- Используется для выполнения локальных задач разработки без выхода в интернет.
+
+## Web Client
+- Базовая версия интерфейса, от которой наследуются остальные клиенты.
+- Голосовой ввод продолжается до повторного нажатия пользователем кнопки голосового ввода.
+
 ## CI Runner Agent
 - Runs GitHub Actions workloads on EC2-managed runners covering backend, web, and mobile build/test pipelines.
 - Assumes cross-account roles via `infra/scripts/assume_ci_role.sh` to publish Docker images and push to AKS.

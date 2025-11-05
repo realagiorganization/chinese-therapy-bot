@@ -2,12 +2,13 @@ from __future__ import annotations
 
 import logging
 from collections.abc import AsyncIterator
-from uuid import UUID
 from typing import Any
+from uuid import UUID
 
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.config import get_settings
 from app.integrations.llm import ChatOrchestrator
 from app.integrations.storage import ChatTranscriptStorage
 from app.models import ChatMessage as ChatMessageModel
@@ -21,6 +22,10 @@ from app.services.recommendations import TherapistRecommendationService
 
 
 logger = logging.getLogger(__name__)
+
+
+class TokenQuotaExceeded(ValueError):
+    """Raised when a user exhausts their chat token allowance."""
 
 
 class ChatService:
@@ -43,6 +48,7 @@ class ChatService:
         self._recommendations = recommendation_service
         self._language_detector = language_detector or LanguageDetector()
         self._analytics = analytics_service
+        self._settings = get_settings()
 
     async def process_turn(self, payload: ChatRequest) -> ChatResponse:
         context = await self._prepare_turn(payload)
@@ -148,9 +154,11 @@ class ChatService:
     async def _get_or_create_user(self, user_id: UUID) -> User:
         user = await self._session.get(User, user_id)
         if user:
+            self._ensure_chat_quota_initialized(user)
             return user
 
         user = User(id=user_id)
+        self._ensure_chat_quota_initialized(user)
         self._session.add(user)
         await self._session.flush()
         return user
@@ -199,6 +207,7 @@ class ChatService:
 
     async def _prepare_turn(self, payload: ChatRequest) -> dict[str, Any]:
         user = await self._get_or_create_user(payload.user_id)
+        await self._consume_chat_token(user)
         chat_session = await self._get_or_create_session(user, payload.session_id)
         await self._append_message(chat_session, role="user", content=payload.message)
 
@@ -435,3 +444,35 @@ class ChatService:
             )
         except Exception as exc:  # pragma: no cover - defensive logging
             logger.warning("Failed to capture conversation memory: %s", exc, exc_info=exc)
+
+    def _default_chat_quota(self, user: User) -> int:
+        account_type = (user.account_type or "").lower()
+        if account_type == "demo" or user.demo_code:
+            return max(0, self._settings.chat_token_demo_quota)
+        return max(0, self._settings.chat_token_default_quota)
+
+    def _ensure_chat_quota_initialized(self, user: User) -> None:
+        quota = user.chat_token_quota
+        if quota is None or quota < 0:
+            quota = self._default_chat_quota(user)
+            user.chat_token_quota = quota
+        if user.chat_tokens_remaining is None:
+            user.chat_tokens_remaining = quota
+        elif user.chat_tokens_remaining < 0:
+            user.chat_tokens_remaining = 0
+        elif quota >= 0 and user.chat_tokens_remaining > quota > 0:
+            user.chat_tokens_remaining = quota
+
+    async def _consume_chat_token(self, user: User) -> None:
+        self._ensure_chat_quota_initialized(user)
+        quota = user.chat_token_quota or 0
+        if quota == 0:
+            return
+        remaining = user.chat_tokens_remaining
+        if remaining is None:
+            remaining = quota
+            user.chat_tokens_remaining = remaining
+        if remaining <= 0:
+            raise TokenQuotaExceeded("Лимит чат-токенов для этого аккаунта исчерпан.")
+        user.chat_tokens_remaining = remaining - 1
+        await self._session.flush()

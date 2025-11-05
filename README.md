@@ -9,11 +9,11 @@ web client, infrastructure-as-code, and the supporting automation services descr
 ## Core Capabilities
 - Therapeutic chat assistant backed by Azure OpenAI (with AWS Bedrock/OpenAI fallbacks).
 - Persistent conversation history with daily/weekly summaries and keyword memory.
-- Therapist discovery directory with recommendation rationales and locale-aware content.
+- Therapist discovery directory with recommendation rationales, automatic locale detection, and on-the-fly translation of therapist profiles.
 - Journey dashboard surfacing recent insights, highlight cards, and transcript drill-downs.
 - Explore modules for breathing exercises, psychoeducation, and dynamic feature rollouts.
 - Voice input (browser and server ASR) plus optional text-to-speech playback.
-- SMS OTP and Google OAuth login flows with refresh-token rotation.
+- Email login via oauth2-proxy plus demo-code allowlist with refresh-token rotation and chat-token quotas that surface subscription prompts when credits run out.
 - Automation agents for data sync, summary scheduling, CI runner orchestration, and monitoring.
 
 ## Repository Layout
@@ -58,7 +58,8 @@ web client, infrastructure-as-code, and the supporting automation services descr
    pip install -e .[dev]
    ```
 2. Configure environment variables (e.g. export locally or use a `.env` file).
-   > For production SMS delivery supply `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, and either `TWILIO_FROM_NUMBER` or `TWILIO_MESSAGING_SERVICE_SID`. Without these the OTP provider logs codes to the console.
+   > Provide `DEMO_CODE_FILE` for the allowlisted demo codes, configure chat quotas via `CHAT_TOKEN_DEFAULT_QUOTA` / `CHAT_TOKEN_DEMO_QUOTA`, and expose the oauth2-proxy headers using `OAUTH2_PROXY_EMAIL_HEADER`, `OAUTH2_PROXY_USER_HEADER`, and optionally `OAUTH2_PROXY_NAME_HEADER`.
+   > The repository ships an active allowlist at `config/demo_codes.json` and a template at `demo_codes.sample.json`. Each entry accepts `chat_token_quota` (chat turns before the subscription prompt appears). Every code provisions an isolated `demo` user keyed by the exact string in the file, so demo credits are spent per-code and never bleed into email-based accounts.
 3. Apply database migrations:
    ```bash
    alembic upgrade head
@@ -89,14 +90,17 @@ Use `mindwell-monitoring-agent --dry-run` to verify telemetry access without dis
    ```
 2. Create a `.env.local` (or export) with at minimum:
    ```bash
-   VITE_API_BASE_URL=http://localhost:8000/api
+   # Для email-логина укажите порт локального oauth2-proxy
+   VITE_API_BASE_URL=http://localhost:4180
    ```
-   The API base URL must include the `/api` prefix so the web client can reach FastAPI routes. Update this value when targeting remote environments.
+   The web client appends `/api` paths internally; point this base URL at the oauth2-proxy-protected MindWell backend.
+   Without oauth2-proxy you can temporarily leave `http://localhost:8000`, но в этом случае доступен только вход по демо-кодам.
 3. Start the dev server with hot module reload:
    ```bash
    npm run dev
    ```
    The server proxies unauthenticated requests to the backend; protected routes still require valid tokens.
+   Streaming chat now downgrades to a non-streamed response when the SSE feed drops (the UI listens for `chat_stream_failure` and transparently replays the turn), preventing the “Поток прервался” banner from appearing on transient network hiccups.
 4. Before opening a PR run:
    ```bash
    npm run lint
@@ -115,10 +119,11 @@ Use `mindwell-monitoring-agent --dry-run` to verify telemetry access without dis
    Ensure Xcode (for iOS) or Android Studio/SDK (for Android) are installed before running the native builds.
 2. Configure runtime environment variables (read from `app.config.ts`):
    ```bash
-   echo "EXPO_PUBLIC_API_BASE_URL=http://localhost:8000/api" >> .env.local
+   echo "EXPO_PUBLIC_API_BASE_URL=http://localhost:4180" >> .env.local
    echo "EXPO_PUBLIC_SPEECH_REGION=eastasia" >> .env.local
    ```
    Additional keys (speech API credentials, push notification secrets) are documented in `ENVS.md`.
+   Если oauth2-proxy не запущен, можно указать `http://localhost:8000`, однако мобильное приложение тоже будет ограничено демо-авторизацией.
 3. Launch the development server:
    ```bash
    npm run start                # Metro bundler

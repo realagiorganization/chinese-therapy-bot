@@ -60,6 +60,7 @@ app/services/asr.py
 app/services/auth.py
 app/services/chat.py
 app/services/data_subject.py
+app/services/demo_codes.py
 app/services/evaluation.py
 app/services/explore.py
 app/services/feature_flags.py

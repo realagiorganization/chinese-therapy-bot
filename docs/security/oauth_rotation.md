@@ -1,45 +1,41 @@
-# Google OAuth Secret Rotation Runbook
+# oauth2-proxy Secret Rotation Runbook
 
-This runbook documents the process for rotating Google OAuth client secrets used by MindWell web and mobile clients. Follow the steps in order and record completion in the Security change log.
+This runbook describes how to rotate the secrets used by oauth2-proxy for MindWell (cookie encryption secret and upstream client credentials). Follow the checklist and log completion in the security change log.
 
 ## Preconditions
-- Access to the `MindWell OAuth` 1Password vault.
-- Google Cloud project owner or editor permissions for the OAuth client.
-- Azure Key Vault access policy covering `kv-mindwell-<env>` secrets.
-- Firebase console access (if mobile apps consume the same credentials).
+- Access to the `MindWell Auth` vault in 1Password.
+- Administrative rights for the upstream identity provider (e.g. Azure AD, Google Workspace) configured for oauth2-proxy.
+- Azure Key Vault permissions for `kv-mindwell-<env>` and AWS Secrets Manager access to `mindwell/<env>/oauth2-proxy/*` secrets.
+- Ability to trigger GitHub Actions deploy workflows for the backend and oauth2-proxy manifests.
 
 ## Rotation Steps
-1. **Schedule Maintenance**
-   - Coordinate with Mobile and Web teams to identify a low-traffic window (typically 02:00–04:00 CST).
-   - Notify CI Runner Agent owners; deployments will temporarily pause during rotation.
+1. **Schedule a Window**
+   - Coordinate with product/CS teams to identify a low-traffic window (preferably 02:00–04:00 CST).
+   - Announce expected impact (short-lived reauthentication) in `#ops-announcements` and pause staged deployments.
 
-2. **Generate Replacement Secret**
-   - In Google Cloud Console navigate to *APIs & Services → Credentials*.
-   - Locate the OAuth client (`MindWell Web` or `MindWell Mobile`) and select *Reset secret*.
-   - Copy the new client secret. Immediately store it in the 1Password entry as a new field labeled with ISO timestamp (e.g. `Secret 2025-05-08T02:30Z`).
+2. **Generate New Secrets**
+   - Produce a 32-byte random string for `OAUTH2_PROXY_COOKIE_SECRET` (`openssl rand -hex 32`).
+   - If required by the upstream IdP, create a new client secret and record the value in 1Password alongside timestamp metadata.
 
-3. **Update Firebase / Platform Integrations**
-   - If the mobile app relies on Firebase, update the OAuth client secret in the Firebase console.
-   - For TestFlight builds, update the Expo/React Native config values (see `clients/mobile/app.config.ts` once live).
+3. **Update Secret Stores**
+   - Write the new cookie secret to AWS Secrets Manager (`mindwell/<env>/oauth2-proxy/cookie-secret`).
+   - Mirror the value into Azure Key Vault `oauth2-proxy-cookie-secret` using `az keyvault secret set`.
+   - Store refreshed upstream client secrets under `oauth2-proxy-client-secret` if applicable.
 
-4. **Propagate to Azure Key Vault**
-   - Create a new secret version in `kv-mindwell-<env>` with the name `google-oauth-client-secret`.
-   - Use the `az keyvault secret set` command or the Key Vault portal, pasting the freshly generated secret.
-   - Tag the secret with `rotated-by`, `rotation-date`, and `notes` metadata for auditing.
+4. **Redeploy oauth2-proxy & Backend**
+   - Trigger the `platform-secrets-refresh` GitHub Action to sync secrets into AKS ConfigMaps/Secrets.
+   - Kick off the deployment pipelines for oauth2-proxy and the FastAPI backend so pods receive the updated values.
 
-5. **Sync to Kubernetes**
-   - Trigger the `platform-secrets-refresh` GitHub Actions workflow.
-   - Confirm the workflow completes and the new secret version is mounted in the AKS namespaces (`mindwell-backend`, `mindwell-agents`).
+5. **Validate Authentication**
+   - Confirm `/oauth2/start` redirects and completes successfully in staging.
+   - Exercise the token exchange by visiting the web login panel; ensure `/api/auth/session` returns tokens and session cookies are refreshed.
+   - Verify demo code login remains unaffected (`/api/auth/demo`).
 
-6. **Validate Authentication**
-   - Run the regression suite `services/backend/tests/test_auth_google.py`.
-   - Perform manual sign-in via staging web app to ensure the new secret works end-to-end.
+6. **Retire Previous Secrets**
+   - Revoke the prior upstream client secret in the IdP console (if rotated).
+   - Remove the superseded secret versions in Key Vault and Secrets Manager after validation.
 
-7. **Retire Old Secret**
-   - After successful validation, delete the previous secret version from Key Vault.
-   - Update the 1Password record to mark the old secret entry as revoked.
-
-8. **Close Out**
-   - Notify stakeholders rotation completed.
-   - Update the Security change log and PROGRESS checklist if applicable.
-   - Monitoring Agent should confirm no increase in authentication failures over the next 24 hours.
+7. **Close & Monitor**
+   - Update 1Password entries with rotation date, operator, and ticket reference.
+   - Note completion in the security change log and notify stakeholders.
+   - Monitor oauth2-proxy error logs and API 401 rates for the next 24 hours via Monitoring Agent dashboards.

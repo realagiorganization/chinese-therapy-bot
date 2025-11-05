@@ -19,6 +19,10 @@ infra/
     observability.tf    # Monitor action group and AKS CPU alert
     outputs.tf          # Handy outputs for downstream automation
     README.md           # Usage instructions and tfvars example
+  kubernetes/
+    backend/            # FastAPI deployment, service, and CSI secret mounts
+    oauth2-proxy/       # oauth2-proxy deployment fronting the backend service
+    samples/            # Utility manifests for validating workload identity
 ```
 
 Create environment-specific `*.tfvars` files at the root of `infra/terraform/` (e.g., `dev.tfvars`, `staging.tfvars`). Terraform workspaces or wrapper scripts can select the desired variable set during deployment.
@@ -67,4 +71,27 @@ tags = {
 ### Notes
 - Enable an Azure Storage Account backend for Terraform state before multi-user usage.
 - Configure Azure Key Vault firewall rules to include GitHub Action runner egress IPs when running in CI.
-- Populate secret values (OpenAI, SMS, Bedrock) via AWS Secrets Manager once credentials are provisioned.
+- Populate secret values (OpenAI, oauth2-proxy, Bedrock) via AWS Secrets Manager once credentials are provisioned.
+
+## oauth2-proxy Deployment
+The kubernetes manifests under `infra/kubernetes/oauth2-proxy/` provision an oauth2-proxy instance in front of the FastAPI backend. Before applying them:
+
+1. Ensure the Key Vault contains secrets `oauth2-proxy-client-id`, `oauth2-proxy-client-secret`, and `oauth2-proxy-cookie-secret`.
+2. Export the variables referenced in the manifests (see `ENVS.md` for descriptions), for example:
+   ```bash
+   export AZURE_TENANT_ID="<tenant>"
+   export AZURE_KEY_VAULT_NAME="kv-mindwell-dev"
+   export OAUTH2_PROXY_MANAGED_IDENTITY_CLIENT_ID="<aks-workload-identity-client-id>"
+   export OAUTH2_PROXY_REDIRECT_URL="https://api.dev.mindwell.cn/oauth2/callback"
+   export OAUTH2_PROXY_OIDC_ISSUER_URL="https://login.microsoftonline.com/<tenant>/v2.0"
+   export OAUTH2_PROXY_EMAIL_DOMAINS="mindwell.health"
+   export OAUTH2_PROXY_WHITELIST_DOMAINS=".mindwell.cn"
+   export OAUTH2_PROXY_COOKIE_DOMAIN=".mindwell.cn"
+   export OAUTH2_PROXY_UPSTREAMS="http://mindwell-backend.mindwell.svc.cluster.local"
+   ```
+3. Apply the manifests:
+   ```bash
+   kustomize build infra/kubernetes/oauth2-proxy | kubectl apply -f -
+   ```
+
+The oauth2-proxy service listens on port 80 inside the cluster and forwards authenticated requests to the `mindwell-backend` service. Ingress or Application Gateway rules should target the proxy service rather than the backend directly.
