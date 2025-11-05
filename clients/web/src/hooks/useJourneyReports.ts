@@ -8,7 +8,7 @@ import type {
   WeeklyJourneyReport
 } from "../api/types";
 import type { JourneyReportsSource } from "../api/reports";
-import { ensureUserId } from "../utils/user";
+import { useAuth } from "../auth/AuthContext";
 
 export type NormalizedDailyReport = DailyJourneyReport & {
   id: string;
@@ -33,7 +33,6 @@ export type JourneyReportsState = {
   isLoading: boolean;
   source: JourneyReportsSource | null;
   error: Error | null;
-  userId: string;
 };
 
 function parseDate(value: string | undefined): Date | null {
@@ -49,9 +48,17 @@ export function useJourneyReports(locale: string): JourneyReportsState {
   const [source, setSource] = useState<JourneyReportsSource | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
-  const [userId] = useState(() => ensureUserId());
+  const { userId } = useAuth();
 
   useEffect(() => {
+    if (!userId) {
+      setReports(null);
+      setSource(null);
+      setError(null);
+      setIsLoading(false);
+      return;
+    }
+
     let cancelled = false;
     async function load() {
       setIsLoading(true);
@@ -140,7 +147,6 @@ export function useJourneyReports(locale: string): JourneyReportsState {
     conversationsByDate: normalized.conversationsByDate,
     isLoading,
     source,
-    error,
-    userId
+    error
   };
 }

@@ -1,6 +1,9 @@
 import { renderHook, waitFor } from "@testing-library/react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { Buffer } from "node:buffer";
+import type { PropsWithChildren } from "react";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { AuthProvider } from "../../auth/AuthContext";
 import type { ExploreModule } from "../../api/types";
 import { useExploreModules } from "../useExploreModules";
 
@@ -37,8 +40,36 @@ const SAMPLE_MODULES: ExploreModule[] = [
   }
 ] as ExploreModule[];
 
+const TEST_USER_ID = "11111111-1111-1111-1111-111111111111";
+
+function buildJwt(payload: Record<string, unknown>): string {
+  const header = Buffer.from(JSON.stringify({ alg: "HS256", typ: "JWT" })).toString("base64url");
+  const body = Buffer.from(JSON.stringify(payload)).toString("base64url");
+  return `${header}.${body}.signature`;
+}
+
+function seedAuthStorage(): void {
+  const expiresAt = Date.now() + 60 * 60 * 1000;
+  const token = buildJwt({ sub: TEST_USER_ID, exp: Math.floor(expiresAt / 1000) });
+  window.localStorage.setItem(
+    "mindwell:auth",
+    JSON.stringify({
+      accessToken: token,
+      refreshToken: "refresh-token",
+      expiresAt,
+      userId: TEST_USER_ID
+    })
+  );
+}
+
+function withAuthProvider({ children }: PropsWithChildren): JSX.Element {
+  return <AuthProvider>{children}</AuthProvider>;
+}
+
 describe("useExploreModules", () => {
   beforeEach(() => {
+    window.localStorage.clear();
+    seedAuthStorage();
     mocks.loadExploreModules.mockReset();
     mocks.loadExploreModules.mockResolvedValue({
       locale: "zh-CN",
@@ -48,8 +79,14 @@ describe("useExploreModules", () => {
     });
   });
 
+  afterEach(() => {
+    window.localStorage.clear();
+  });
+
   it("loads modules and exposes evaluated feature flags", async () => {
-    const { result } = renderHook(() => useExploreModules("zh-CN"));
+    const { result } = renderHook(() => useExploreModules("zh-CN"), {
+      wrapper: withAuthProvider
+    });
 
     await waitFor(() => expect(result.current.isLoading).toBe(false));
 
@@ -61,7 +98,9 @@ describe("useExploreModules", () => {
 
   it("falls back gracefully when the API request fails", async () => {
     mocks.loadExploreModules.mockRejectedValueOnce(new Error("network"));
-    const { result } = renderHook(() => useExploreModules("en-US"));
+    const { result } = renderHook(() => useExploreModules("en-US"), {
+      wrapper: withAuthProvider
+    });
 
     await waitFor(() => expect(result.current.isLoading).toBe(false));
 

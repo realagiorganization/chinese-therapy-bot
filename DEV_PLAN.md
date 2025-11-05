@@ -101,6 +101,7 @@
 - list/get API ✅
 - Script for scraping therapist data and injecting into database ✅ *(Data Sync agent `mindwell-data-sync` publishes normalized profiles to `S3_BUCKET_THERAPISTS`.)*
 - Internationalization (i18n) of therapist information ✅
+  *(Runtime translation service: `app/services/translation.py`, therapist import/localization logic: `app/services/therapists.py`.)*
 
 #### **Data Governance & Privacy**
 

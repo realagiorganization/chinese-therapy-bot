@@ -3,7 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 import { loadExploreModules } from "../api/explore";
 import type { ExploreModule, ExploreModulesResponse } from "../api/types";
 import type { ExploreModulesSource } from "../api/explore";
-import { ensureUserId } from "../utils/user";
+import { useAuth } from "../auth/AuthContext";
 
 export type ExploreModulesState = {
   modules: ExploreModule[];
@@ -11,7 +11,6 @@ export type ExploreModulesState = {
   isLoading: boolean;
   error: Error | null;
   source: ExploreModulesSource;
-  userId: string;
 };
 
 const INITIAL_STATE: ExploreModulesResponse = {
@@ -25,9 +24,17 @@ export function useExploreModules(locale: string): ExploreModulesState {
   const [source, setSource] = useState<ExploreModulesSource>("fallback");
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
-  const [userId] = useState(() => ensureUserId());
+  const { userId } = useAuth();
 
   useEffect(() => {
+    if (!userId) {
+      setPayload(INITIAL_STATE);
+      setSource("fallback");
+      setError(null);
+      setIsLoading(false);
+      return;
+    }
+
     let cancelled = false;
 
     async function fetchModules() {
@@ -67,7 +74,6 @@ export function useExploreModules(locale: string): ExploreModulesState {
     evaluatedFlags: flags,
     isLoading,
     error,
-    source,
-    userId
+    source
   };
 }

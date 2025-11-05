@@ -24,13 +24,13 @@ export default function App() {
     {
       id: "today",
       title: t("app.daily_reflection"),
-      summary: "继续记录你的情绪触发点，今晚尝试 5 分钟呼吸放松。",
+      summary: t("app.daily_reflection_summary"),
       action: t("app.cta_resume")
     },
     {
       id: "insight",
       title: t("journey.insight_spotlight"),
-      summary: "近 3 天焦虑关键词出现频率下降 18%。",
+      summary: t("app.insight_summary"),
       action: t("journey.next_steps")
     }
   ];

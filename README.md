@@ -9,7 +9,7 @@ web client, infrastructure-as-code, and the supporting automation services descr
 ## Core Capabilities
 - Therapeutic chat assistant backed by Azure OpenAI (with AWS Bedrock/OpenAI fallbacks).
 - Persistent conversation history with daily/weekly summaries and keyword memory.
-- Therapist discovery directory with recommendation rationales and locale-aware content.
+- Therapist discovery directory with recommendation rationales, automatic locale detection, and on-the-fly translation of therapist profiles.
 - Journey dashboard surfacing recent insights, highlight cards, and transcript drill-downs.
 - Explore modules for breathing exercises, psychoeducation, and dynamic feature rollouts.
 - Voice input (browser and server ASR) plus optional text-to-speech playback.
@@ -58,8 +58,8 @@ web client, infrastructure-as-code, and the supporting automation services descr
    pip install -e .[dev]
    ```
 2. Configure environment variables (e.g. export locally or use a `.env` file).
-   > Provide `DEMO_CODE_FILE` for the allowlisted demo codes, set session limits via `AUTH_DEFAULT_TOKEN_LIMIT` / `AUTH_DEMO_TOKEN_LIMIT`, configure chat quotas via `CHAT_TOKEN_DEFAULT_QUOTA` / `CHAT_TOKEN_DEMO_QUOTA`, and expose the oauth2-proxy headers using `OAUTH2_PROXY_EMAIL_HEADER`, `OAUTH2_PROXY_USER_HEADER`, and optionally `OAUTH2_PROXY_NAME_HEADER`.
-   > The repository ships an active allowlist at `config/demo_codes.json` and a template at `demo_codes.sample.json`. Each entry accepts `token_limit` (refresh-token quota) and `chat_token_quota` (chat turns before the subscription prompt appears).
+   > Provide `DEMO_CODE_FILE` for the allowlisted demo codes, configure chat quotas via `CHAT_TOKEN_DEFAULT_QUOTA` / `CHAT_TOKEN_DEMO_QUOTA`, and expose the oauth2-proxy headers using `OAUTH2_PROXY_EMAIL_HEADER`, `OAUTH2_PROXY_USER_HEADER`, and optionally `OAUTH2_PROXY_NAME_HEADER`.
+   > The repository ships an active allowlist at `config/demo_codes.json` and a template at `demo_codes.sample.json`. Each entry accepts `chat_token_quota` (chat turns before the subscription prompt appears). Every code provisions an isolated `demo` user keyed by the exact string in the file, so demo credits are spent per-code and never bleed into email-based accounts.
 3. Apply database migrations:
    ```bash
    alembic upgrade head
@@ -98,6 +98,7 @@ Use `mindwell-monitoring-agent --dry-run` to verify telemetry access without dis
    npm run dev
    ```
    The server proxies unauthenticated requests to the backend; protected routes still require valid tokens.
+   Streaming chat now downgrades to a non-streamed response when the SSE feed drops (the UI listens for `chat_stream_failure` and transparently replays the turn), preventing the “Поток прервался” banner from appearing on transient network hiccups.
 4. Before opening a PR run:
    ```bash
    npm run lint

@@ -7,10 +7,12 @@
     "cta_resume": "繼續旅程",
     "journey_highlights": "近期亮點",
     "daily_reflection": "今日回顧",
+    "daily_reflection_summary": "持續記錄情緒觸發點，今晚試試 5 分鐘呼吸放鬆。",
     "therapist_recommendations": "為你推薦的治療師",
     "language_label": "介面語言",
     "cta_invite": "邀請朋友體驗 MindWell",
-    "voice_hint": "支援語音輸入、情緒摘要與每日陪伴"
+    "voice_hint": "支援語音輸入、情緒摘要與每日陪伴",
+    "insight_summary": "近三天焦慮關鍵字的出現頻率下降了 18%。"
   },
   "auth": {
     "title": "登入 MindWell",
@@ -80,6 +82,11 @@
     "share_with_therapist": "分享給治療師"
   },
   "therapists": {
+    "names": {
+      "therapist-1": "劉心語",
+      "therapist-2": "王晨",
+      "therapist-3": "李安琪"
+    },
     "availability": "可預約時段",
     "book": "預約",
     "languages": "溝通語言：{{languages}}",
@@ -176,6 +183,11 @@
         "burnout": "倦怠修復",
         "self_compassion": "自我慈悲"
       }
+    },
+    "errors": {
+      "generic": "連線發生異常，請稍後再試。",
+      "stream_failure": "連線已中斷，請重新嘗試。",
+      "tokens_exhausted": "體驗額度已用盡，請升級方案或稍後再試。"
     }
   },
   "subscription": {

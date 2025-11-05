@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import logging
 from typing import Iterable, Sequence
 from uuid import UUID, uuid4
@@ -21,6 +22,7 @@ from app.schemas.therapists import (
     TherapistSummary,
 )
 from app.services.analytics import ProductAnalyticsService
+from app.services.translation import TranslationService
 
 
 logger = logging.getLogger(__name__)
@@ -34,10 +36,17 @@ class TherapistService:
         session: AsyncSession,
         storage: TherapistDataStorage | None = None,
         analytics_service: ProductAnalyticsService | None = None,
+        translation_service: TranslationService | None = None,
     ):
         self._session = session
         self._storage = storage
         self._analytics = analytics_service
+        self._translator = translation_service
+        self._target_locales = (
+            translation_service.default_locales
+            if translation_service
+            else ("zh-CN", "zh-TW", "en-US", "ru-RU")
+        )
 
     _SEED_THERAPISTS = [
         TherapistDetailResponse(
@@ -85,8 +94,9 @@ class TherapistService:
 
         for seed in self._SEED_THERAPISTS:
             if seed.therapist_id == therapist_id:
-                await self._record_profile_view(seed, locale=locale)
-                return seed
+                localized_seed = await self._localize_seed_detail(seed, locale)
+                await self._record_profile_view(localized_seed, locale=locale)
+                return localized_seed
         raise ValueError(f"Therapist {therapist_id} not found")
 
     async def sync_from_storage(
@@ -100,6 +110,12 @@ class TherapistService:
             raise RuntimeError("Therapist storage integration is not configured.")
 
         records = await self._storage.fetch_records(prefix=prefix, locales=locales)
+        if self._translator and records:
+            target_locales = locales if locales else list(self._target_locales)
+            records = await self._translator.ensure_therapist_localizations(
+                records,
+                target_locales=target_locales,
+            )
         summary = TherapistImportSummary(total=len(records), dry_run=dry_run)
         if not records:
             return summary
@@ -139,7 +155,7 @@ class TherapistService:
         if not record:
             return None
 
-        return self._serialize_detail(record, locale)
+        return await self._serialize_detail(record, locale)
 
     async def _load_therapists(
         self,
@@ -152,14 +168,20 @@ class TherapistService:
         records = result.scalars().all()
 
         if not records:
-            return (
-                self._SEED_THERAPISTS if detail else self._seed_as_summaries()
+            return await (
+                self._seed_details(locale)
+                if detail
+                else self._seed_summaries(locale)
             )
 
         if detail:
-            return [self._serialize_detail(record, locale) for record in records]
+            return await asyncio.gather(
+                *[self._serialize_detail(record, locale) for record in records]
+            )
 
-        return [self._serialize_summary(record, locale) for record in records]
+        return await asyncio.gather(
+            *[self._serialize_summary(record, locale) for record in records]
+        )
 
     async def _record_profile_view(
         self,
@@ -180,7 +202,7 @@ class TherapistService:
         except Exception as exc:  # pragma: no cover - analytics should not block therapist flows
             logger.debug("Failed to record therapist analytics event: %s", exc, exc_info=exc)
 
-    def _serialize_summary(
+    def _build_summary_base(
         self,
         record: TherapistModel,
         locale: str,
@@ -198,7 +220,7 @@ class TherapistService:
             is_recommended=record.is_recommended,
         )
 
-    def _serialize_detail(
+    def _build_detail_base(
         self,
         record: TherapistModel,
         locale: str,
@@ -222,6 +244,32 @@ class TherapistService:
             is_recommended=record.is_recommended,
         )
 
+    async def _serialize_summary(
+        self,
+        record: TherapistModel,
+        locale: str,
+    ) -> TherapistSummary:
+        summary = self._build_summary_base(record, locale)
+        source_locale = self._determine_record_locale(record)
+        return await self._localize_summary_payload(
+            summary,
+            locale,
+            source_locale=source_locale,
+        )
+
+    async def _serialize_detail(
+        self,
+        record: TherapistModel,
+        locale: str,
+    ) -> TherapistDetailResponse:
+        detail = self._build_detail_base(record, locale)
+        source_locale = self._determine_record_locale(record)
+        return await self._localize_detail_payload(
+            detail,
+            locale,
+            source_locale=source_locale,
+        )
+
     def _seed_as_summaries(self) -> list[TherapistSummary]:
         return [
             TherapistSummary(
@@ -236,6 +284,128 @@ class TherapistService:
             )
             for therapist in self._SEED_THERAPISTS
         ]
+
+    async def _seed_summaries(self, locale: str) -> list[TherapistSummary]:
+        summaries = self._seed_as_summaries()
+        if not self._translator or self._translator.are_locales_equivalent(locale, "zh-CN"):
+            return summaries
+        localized = await asyncio.gather(
+            *[
+                self._localize_summary_payload(summary, locale, source_locale="zh-CN")
+                for summary in summaries
+            ]
+        )
+        return localized
+
+    async def _seed_details(self, locale: str) -> list[TherapistDetailResponse]:
+        if not self._translator:
+            return [therapist.model_copy() for therapist in self._SEED_THERAPISTS]
+        localized = await asyncio.gather(
+            *[self._localize_seed_detail(therapist, locale) for therapist in self._SEED_THERAPISTS]
+        )
+        return localized
+
+    async def _localize_seed_detail(
+        self,
+        detail: TherapistDetailResponse,
+        locale: str,
+    ) -> TherapistDetailResponse:
+        copy = detail.model_copy()
+        if not self._translator or self._translator.are_locales_equivalent(locale, "zh-CN"):
+            return copy
+        return await self._localize_detail_payload(copy, locale, source_locale="zh-CN")
+
+    async def _localize_summary_payload(
+        self,
+        summary: TherapistSummary,
+        locale: str,
+        *,
+        source_locale: str,
+    ) -> TherapistSummary:
+        if not self._translator:
+            return summary
+        if self._translator.are_locales_equivalent(locale, source_locale):
+            return summary
+
+        translated_title = await self._translator.translate_text(
+            summary.title,
+            target_locale=locale,
+            source_locale=source_locale,
+        )
+        translated_specialties = await self._translator.translate_list(
+            summary.specialties,
+            target_locale=locale,
+            source_locale=source_locale,
+        )
+
+        return summary.model_copy(
+            update={
+                "title": translated_title or summary.title,
+                "specialties": translated_specialties or summary.specialties,
+            }
+        )
+
+    async def _localize_detail_payload(
+        self,
+        detail: TherapistDetailResponse,
+        locale: str,
+        *,
+        source_locale: str,
+    ) -> TherapistDetailResponse:
+        if not self._translator:
+            return detail
+        if self._translator.are_locales_equivalent(locale, source_locale):
+            return detail
+
+        translated_title = await self._translator.translate_text(
+            detail.title,
+            target_locale=locale,
+            source_locale=source_locale,
+        )
+        translated_bio = await self._translator.translate_text(
+            detail.biography,
+            target_locale=locale,
+            source_locale=source_locale,
+        )
+        translated_specialties = await self._translator.translate_list(
+            detail.specialties,
+            target_locale=locale,
+            source_locale=source_locale,
+        )
+
+        return detail.model_copy(
+            update={
+                "title": translated_title or detail.title,
+                "biography": translated_bio or detail.biography,
+                "specialties": translated_specialties or detail.specialties,
+            }
+        )
+
+    def _determine_record_locale(self, record: TherapistModel) -> str:
+        if not self._translator:
+            return "zh-CN"
+
+        preferred: str | None = None
+        for localization in record.localizations or []:
+            locale = localization.locale or ""
+            if not locale:
+                continue
+            if locale.lower().startswith("zh"):
+                return locale
+            preferred = preferred or locale
+
+        for language in record.languages or []:
+            if language and language.lower().startswith(("zh", "en", "ru")):
+                return language
+
+        probe_fields = [record.title, record.biography, record.name]
+        for field in probe_fields:
+            if field:
+                detected = self._translator.detect_locale(field, fallback="zh-CN")
+                if detected:
+                    return detected
+
+        return preferred or "zh-CN"
 
     def _matches_filters(
         self,

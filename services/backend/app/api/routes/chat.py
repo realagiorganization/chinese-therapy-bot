@@ -1,4 +1,5 @@
 import json
+import logging
 from collections.abc import AsyncIterator
 from typing import Any
 
@@ -10,6 +11,8 @@ from app.schemas.chat import ChatRequest, ChatResponse
 from app.schemas.templates import ChatTemplateItem, ChatTemplateListResponse
 from app.services.chat import ChatService, TokenQuotaExceeded
 from app.services.templates import ChatTemplateService
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 legacy_router = APIRouter(prefix="/therapy", tags=["legacy"])
@@ -130,6 +133,17 @@ def _stream_chat_response(payload: ChatRequest, service: ChatService) -> Streami
             )
         except ValueError as exc:
             yield _encode_sse({"event": "error", "data": {"detail": str(exc)}})
+        except Exception as exc:  # pragma: no cover - defensive path
+            logger.exception("Chat streaming failed", exc_info=exc)
+            yield _encode_sse(
+                {
+                    "event": "error",
+                    "data": {
+                        "detail": "Streaming interrupted. Please try again.",
+                        "code": "chat_stream_failure",
+                    },
+                }
+            )
 
     return StreamingResponse(
         event_stream(),

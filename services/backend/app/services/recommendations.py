@@ -84,7 +84,7 @@ class TherapistRecommendationService:
                     currency=therapist.currency,
                     is_recommended=therapist.is_recommended,
                     score=min(max(score, 0.0), 1.0),
-                    reason=self._build_reason(therapist, keywords),
+                    reason=self._build_reason(therapist, keywords, locale=locale),
                     matched_keywords=keywords,
                 )
             )
@@ -101,12 +101,11 @@ class TherapistRecommendationService:
             records = []
 
         if not records:
-            # Fall back to static seed data.
-            return list(self._therapist_service._SEED_THERAPISTS)  # type: ignore[attr-defined]
+            return await self._therapist_service._seed_details(locale)  # type: ignore[attr-defined]
 
         detailed: list[TherapistDetailResponse] = []
         for record in records:
-            detailed.append(self._therapist_service._serialize_detail(record, locale))
+            detailed.append(await self._therapist_service._serialize_detail(record, locale))
         return detailed
 
     def _make_document(self, therapist: TherapistDetailResponse) -> str:
@@ -142,11 +141,39 @@ class TherapistRecommendationService:
         self,
         therapist: TherapistDetailResponse,
         keywords: Iterable[str],
+        *,
+        locale: str,
     ) -> str:
         keyword_list = [keyword for keyword in keywords if keyword]
-        if keyword_list:
-            joined = "、".join(keyword_list)
-            return f"匹配你提及的主题：{joined}。{therapist.name} 擅长相关领域。"
+        normalized = (locale or "").lower()
+        is_chinese = normalized.startswith("zh")
+        is_russian = normalized.startswith("ru")
 
-        core_specialties = "、".join(therapist.specialties[:3])
-        return f"{therapist.name} 擅长 {core_specialties}，适合进一步深入交流。"
+        if keyword_list:
+            if is_russian:
+                joined = " · ".join(keyword_list)
+                return (
+                    f"Совпадает с вашими запросами: {joined}. "
+                    f"{therapist.name} специализируется на этих темах."
+                )
+            if is_chinese:
+                joined = "、".join(keyword_list)
+                return f"匹配你提及的主题：{joined}。{therapist.name} 擅长相关领域。"
+            joined = ", ".join(keyword_list)
+            return (
+                f"Aligns with what you mentioned: {joined}. "
+                f"{therapist.name} is experienced in these areas."
+            )
+
+        core_specialties = ", ".join(therapist.specialties[:3])
+        if is_russian:
+            return (
+                f"{therapist.name} специализируется на направлениях {core_specialties}. "
+                "Может поддержать дальнейшую работу."
+            )
+        if is_chinese:
+            core_specialties = "、".join(therapist.specialties[:3])
+            return f"{therapist.name} 擅长 {core_specialties}，适合进一步深入交流。"
+        return (
+            f"{therapist.name} focuses on {core_specialties} and could help you go deeper from here."
+        )

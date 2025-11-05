@@ -7,10 +7,12 @@
     "cta_resume": "Resume journey",
     "journey_highlights": "Recent highlights",
     "daily_reflection": "Today’s check-in",
+    "daily_reflection_summary": "Keep logging your triggers and try a 5-minute breathing reset tonight.",
     "therapist_recommendations": "Suggested therapists",
     "language_label": "Interface language",
     "cta_invite": "Invite a friend to MindWell",
-    "voice_hint": "Voice input, emotional summaries, and daily companionship included."
+    "voice_hint": "Voice input, emotional summaries, and daily companionship included.",
+    "insight_summary": "Anxiety mentions dropped 18% over the past three days."
   },
   "auth": {
     "title": "Sign in to MindWell",
@@ -80,6 +82,11 @@
     "share_with_therapist": "Share with therapist"
   },
   "therapists": {
+    "names": {
+      "therapist-1": "Liu Xinyu",
+      "therapist-2": "Wang Chen",
+      "therapist-3": "Li Anqi"
+    },
     "availability": "Available slots",
     "book": "Book",
     "languages": "Languages: {{languages}}",
@@ -176,6 +183,11 @@
         "burnout": "Burnout recovery",
         "self_compassion": "Self-compassion"
       }
+    },
+    "errors": {
+      "generic": "We lost the connection. Please try again.",
+      "stream_failure": "The stream was interrupted. Try again in a moment.",
+      "tokens_exhausted": "You've reached the trial limit. Upgrade to keep chatting."
     }
   },
   "subscription": {

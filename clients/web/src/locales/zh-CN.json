@@ -7,10 +7,12 @@
     "cta_resume": "继续旅程",
     "journey_highlights": "近期亮点",
     "daily_reflection": "今日回顾",
+    "daily_reflection_summary": "继续记录你的情绪触发点，今晚尝试 5 分钟呼吸放松。",
     "therapist_recommendations": "为你推荐的治疗师",
     "language_label": "界面语言",
     "cta_invite": "邀请朋友体验 MindWell",
-    "voice_hint": "支持语音输入、情绪总结与每日陪伴"
+    "voice_hint": "支持语音输入、情绪总结与每日陪伴",
+    "insight_summary": "近 3 天焦虑关键词出现频率下降 18%。"
   },
   "auth": {
     "title": "登录 MindWell",
@@ -80,6 +82,11 @@
     "share_with_therapist": "分享给治疗师"
   },
   "therapists": {
+    "names": {
+      "therapist-1": "刘心语",
+      "therapist-2": "王晨",
+      "therapist-3": "李安琪"
+    },
     "availability": "可约时间",
     "book": "预约",
     "languages": "沟通语言：{{languages}}",
@@ -176,6 +183,11 @@
         "burnout": "倦怠修复",
         "self_compassion": "自我慈悲"
       }
+    },
+    "errors": {
+      "generic": "连接出现波动，请稍后重试。",
+      "stream_failure": "连接被中断，请再次尝试。",
+      "tokens_exhausted": "体验额度已用完，请升级或稍后重试。"
     }
   },
   "subscription": {

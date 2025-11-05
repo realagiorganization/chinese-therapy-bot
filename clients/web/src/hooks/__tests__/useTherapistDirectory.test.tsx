@@ -47,10 +47,12 @@ describe("useTherapistDirectory", () => {
   });
 
   it("derives unique specialties and languages from the therapist pool", async () => {
-    const { result } = renderHook(() => useTherapistDirectory());
+    const locale = "ru-RU";
+    const { result } = renderHook(() => useTherapistDirectory(locale));
 
     await waitFor(() => expect(result.current.isLoading).toBe(false));
 
+    expect(mockLoadTherapists).toHaveBeenCalledWith(locale);
     expect(result.current.source).toBe("api");
     expect(result.current.specialties).toEqual(["CBT", "Family Therapy", "Mindfulness"]);
     expect(result.current.languages).toEqual(["en-US", "zh-CN"]);
@@ -60,10 +62,12 @@ describe("useTherapistDirectory", () => {
   });
 
   it("applies filters and can reset to the initial dataset", async () => {
-    const { result } = renderHook(() => useTherapistDirectory());
+    const locale = "en-US";
+    const { result } = renderHook(() => useTherapistDirectory(locale));
 
     await waitFor(() => expect(result.current.isLoading).toBe(false));
 
+    expect(mockLoadTherapists).toHaveBeenLastCalledWith(locale);
     act(() => {
       result.current.setFilters(() => ({
         specialty: undefined,

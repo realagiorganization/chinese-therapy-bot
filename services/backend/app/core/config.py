@@ -23,8 +23,6 @@ class AppSettings(BaseSettings):
     refresh_token_ttl: int = Field(default=60 * 60 * 24 * 30, alias="REFRESH_TOKEN_TTL")
     otp_expiry_seconds: int = Field(default=300, alias="OTP_EXPIRY_SECONDS")
     otp_attempt_limit: int = Field(default=5, alias="OTP_ATTEMPT_LIMIT")
-    auth_default_token_limit: int = Field(default=3, alias="AUTH_DEFAULT_TOKEN_LIMIT")
-    auth_demo_token_limit: int = Field(default=1, alias="AUTH_DEMO_TOKEN_LIMIT")
     chat_token_default_quota: int = Field(
         default=50, alias="CHAT_TOKEN_DEFAULT_QUOTA"
     )

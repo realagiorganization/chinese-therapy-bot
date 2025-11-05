@@ -5,6 +5,7 @@ import { loadTherapistDetail } from "../api/therapists";
 import type { TherapistDetail, TherapistSummary } from "../api/types";
 import { Button, Card, Typography } from "../design-system";
 import { useTherapistDirectory } from "../hooks/useTherapistDirectory";
+import { formatTherapistDisplayName } from "../utils/therapistDisplayName";
 
 type DetailState =
   | { status: "idle"; detail: null; error: null }
@@ -53,7 +54,7 @@ export function TherapistDirectory() {
     isLoading,
     source,
     maxPrice
-  } = useTherapistDirectory();
+  } = useTherapistDirectory(locale);
 
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [detailState, setDetailState] = useState<DetailState>({
@@ -327,7 +328,7 @@ export function TherapistDirectory() {
                 >
                   <div style={{ display: "grid", gap: "2px" }}>
                     <Typography variant="body" style={{ fontWeight: 600 }}>
-                      {therapist.name}
+                      {formatTherapistDisplayName(therapist.id, therapist.name, t)}
                     </Typography>
                     <Typography variant="caption" style={{ color: "var(--text-secondary)" }}>
                       {therapist.title}
@@ -412,7 +413,9 @@ export function TherapistDirectory() {
         {selectedDetail && (
           <div style={{ display: "grid", gap: "var(--mw-spacing-sm)" }}>
             <div style={{ display: "flex", flexWrap: "wrap", gap: "var(--mw-spacing-xs)" }}>
-              <Typography variant="title">{selectedDetail.name}</Typography>
+              <Typography variant="title">
+                {formatTherapistDisplayName(selectedDetail.id, selectedDetail.name, t)}
+              </Typography>
               {selectedDetail.recommended && (
                 <span
                   style={{

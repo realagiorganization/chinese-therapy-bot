@@ -2,6 +2,7 @@ type TokenState = {
   accessToken: string;
   refreshToken: string;
   expiresAt: number;
+  userId?: string;
 };
 
 let currentState: TokenState | null = null;
@@ -24,4 +25,8 @@ export function getRefreshToken(): string | null {
 
 export function getExpiresAt(): number | null {
   return currentState?.expiresAt ?? null;
+}
+
+export function getUserId(): string | null {
+  return currentState?.userId ?? null;
 }

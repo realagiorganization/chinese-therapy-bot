@@ -1,4 +1,5 @@
-import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import type { FormEvent } from "react";
 import { useTranslation } from "react-i18next";
 
 import { AuthError, exchangeOAuthSession, loginWithDemoCode } from "../api/auth";
@@ -69,6 +70,7 @@ export function LoginPanel() {
   const [emailStatus, setEmailStatus] = useState<EmailStatus>("idle");
   const [demoStatus, setDemoStatus] = useState<DemoStatus>("idle");
   const [error, setError] = useState<string | null>(null);
+  const skipOAuthRef = useRef(false);
 
   const isCheckingOAuth = emailStatus === "checking";
   const isRedirecting = emailStatus === "redirecting";
@@ -76,13 +78,20 @@ export function LoginPanel() {
   useEffect(() => {
     let cancelled = false;
     const pending = isPendingOAuth();
-    if (pending) {
-      setEmailStatus("checking");
+    if (!pending) {
+      return () => {
+        cancelled = true;
+      };
     }
+
+    setEmailStatus("checking");
 
     (async () => {
       try {
         const tokens = await exchangeOAuthSession();
+        if (cancelled || skipOAuthRef.current) {
+          return;
+        }
         if (!cancelled) {
           setTokens({
             accessToken: tokens.accessToken,
@@ -92,7 +101,7 @@ export function LoginPanel() {
           setError(null);
         }
       } catch (err) {
-        if (cancelled) {
+        if (cancelled || skipOAuthRef.current) {
           return;
         }
         if (err instanceof AuthError && err.status === 401) {
@@ -122,6 +131,7 @@ export function LoginPanel() {
   const handleEmailSubmit = useCallback(
     (event: FormEvent) => {
       event.preventDefault();
+      skipOAuthRef.current = false;
       const trimmed = email.trim();
       if (!trimmed) {
         setError(t("auth.errors.email_required"));
@@ -153,6 +163,9 @@ export function LoginPanel() {
         setError(t("auth.errors.demo_required"));
         return;
       }
+      skipOAuthRef.current = true;
+      setPendingOAuth(false);
+      setEmailStatus("idle");
       setDemoStatus("submitting");
       setError(null);
 
@@ -165,6 +178,7 @@ export function LoginPanel() {
           refreshToken: tokens.refreshToken,
           expiresAt: Date.now() + tokens.expiresIn * 1000
         });
+        setDemoStatus("idle");
       } catch (err) {
         setDemoStatus("idle");
         if (err instanceof AuthError) {

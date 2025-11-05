@@ -7,6 +7,7 @@ import { Button, Card, Typography } from "../design-system";
 import { useChatSession, type ChatTranscriptMessage } from "../hooks/useChatSession";
 import { useServerTranscriber } from "../hooks/useServerTranscriber";
 import { useChatTemplates } from "../hooks/useChatTemplates";
+import { formatTherapistDisplayName } from "../utils/therapistDisplayName";
 
 type SpeechRecognitionAlternativeLike = {
   transcript?: string;
@@ -1089,7 +1090,12 @@ export function ChatPanel({ className }: ChatPanelProps) {
                     }}
                   >
                     <Typography variant="body" style={{ fontWeight: 600 }}>
-                      {recommendation.name} · {recommendation.title}
+                      {formatTherapistDisplayName(
+                        recommendation.therapistId,
+                        recommendation.name,
+                        t
+                      )}{" "}
+                      · {recommendation.title}
                     </Typography>
                     <Typography variant="caption" style={{ color: "var(--text-secondary)" }}>
                       {recommendation.specialties.slice(0, 3).join(" · ")}

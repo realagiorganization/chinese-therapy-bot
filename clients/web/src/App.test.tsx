@@ -1,4 +1,5 @@
 import { fireEvent, render, screen } from "@testing-library/react";
+import { Buffer } from "node:buffer";
 import { I18nextProvider } from "react-i18next";
 import { describe, expect, it, vi, afterEach, beforeEach } from "vitest";
 
@@ -7,6 +8,12 @@ import i18n from "./i18n/config";
 import { ThemeProvider } from "./design-system";
 import { FALLBACK_THERAPISTS } from "./api/therapists";
 import { AuthProvider } from "./auth/AuthContext";
+
+function buildJwt(payload: Record<string, unknown>): string {
+  const header = Buffer.from(JSON.stringify({ alg: "HS256", typ: "JWT" })).toString("base64url");
+  const body = Buffer.from(JSON.stringify(payload)).toString("base64url");
+  return `${header}.${body}.signature`;
+}
 
 function renderApp() {
   return render(
@@ -138,9 +145,16 @@ describe("App", () => {
     };
 
     const future = Date.now() + 60 * 60 * 1000;
+    const fakeUserId = "11111111-1111-1111-1111-111111111111";
+    const fakeAccessToken = buildJwt({ sub: fakeUserId, exp: Math.floor(future / 1000) });
     window.localStorage.setItem(
       "mindwell:auth",
-      JSON.stringify({ accessToken: "test-access", refreshToken: "test-refresh", expiresAt: future })
+      JSON.stringify({
+        accessToken: fakeAccessToken,
+        refreshToken: "test-refresh",
+        expiresAt: future,
+        userId: fakeUserId
+      })
     );
 
     globalThis.fetch = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {

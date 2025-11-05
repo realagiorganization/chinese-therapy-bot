@@ -49,11 +49,6 @@ class User(Base):
         nullable=True,
         doc="Identifier for the demo code that provisioned this account.",
     )
-    token_limit: Mapped[int] = mapped_column(
-        Integer,
-        default=3,
-        doc="Maximum number of active refresh tokens allowed for the account.",
-    )
     chat_token_quota: Mapped[int] = mapped_column(
         Integer,
         default=0,

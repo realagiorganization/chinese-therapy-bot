@@ -9,7 +9,7 @@ from datetime import datetime, timedelta, timezone
 from typing import Any
 
 import jwt
-from sqlalchemy import func, select
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import AppSettings
@@ -57,10 +57,8 @@ class AuthService:
 
         subject = identity.subject.strip() or email
         user = await self._upsert_oauth_user(subject=subject, email=email, name=identity.name)
-        limit = self._resolve_token_limit(user)
-        await self._enforce_token_limit(user, limit)
 
-        logger.debug("Issuing tokens for oauth2 user %s (limit=%s)", user.id, limit)
+        logger.debug("Issuing tokens for oauth2 user %s", user.id)
         return await self._issue_tokens(
             user,
             session_id=session_id,
@@ -81,14 +79,11 @@ class AuthService:
             raise ValueError("Демо-код не найден или не разрешён.")
 
         user = await self._get_or_create_demo_user(entry)
-        limit = self._resolve_token_limit(user, override=entry.token_limit)
-        await self._enforce_token_limit(user, limit)
 
         logger.debug(
-            "Issuing tokens for demo code %s (user=%s, limit=%s)",
+            "Issuing tokens for demo code %s (user=%s)",
             entry.code,
             user.id,
-            limit,
         )
         return await self._issue_tokens(
             user,
@@ -110,21 +105,19 @@ class AuthService:
             raise ValueError("Refresh token не найден или уже отозван.")
 
         now = self._now()
-        if token.expires_at <= now:
+        expires_at = self._normalize_timestamp(token.expires_at)
+        if not expires_at or expires_at <= now:
             raise ValueError("Срок действия refresh token истёк.")
         if token.revoked_at is not None:
             raise ValueError("Refresh token был отозван.")
 
-        user = token.user or await self._session.get(User, token.user_id)
+        user = await self._session.get(User, token.user_id)
         if not user:
             raise ValueError("Пользователь для refresh token не найден.")
 
         token.revoked_at = now
 
-        limit = self._resolve_token_limit(user)
-        await self._enforce_token_limit(user, limit)
-
-        logger.debug("Refreshing tokens for user %s (limit=%s)", user.id, limit)
+        logger.debug("Refreshing tokens for user %s", user.id)
         return await self._issue_tokens(
             user,
             session_id=payload.session_id,
@@ -139,7 +132,6 @@ class AuthService:
 
         display_name = (name or "").strip() or email.split("@", 1)[0]
 
-        default_limit = max(1, self._settings.auth_default_token_limit)
         default_chat_quota = max(0, self._settings.chat_token_default_quota)
 
         if user:
@@ -149,8 +141,6 @@ class AuthService:
                 user.display_name = display_name
             if not user.account_type or user.account_type == "legacy":
                 user.account_type = "email"
-            if not user.token_limit or user.token_limit <= 0:
-                user.token_limit = default_limit
             if user.demo_code is not None:
                 user.demo_code = None
             self._sync_chat_quota(user, default_chat_quota)
@@ -163,7 +153,6 @@ class AuthService:
             display_name=display_name,
             locale="zh-CN",
             account_type="email",
-            token_limit=default_limit,
         )
         self._sync_chat_quota(user, default_chat_quota)
         self._session.add(user)
@@ -177,7 +166,6 @@ class AuthService:
 
         display_name = entry.label or f"Demo {entry.code}"
         email = self._demo_email(entry.code)
-        token_limit = entry.token_limit or self._settings.auth_demo_token_limit
         chat_quota = (
             entry.chat_token_quota
             if entry.chat_token_quota is not None
@@ -191,8 +179,6 @@ class AuthService:
                 user.display_name = display_name
             if user.email != email:
                 user.email = email
-            if not user.token_limit or user.token_limit <= 0 or entry.token_limit:
-                user.token_limit = max(1, token_limit)
             self._sync_chat_quota(user, chat_quota)
             await self._session.flush()
             return user
@@ -204,32 +190,11 @@ class AuthService:
             locale="zh-CN",
             account_type="demo",
             demo_code=entry.code,
-            token_limit=max(1, token_limit),
         )
         self._sync_chat_quota(user, chat_quota)
         self._session.add(user)
         await self._session.flush()
         return user
-
-    async def _enforce_token_limit(self, user: User, limit: int) -> None:
-        limit = max(0, limit)
-        if limit == 0:
-            return
-
-        now = self._now()
-        stmt = (
-            select(func.count(RefreshToken.id))
-            .where(
-                RefreshToken.user_id == user.id,
-                RefreshToken.revoked_at.is_(None),
-                RefreshToken.expires_at > now,
-            )
-            .limit(1)
-        )
-        result = await self._session.execute(stmt)
-        active_tokens = result.scalar_one() or 0
-        if active_tokens >= limit:
-            raise ValueError("Достигнут лимит активных сессий для этого аккаунта.")
 
     async def _issue_tokens(
         self,
@@ -253,6 +218,7 @@ class AuthService:
             "iat": int(now.timestamp()),
             "exp": int(expires_at.timestamp()),
             "iss": self._settings.app_name,
+            "jti": secrets.token_hex(16),
         }
         if session_id:
             payload["sid"] = session_id
@@ -278,22 +244,16 @@ class AuthService:
             expires_in=self._settings.access_token_ttl,
         )
 
-    def _resolve_token_limit(self, user: User, *, override: int | None = None) -> int:
-        if override and override > 0:
-            return override
-        if user.token_limit and user.token_limit > 0:
-            return user.token_limit
-        if user.account_type == "demo":
-            return max(1, self._settings.auth_demo_token_limit)
-        return max(1, self._settings.auth_default_token_limit)
-
     def _hash_secret(self, value: str) -> str:
         return hashlib.sha256(value.encode("utf-8")).hexdigest()
 
     def _demo_email(self, code: str) -> str:
-        slug = re.sub(r"[^a-z0-9]+", "-", code.lower()).strip("-")
-        slug = slug or "demo"
-        return f"{slug}@demo.local"
+        normalized = code.strip()
+        slug = re.sub(r"[^a-z0-9]+", "-", normalized.lower()).strip("-")
+        digest = hashlib.sha256(normalized.encode("utf-8")).hexdigest()[:8]
+        max_local_length = max(1, 63 - len(digest) - 1)  # RFC 5321 local-part limit (64 chars)
+        slug = (slug or "demo")[:max_local_length].strip("-") or "demo"
+        return f"{slug}-{digest}@demo.local"
 
     def _now(self) -> datetime:
         return datetime.now(tz=timezone.utc)
@@ -308,6 +268,13 @@ class AuthService:
                 user.chat_tokens_remaining = normalized_quota
             if user.chat_tokens_remaining < 0:
                 user.chat_tokens_remaining = 0
+
+    def _normalize_timestamp(self, value: datetime | None) -> datetime | None:
+        if value is None:
+            return None
+        if value.tzinfo is None:
+            return value.replace(tzinfo=timezone.utc)
+        return value.astimezone(timezone.utc)
 
 
 __all__ = ["AuthService", "OAuth2Identity"]

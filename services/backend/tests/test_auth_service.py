@@ -19,12 +19,30 @@ class StubDemoRegistry:
     """In-memory registry used in unit tests."""
 
     def __init__(self, entries: Iterable[DemoCodeEntry] = ()):
-        self._entries = {entry.code.lower(): entry for entry in entries}
+        self._entries: dict[str, DemoCodeEntry] = {}
+        self._fallback: dict[str, DemoCodeEntry | None] = {}
+        for entry in entries:
+            key = entry.code.strip()
+            self._entries[key] = entry
+            lowered = key.casefold()
+            if lowered in self._fallback:
+                self._fallback[lowered] = None
+            else:
+                self._fallback[lowered] = entry
 
     def lookup(self, code: str | None) -> DemoCodeEntry | None:
         if not code:
             return None
-        return self._entries.get(code.strip().lower())
+        normalized = code.strip()
+        if not normalized:
+            return None
+        direct = self._entries.get(normalized)
+        if direct:
+            return direct
+        lowered = normalized.casefold()
+        if lowered in self._fallback:
+            return self._fallback[lowered]
+        return None
 
 
 @pytest_asyncio.fixture()
@@ -46,8 +64,6 @@ def make_auth_service(
     session: AsyncSession,
     registry: StubDemoRegistry,
     *,
-    default_limit: int = 3,
-    demo_limit: int = 1,
     default_chat_quota: int = 50,
     demo_chat_quota: int = 10,
 ) -> AuthService:
@@ -55,8 +71,6 @@ def make_auth_service(
         JWT_SECRET_KEY="unit-test-secret",
         ACCESS_TOKEN_TTL=120,
         REFRESH_TOKEN_TTL=3600,
-        AUTH_DEFAULT_TOKEN_LIMIT=default_limit,
-        AUTH_DEMO_TOKEN_LIMIT=demo_limit,
         CHAT_TOKEN_DEFAULT_QUOTA=default_chat_quota,
         CHAT_TOKEN_DEMO_QUOTA=demo_chat_quota,
     )
@@ -84,7 +98,6 @@ async def test_create_session_from_oauth_creates_user_and_tokens(
     assert len(users) == 1
     assert users[0].email == "user@example.com"
     assert users[0].account_type == "email"
-    assert users[0].token_limit == 3
     assert users[0].chat_token_quota == 50
     assert users[0].chat_tokens_remaining == 50
 
@@ -104,12 +117,11 @@ async def test_login_with_demo_code_honours_allowlist(
             DemoCodeEntry(
                 code="DEMO-42",
                 label="Demo Account",
-                token_limit=2,
                 chat_token_quota=7,
             )
         ]
     )
-    service = make_auth_service(auth_session, registry, demo_limit=2, demo_chat_quota=5)
+    service = make_auth_service(auth_session, registry, demo_chat_quota=5)
 
     monkeypatch.setattr(AuthService, "_now", lambda self: datetime.now(timezone.utc))
 
@@ -122,29 +134,65 @@ async def test_login_with_demo_code_honours_allowlist(
     user = users_result.scalar_one()
     assert user.account_type == "demo"
     assert user.demo_code == "DEMO-42"
-    assert user.token_limit == 2
     assert user.chat_token_quota == 7
     assert user.chat_tokens_remaining == 7
 
 
 @pytest.mark.asyncio
-async def test_token_limit_blocks_additional_sessions(
+async def test_demo_code_accounts_are_isolated(
+    auth_session: AsyncSession,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    registry = StubDemoRegistry(
+        [
+            DemoCodeEntry(
+                code="TEAM-ALPHA",
+                label="Team Alpha Upper",
+                chat_token_quota=7,
+            ),
+            DemoCodeEntry(
+                code="Team Alpha",
+                label="Team Alpha Mixed",
+                chat_token_quota=7,
+            ),
+        ]
+    )
+    service = make_auth_service(auth_session, registry, demo_chat_quota=5)
+
+    now = datetime.now(timezone.utc)
+    monkeypatch.setattr(AuthService, "_now", lambda self: now)
+
+    await service.login_with_demo_code(DemoLoginRequest(code="TEAM-ALPHA"))
+    await service.login_with_demo_code(DemoLoginRequest(code="Team Alpha"))
+
+    users_result = await auth_session.execute(select(User))
+    users = users_result.scalars().all()
+    assert len(users) == 2
+    assert {user.account_type for user in users} == {"demo"}
+    assert {user.demo_code for user in users} == {"TEAM-ALPHA", "Team Alpha"}
+    emails = {user.email for user in users}
+    assert len(emails) == 2
+
+
+@pytest.mark.asyncio
+async def test_multiple_oauth_sessions_allowed(
     auth_session: AsyncSession,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     registry = StubDemoRegistry()
-    service = make_auth_service(auth_session, registry, default_limit=1)
+    service = make_auth_service(auth_session, registry)
 
-    monkeypatch.setattr(AuthService, "_now", lambda self: datetime.now(timezone.utc))
+    now = datetime.now(timezone.utc)
+    monkeypatch.setattr(AuthService, "_now", lambda self: now)
 
     identity = OAuth2Identity(subject="id-1", email="limit@example.com", name=None)
     await service.create_session_from_oauth(identity)
-
-    with pytest.raises(ValueError):
-        await service.create_session_from_oauth(identity)
+    await service.create_session_from_oauth(identity)
 
     tokens_result = await auth_session.execute(select(RefreshToken))
-    assert tokens_result.scalar_one().revoked_at is None
+    tokens = tokens_result.scalars().all()
+    assert len(tokens) == 2
+    assert all(token.revoked_at is None for token in tokens)
 
 
 @pytest.mark.asyncio
@@ -153,7 +201,7 @@ async def test_oauth_login_preserves_chat_tokens_when_exhausted(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     registry = StubDemoRegistry()
-    service = make_auth_service(auth_session, registry, default_limit=3, default_chat_quota=3)
+    service = make_auth_service(auth_session, registry, default_chat_quota=3)
 
     now = datetime.now(timezone.utc)
     monkeypatch.setattr(AuthService, "_now", lambda self: now)
@@ -176,12 +224,12 @@ async def test_oauth_login_preserves_chat_tokens_when_exhausted(
 
 
 @pytest.mark.asyncio
-async def test_refresh_token_respects_limit(
+async def test_refresh_token_revokes_previous_token(
     auth_session: AsyncSession,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     registry = StubDemoRegistry()
-    service = make_auth_service(auth_session, registry, default_limit=1)
+    service = make_auth_service(auth_session, registry)
 
     now = datetime.now(timezone.utc)
     monkeypatch.setattr(AuthService, "_now", lambda self: now)

@@ -1,4 +1,5 @@
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 
 import { ChatError, sendChatTurn, streamChatTurn } from "../api/chat";
 import type {
@@ -8,7 +9,7 @@ import type {
   MemoryHighlight,
   TherapistRecommendationDetail
 } from "../api/types";
-import { ensureUserId } from "../utils/user";
+import { useAuth } from "../auth/AuthContext";
 
 type LocalChatMessage = ChatMessage & {
   id: string;
@@ -71,7 +72,6 @@ export type UseChatSessionResult = {
   recommendations: TherapistRecommendationDetail[];
   memoryHighlights: MemoryHighlight[];
   sessionId?: string;
-  userId: string;
   resolvedLocale: string;
   quotaExceeded: boolean;
   dismissQuotaPrompt: () => void;
@@ -80,19 +80,40 @@ export type UseChatSessionResult = {
 export function useChatSession(locale: string): UseChatSessionResult {
   const [state, setState] = useState<ChatSessionState>(INITIAL_STATE);
   const abortControllerRef = useRef<AbortController | null>(null);
-  const userIdRef = useRef<string>();
+  const { t } = useTranslation();
+  const { userId } = useAuth();
 
-  const userId = useMemo(() => {
-    if (!userIdRef.current) {
-      userIdRef.current = ensureUserId();
-    }
-    return userIdRef.current;
-  }, []);
+  if (!userId) {
+    throw new Error("useChatSession доступен только после успешной аутентификации.");
+  }
+
+  const translateErrorMessage = useCallback(
+    (detail: string, code?: string) => {
+      if (code === "chat_tokens_exhausted") {
+        return t("chat.errors.tokens_exhausted");
+      }
+      if (code === "chat_stream_failure") {
+        return t("chat.errors.stream_failure");
+      }
+      if (!detail) {
+        return t("chat.errors.generic");
+      }
+      return detail;
+    },
+    [t]
+  );
 
   const clearError = useCallback(() => {
     setState((prev) => ({
       ...prev,
       error: null
+    }));
+  }, []);
+
+  const dismissQuotaPrompt = useCallback(() => {
+    setState((prev) => ({
+      ...prev,
+      quotaExceeded: false
     }));
   }, []);
 
@@ -155,13 +176,13 @@ export function useChatSession(locale: string): UseChatSessionResult {
       let aggregated = "";
       let fallbackAttempted = false;
 
-      const applyError = (detail: string, quota = false) => {
-        const message = detail || "Chat request failed.";
+      const applyError = (detail: string, options?: { quota?: boolean; code?: string }) => {
+        const message = translateErrorMessage(detail, options?.code);
         streamCompleted = true;
         abortControllerRef.current = null;
         setState((prev) => ({
           ...prev,
-          quotaExceeded: prev.quotaExceeded || quota,
+          quotaExceeded: prev.quotaExceeded || Boolean(options?.quota),
           isStreaming: false,
           error: message,
           messages: mergeAssistantMessage(prev.messages, assistantMessageId, (current) => ({
@@ -240,8 +261,13 @@ export function useChatSession(locale: string): UseChatSessionResult {
           } else if (event.type === "complete") {
             finalizeFromResponse(event.data);
           } else if (event.type === "error") {
-            const isQuotaError = event.data.code === "chat_tokens_exhausted";
-            applyError(event.data.detail, isQuotaError);
+            const code = event.data.code;
+            if (code === "chat_stream_failure") {
+              await attemptFallback();
+              break;
+            }
+            const isQuotaError = code === "chat_tokens_exhausted";
+            applyError(event.data.detail, { quota: isQuotaError, code });
             break;
           }
         }
@@ -259,7 +285,7 @@ export function useChatSession(locale: string): UseChatSessionResult {
           }));
         } else if (error instanceof ChatError) {
           const quotaError = error.status === 402 || error.code === "chat_tokens_exhausted";
-          applyError(error.message, quotaError);
+          applyError(error.message, { quota: quotaError, code: error.code });
           if (!quotaError) {
             await attemptFallback();
           }
@@ -272,7 +298,7 @@ export function useChatSession(locale: string): UseChatSessionResult {
         }
       }
     },
-    [locale, state.sessionId, state.resolvedLocale, userId]
+    [locale, state.sessionId, state.resolvedLocale, translateErrorMessage, userId]
   );
 
   return {
@@ -286,7 +312,6 @@ export function useChatSession(locale: string): UseChatSessionResult {
     recommendations: state.recommendations,
     memoryHighlights: state.memoryHighlights,
     sessionId: state.sessionId,
-    userId,
     resolvedLocale: state.resolvedLocale ?? locale,
     quotaExceeded: state.quotaExceeded,
     dismissQuotaPrompt

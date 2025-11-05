@@ -15,7 +15,7 @@ The backend reads configuration from environment variables via `AppSettings` (`s
 - `S3_CONVERSATION_LOGS_BUCKET`: S3 bucket storing raw chat transcripts exported by the backend.
 - `S3_SUMMARIES_BUCKET`: S3 bucket storing generated daily/weekly conversation summaries.
 - `S3_BUCKET_THERAPISTS`: S3 bucket containing normalized therapist profile JSON used by the Data Sync agent.
-- `DEMO_CODE_FILE`: Absolute path to the JSON allowlist of approved demo codes served to invited testers.
+- `DEMO_CODE_FILE`: Absolute path to the JSON allowlist of approved demo codes served to invited testers. Each entry maps to an isolated demo account; codes never reuse email-based identities.
 
 ### Frontend Web Client
 - `VITE_API_BASE_URL`: Fully qualified base URL of the deployed backend (e.g. `https://api.mindwell.cn`). Defaults to `http://localhost:8000` for local development but must be set for production builds.
@@ -39,8 +39,6 @@ The backend reads configuration from environment variables via `AppSettings` (`s
 - `THERAPIST_DATA_S3_PREFIX`: Overrides the default therapist data prefix (`therapists/`) during ingestion.
 - `BEDROCK_REGION`: AWS region hosting the Bedrock fallback model.
 - `BEDROCK_MODEL_ID`: Model identifier used when invoking AWS Bedrock as an LLM fallback.
-- `AUTH_DEFAULT_TOKEN_LIMIT`: Maximum number of active refresh tokens allowed per standard account (default `3`).
-- `AUTH_DEMO_TOKEN_LIMIT`: Maximum number of active refresh tokens per demo code (default `1`).
 - `CHAT_TOKEN_DEFAULT_QUOTA`: Number of chat turns granted to authenticated accounts before prompting for a subscription (default `50`, `0` disables the quota).
 - `CHAT_TOKEN_DEMO_QUOTA`: Number of chat turns granted to demo-code accounts when the allowlist entry omits an explicit `chat_token_quota` (default `15`, `0` disables the quota).
 - `OAUTH2_PROXY_EMAIL_HEADER`: Header name forwarded by oauth2-proxy with the authenticated email (default `X-Auth-Request-Email`).
