@@ -1,0 +1,257 @@
+2025-11-07T15:33:14.7722968Z    _____                               
+2025-11-07T15:33:14.7817274Z   /  _  \ __________ _________   ____  
+2025-11-07T15:33:14.7817519Z  /  /_\  \\___   /  |  \_  __ \_/ __ \ 
+2025-11-07T15:33:14.7817596Z /    |    \/    /|  |  /|  | \/\  ___/ 
+2025-11-07T15:33:14.7817620Z \____|__  /_____ \____/ |__|    \___  >
+2025-11-07T15:33:14.7817664Z         \/      \/                  \/ 
+2025-11-07T15:33:14.7817687Z A P P   S E R V I C E   O N   L I N U X
+2025-11-07T15:33:14.7817708Z 
+2025-11-07T15:33:14.7817739Z Documentation    : http://aka.ms/webapp-linux
+2025-11-07T15:33:14.7817784Z Python quickstart: https://aka.ms/python-qs
+2025-11-07T15:33:14.7817807Z Python version   : 3.11.14
+2025-11-07T15:33:14.7817830Z Instance Name    : lw0sdlwk0000VF
+2025-11-07T15:33:14.7817865Z Instance Id      : 6507bdc255f23a4f1ad4b5182514791bd1126448d921d867fd42e77489564d58
+2025-11-07T15:33:14.7817887Z 
+2025-11-07T15:33:14.7817910Z Note: Any data outside '/home' is not persisted
+2025-11-07T15:33:16.7844864Z Starting OpenBSD Secure Shell server: sshd.
+2025-11-07T15:33:16.8252688Z WEBSITES_INCLUDE_CLOUD_CERTS is not set to true.
+2025-11-07T15:33:16.9773080Z Updating certificates in /etc/ssl/certs...
+2025-11-07T15:33:40.4326161Z rehash: warning: skipping duplicate certificate in azl_SSL.com_TLS_ECC_Root_CA_2022.pem
+2025-11-07T15:33:40.4912898Z rehash: warning: skipping duplicate certificate in azl_Sectigo_Public_Server_Authentication_Root_R46.pem
+2025-11-07T15:33:40.4939284Z rehash: warning: skipping duplicate certificate in azl_Sectigo_Public_Server_Authentication_Root_E46.pem
+2025-11-07T15:33:40.5119151Z rehash: warning: skipping duplicate certificate in azl_SSL.com_TLS_RSA_Root_CA_2022.pem
+2025-11-07T15:33:40.5518628Z 4 added, 0 removed; done.
+2025-11-07T15:33:40.5530961Z Running hooks in /etc/ca-certificates/update.d...
+2025-11-07T15:33:40.5644563Z done.
+2025-11-07T15:33:40.5838949Z CA certificates copied and updated successfully.
+2025-11-07T15:33:40.6834105Z Site's appCommandLine: bash /home/site/wwwroot/startup.sh
+2025-11-07T15:33:41.1987900Z Starting periodic command scheduler: cron.
+2025-11-07T15:33:41.2071912Z Launching oryx with: create-script -appPath /home/site/wwwroot -output /opt/startup/startup.sh -virtualEnvName antenv -defaultApp /opt/defaultsite -userStartupCommand 'bash /home/site/wwwroot/startup.sh'
+2025-11-07T15:33:42.9803387Z Found build manifest file at '/home/site/wwwroot/oryx-manifest.toml'. Deserializing it...
+2025-11-07T15:33:43.0100338Z Build Operation ID: 39c42601670da924
+2025-11-07T15:33:43.0117003Z Oryx Version: 0.2.20251017.2, Commit: 482d4c55e818733ab33b9d2131f9dc485a21fd03, ReleaseTagName: 20251017.2
+2025-11-07T15:33:43.0127099Z Output is compressed. Extracting it...
+2025-11-07T15:33:43.0225585Z Extracting '/home/site/wwwroot/output.tar.gz' to directory '/tmp/8de1e12b1a7a984'...
+2025-11-07T15:33:46.5313046Z App path is set to '/tmp/8de1e12b1a7a984'
+2025-11-07T15:33:47.5365939Z Writing output script to '/opt/startup/startup.sh'
+2025-11-07T15:33:48.2176507Z Using packages from virtual environment antenv located at /tmp/8de1e12b1a7a984/antenv.
+2025-11-07T15:33:48.2896034Z Updated PYTHONPATH to '/home/site/wwwroot:/home/site/wwwroot/.python_packages/lib/site-packages:/opt/startup/app_logs:/tmp/8de1e12b1a7a984/antenv/lib/python3.11/site-packages'
+2025-11-07T15:33:48.3293471Z bash: /home/site/wwwroot/startup.sh: No such file or directory
+2025-11-07T16:29:05.6594284Z    _____                               
+2025-11-07T16:29:05.6595854Z   /  _  \ __________ _________   ____  
+2025-11-07T16:29:05.6595899Z  /  /_\  \\___   /  |  \_  __ \_/ __ \ 
+2025-11-07T16:29:05.6595922Z /    |    \/    /|  |  /|  | \/\  ___/ 
+2025-11-07T16:29:05.6595986Z \____|__  /_____ \____/ |__|    \___  >
+2025-11-07T16:29:05.6596015Z         \/      \/                  \/ 
+2025-11-07T16:29:05.6596038Z A P P   S E R V I C E   O N   L I N U X
+2025-11-07T16:29:05.6596058Z 
+2025-11-07T16:29:05.6596087Z Documentation    : http://aka.ms/webapp-linux
+2025-11-07T16:29:05.6596114Z Python quickstart: https://aka.ms/python-qs
+2025-11-07T16:29:05.6596152Z Python version   : 3.11.14
+2025-11-07T16:29:05.6596174Z Instance Name    : lw0sdlwk0000VF
+2025-11-07T16:29:05.6596201Z Instance Id      : 6507bdc255f23a4f1ad4b5182514791bd1126448d921d867fd42e77489564d58
+2025-11-07T16:29:05.6596222Z 
+2025-11-07T16:29:05.6596245Z Note: Any data outside '/home' is not persisted
+2025-11-07T16:29:06.8893918Z Starting OpenBSD Secure Shell server: sshd.
+2025-11-07T16:29:06.9091116Z WEBSITES_INCLUDE_CLOUD_CERTS is not set to true.
+2025-11-07T16:29:06.9788321Z Updating certificates in /etc/ssl/certs...
+2025-11-07T16:29:25.1344100Z rehash: warning: skipping duplicate certificate in azl_SSL.com_TLS_ECC_Root_CA_2022.pem
+2025-11-07T16:29:25.1650173Z rehash: warning: skipping duplicate certificate in azl_Sectigo_Public_Server_Authentication_Root_R46.pem
+2025-11-07T16:29:25.1959773Z rehash: warning: skipping duplicate certificate in azl_Sectigo_Public_Server_Authentication_Root_E46.pem
+2025-11-07T16:29:25.2248006Z rehash: warning: skipping duplicate certificate in azl_SSL.com_TLS_RSA_Root_CA_2022.pem
+2025-11-07T16:29:25.2970579Z 4 added, 0 removed; done.
+2025-11-07T16:29:25.3143078Z Running hooks in /etc/ca-certificates/update.d...
+2025-11-07T16:29:25.3158024Z done.
+2025-11-07T16:29:25.3357176Z CA certificates copied and updated successfully.
+2025-11-07T16:29:25.5666309Z Site's appCommandLine: gunicorn -k uvicorn.workers.UvicornWorker --bind=0.0.0.0:$PORT app.main:app
+2025-11-07T16:29:26.1108584Z Starting periodic command scheduler: cron.
+2025-11-07T16:29:26.1392103Z Launching oryx with: create-script -appPath /home/site/wwwroot -output /opt/startup/startup.sh -virtualEnvName antenv -defaultApp /opt/defaultsite -userStartupCommand 'gunicorn -k uvicorn.workers.UvicornWorker --bind=0.0.0.0:$PORT app.main:app'
+2025-11-07T16:29:28.2987182Z Found build manifest file at '/home/site/wwwroot/oryx-manifest.toml'. Deserializing it...
+2025-11-07T16:29:28.3093030Z Build Operation ID: d9ade2acd33f8f58
+2025-11-07T16:29:28.3279191Z Oryx Version: 0.2.20251017.2, Commit: 482d4c55e818733ab33b9d2131f9dc485a21fd03, ReleaseTagName: 20251017.2
+2025-11-07T16:29:28.3287942Z Output is compressed. Extracting it...
+2025-11-07T16:29:28.3379088Z Extracting '/home/site/wwwroot/output.tar.gz' to directory '/tmp/8de1e1a901e874f'...
+2025-11-07T16:29:30.9921150Z App path is set to '/tmp/8de1e1a901e874f'
+2025-11-07T16:29:31.8078491Z Writing output script to '/opt/startup/startup.sh'
+2025-11-07T16:29:32.3928441Z Using packages from virtual environment antenv located at /tmp/8de1e1a901e874f/antenv.
+2025-11-07T16:29:32.3929043Z Updated PYTHONPATH to '/home/site/wwwroot:/home/site/wwwroot/.python_packages/lib/site-packages:/opt/startup/app_logs:/tmp/8de1e1a901e874f/antenv/lib/python3.11/site-packages'
+2025-11-07T16:29:37.1305329Z [2025-11-07 16:29:37 +0000] [2109] [INFO] Starting gunicorn 21.2.0
+2025-11-07T16:29:37.1313368Z [2025-11-07 16:29:37 +0000] [2109] [INFO] Listening at: http://0.0.0.0:8000 (2109)
+2025-11-07T16:29:37.1316677Z [2025-11-07 16:29:37 +0000] [2109] [INFO] Using worker: uvicorn.workers.UvicornWorker
+2025-11-07T16:29:37.1471652Z [2025-11-07 16:29:37 +0000] [2118] [INFO] Booting worker with pid: 2118
+2025-11-07T16:29:37.4262078Z [2025-11-07 16:29:37 +0000] [2118] [ERROR] Exception in worker process
+2025-11-07T16:29:37.4263578Z Traceback (most recent call last):
+2025-11-07T16:29:37.4263626Z   File "/home/site/wwwroot/.python_packages/lib/site-packages/gunicorn/arbiter.py", line 609, in spawn_worker
+2025-11-07T16:29:37.4263705Z     worker.init_process()
+2025-11-07T16:29:37.4263738Z   File "/home/site/wwwroot/.python_packages/lib/site-packages/gunicorn/workers/base.py", line 134, in init_process
+2025-11-07T16:29:37.4263760Z     self.load_wsgi()
+2025-11-07T16:29:37.4263788Z   File "/home/site/wwwroot/.python_packages/lib/site-packages/gunicorn/workers/base.py", line 146, in load_wsgi
+2025-11-07T16:29:37.4263811Z     self.wsgi = self.app.wsgi()
+2025-11-07T16:29:37.4263832Z                 ^^^^^^^^^^^^^^^
+2025-11-07T16:29:37.4263877Z   File "/home/site/wwwroot/.python_packages/lib/site-packages/gunicorn/app/base.py", line 67, in wsgi
+2025-11-07T16:29:37.4263900Z     self.callable = self.load()
+2025-11-07T16:29:37.4263921Z                     ^^^^^^^^^^^
+2025-11-07T16:29:37.4263946Z   File "/home/site/wwwroot/.python_packages/lib/site-packages/gunicorn/app/wsgiapp.py", line 58, in load
+2025-11-07T16:29:37.4263969Z     return self.load_wsgiapp()
+2025-11-07T16:29:37.4263990Z            ^^^^^^^^^^^^^^^^^^^
+2025-11-07T16:29:37.4264031Z   File "/home/site/wwwroot/.python_packages/lib/site-packages/gunicorn/app/wsgiapp.py", line 48, in load_wsgiapp
+2025-11-07T16:29:37.4264056Z     return util.import_app(self.app_uri)
+2025-11-07T16:29:37.4264096Z            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2025-11-07T16:29:37.4264124Z   File "/home/site/wwwroot/.python_packages/lib/site-packages/gunicorn/util.py", line 371, in import_app
+2025-11-07T16:29:37.4264147Z     mod = importlib.import_module(module)
+2025-11-07T16:29:37.4264169Z           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2025-11-07T16:29:37.4264210Z   File "/opt/python/3.11.14/lib/python3.11/importlib/__init__.py", line 126, in import_module
+2025-11-07T16:29:37.4264235Z     return _bootstrap._gcd_import(name[level:], package, level)
+2025-11-07T16:29:37.4264258Z            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2025-11-07T16:29:37.4264282Z   File "<frozen importlib._bootstrap>", line 1204, in _gcd_import
+2025-11-07T16:29:37.4264307Z   File "<frozen importlib._bootstrap>", line 1176, in _find_and_load
+2025-11-07T16:29:37.4264332Z   File "<frozen importlib._bootstrap>", line 1147, in _find_and_load_unlocked
+2025-11-07T16:29:37.4264371Z   File "<frozen importlib._bootstrap>", line 690, in _load_unlocked
+2025-11-07T16:29:37.4264396Z   File "<frozen importlib._bootstrap_external>", line 940, in exec_module
+2025-11-07T16:29:37.4264420Z   File "<frozen importlib._bootstrap>", line 241, in _call_with_frames_removed
+2025-11-07T16:29:37.4264442Z   File "/tmp/8de1e1a901e874f/app/main.py", line 3, in <module>
+2025-11-07T16:29:37.4264465Z     from app.core.app import create_app
+2025-11-07T16:29:37.4723998Z   File "/tmp/8de1e1a901e874f/app/core/app.py", line 3, in <module>
+2025-11-07T16:29:37.4724334Z     from fastapi import FastAPI
+2025-11-07T16:29:37.4724373Z   File "/home/site/wwwroot/.python_packages/lib/site-packages/fastapi/__init__.py", line 7, in <module>
+2025-11-07T16:29:37.4724399Z     from .applications import FastAPI as FastAPI
+2025-11-07T16:29:37.4724426Z   File "/home/site/wwwroot/.python_packages/lib/site-packages/fastapi/applications.py", line 17, in <module>
+2025-11-07T16:29:37.4724449Z     from fastapi import routing
+2025-11-07T16:29:37.4724473Z   File "/home/site/wwwroot/.python_packages/lib/site-packages/fastapi/routing.py", line 28, in <module>
+2025-11-07T16:29:37.4724513Z     from fastapi import params, temp_pydantic_v1_params
+2025-11-07T16:29:37.4724539Z   File "/home/site/wwwroot/.python_packages/lib/site-packages/fastapi/params.py", line 6, in <module>
+2025-11-07T16:29:37.4724564Z     from fastapi.openapi.models import Example
+2025-11-07T16:29:37.4724590Z   File "/home/site/wwwroot/.python_packages/lib/site-packages/fastapi/openapi/models.py", line 4, in <module>
+2025-11-07T16:29:37.4724613Z     from fastapi._compat import (
+2025-11-07T16:29:37.4724639Z   File "/home/site/wwwroot/.python_packages/lib/site-packages/fastapi/_compat/__init__.py", line 1, in <module>
+2025-11-07T16:29:37.4724677Z     from .main import BaseConfig as BaseConfig
+2025-11-07T16:29:37.4724704Z   File "/home/site/wwwroot/.python_packages/lib/site-packages/fastapi/_compat/main.py", line 12, in <module>
+2025-11-07T16:29:37.4724727Z     from fastapi._compat import may_v1
+2025-11-07T16:29:37.4724752Z   File "/home/site/wwwroot/.python_packages/lib/site-packages/fastapi/_compat/may_v1.py", line 4, in <module>
+2025-11-07T16:29:37.4724775Z     from fastapi.types import ModelNameMap
+2025-11-07T16:29:37.4724800Z   File "/home/site/wwwroot/.python_packages/lib/site-packages/fastapi/types.py", line 5, in <module>
+2025-11-07T16:29:37.4724838Z     from pydantic import BaseModel
+2025-11-07T16:29:37.4724865Z   File "/home/site/wwwroot/.python_packages/lib/site-packages/pydantic/__init__.py", line 5, in <module>
+2025-11-07T16:29:37.4724888Z     from ._migration import getattr_migration
+2025-11-07T16:29:37.4724914Z   File "/home/site/wwwroot/.python_packages/lib/site-packages/pydantic/_migration.py", line 4, in <module>
+2025-11-07T16:29:37.4724937Z     from pydantic.warnings import PydanticDeprecatedSince20
+2025-11-07T16:29:37.4724962Z   File "/home/site/wwwroot/.python_packages/lib/site-packages/pydantic/warnings.py", line 5, in <module>
+2025-11-07T16:29:37.4725001Z     from .version import version_short
+2025-11-07T16:29:37.4725027Z   File "/home/site/wwwroot/.python_packages/lib/site-packages/pydantic/version.py", line 7, in <module>
+2025-11-07T16:29:37.4725464Z     from pydantic_core import __version__ as __pydantic_core_version__
+2025-11-07T16:29:37.4725495Z   File "/home/site/wwwroot/.python_packages/lib/site-packages/pydantic_core/__init__.py", line 8, in <module>
+2025-11-07T16:29:37.4725518Z     from ._pydantic_core import (
+2025-11-07T16:29:37.4725542Z ModuleNotFoundError: No module named 'pydantic_core._pydantic_core'
+2025-11-07T16:29:37.4725594Z [2025-11-07 16:29:37 +0000] [2118] [INFO] Worker exiting (pid: 2118)
+2025-11-07T16:29:37.6154374Z [2025-11-07 16:29:37 +0000] [2109] [ERROR] Worker (pid:2118) exited with code 3
+2025-11-07T16:29:37.6245462Z [2025-11-07 16:29:37 +0000] [2109] [ERROR] Shutting down: Master
+2025-11-07T16:29:37.6245656Z [2025-11-07 16:29:37 +0000] [2109] [ERROR] Reason: Worker failed to boot.
+2025-11-07T17:10:58.8097348Z    _____                               
+2025-11-07T17:10:58.8168432Z   /  _  \ __________ _________   ____  
+2025-11-07T17:10:58.8168628Z  /  /_\  \\___   /  |  \_  __ \_/ __ \ 
+2025-11-07T17:10:58.8168654Z /    |    \/    /|  |  /|  | \/\  ___/ 
+2025-11-07T17:10:58.8168677Z \____|__  /_____ \____/ |__|    \___  >
+2025-11-07T17:10:58.8168763Z         \/      \/                  \/ 
+2025-11-07T17:10:58.8168789Z A P P   S E R V I C E   O N   L I N U X
+2025-11-07T17:10:58.8168811Z 
+2025-11-07T17:10:58.8168840Z Documentation    : http://aka.ms/webapp-linux
+2025-11-07T17:10:58.8168866Z Python quickstart: https://aka.ms/python-qs
+2025-11-07T17:10:58.8168890Z Python version   : 3.11.14
+2025-11-07T17:10:58.8168913Z Instance Name    : lw0sdlwk0000VF
+2025-11-07T17:10:58.8168962Z Instance Id      : 6507bdc255f23a4f1ad4b5182514791bd1126448d921d867fd42e77489564d58
+2025-11-07T17:10:58.8168983Z 
+2025-11-07T17:10:58.8169006Z Note: Any data outside '/home' is not persisted
+2025-11-07T17:11:00.5485706Z Starting OpenBSD Secure Shell server: sshd.
+2025-11-07T17:11:00.6585432Z WEBSITES_INCLUDE_CLOUD_CERTS is not set to true.
+2025-11-07T17:11:00.7703631Z Updating certificates in /etc/ssl/certs...
+2025-11-07T17:11:20.2411371Z rehash: warning: skipping duplicate certificate in azl_SSL.com_TLS_ECC_Root_CA_2022.pem
+2025-11-07T17:11:20.2432358Z rehash: warning: skipping duplicate certificate in azl_Sectigo_Public_Server_Authentication_Root_R46.pem
+2025-11-07T17:11:20.2835014Z rehash: warning: skipping duplicate certificate in azl_Sectigo_Public_Server_Authentication_Root_E46.pem
+2025-11-07T17:11:20.3228171Z rehash: warning: skipping duplicate certificate in azl_SSL.com_TLS_RSA_Root_CA_2022.pem
+2025-11-07T17:11:20.5350638Z 4 added, 0 removed; done.
+2025-11-07T17:11:20.5351274Z Running hooks in /etc/ca-certificates/update.d...
+2025-11-07T17:11:20.5843852Z done.
+2025-11-07T17:11:20.6837944Z CA certificates copied and updated successfully.
+2025-11-07T17:11:20.9772136Z Site's appCommandLine: gunicorn -k uvicorn.workers.UvicornWorker --bind=0.0.0.0:$PORT app.main:app
+2025-11-07T17:11:21.9195988Z Starting periodic command scheduler: cron.
+2025-11-07T17:11:21.9419319Z Launching oryx with: create-script -appPath /home/site/wwwroot -output /opt/startup/startup.sh -virtualEnvName antenv -defaultApp /opt/defaultsite -userStartupCommand 'gunicorn -k uvicorn.workers.UvicornWorker --bind=0.0.0.0:$PORT app.main:app'
+2025-11-07T17:11:23.2090300Z Found build manifest file at '/home/site/wwwroot/oryx-manifest.toml'. Deserializing it...
+2025-11-07T17:11:23.2285982Z Build Operation ID: c124fcf2bba27e86
+2025-11-07T17:11:23.2392251Z Oryx Version: 0.2.20251017.2, Commit: 482d4c55e818733ab33b9d2131f9dc485a21fd03, ReleaseTagName: 20251017.2
+2025-11-07T17:11:23.2402951Z Output is compressed. Extracting it...
+2025-11-07T17:11:23.2496694Z Extracting '/home/site/wwwroot/output.tar.gz' to directory '/tmp/8de1e2068b8ba9e'...
+2025-11-07T17:11:26.9479130Z App path is set to '/tmp/8de1e2068b8ba9e'
+2025-11-07T17:11:28.2666311Z Writing output script to '/opt/startup/startup.sh'
+2025-11-07T17:11:29.2928170Z Using packages from virtual environment antenv located at /tmp/8de1e2068b8ba9e/antenv.
+2025-11-07T17:11:29.2933297Z Updated PYTHONPATH to '/home/site/wwwroot:/home/site/wwwroot/.python_packages/lib/site-packages:/opt/startup/app_logs:/tmp/8de1e2068b8ba9e/antenv/lib/python3.11/site-packages'
+2025-11-07T17:11:32.9662177Z [2025-11-07 17:11:32 +0000] [2110] [INFO] Starting gunicorn 21.2.0
+2025-11-07T17:11:32.9662819Z [2025-11-07 17:11:32 +0000] [2110] [INFO] Listening at: http://0.0.0.0:8000 (2110)
+2025-11-07T17:11:32.9667173Z [2025-11-07 17:11:32 +0000] [2110] [INFO] Using worker: uvicorn.workers.UvicornWorker
+2025-11-07T17:11:32.9871725Z [2025-11-07 17:11:32 +0000] [2118] [INFO] Booting worker with pid: 2118
+2025-11-07T17:11:33.2351835Z [2025-11-07 17:11:33 +0000] [2118] [ERROR] Exception in worker process
+2025-11-07T17:11:33.2352423Z Traceback (most recent call last):
+2025-11-07T17:11:33.2352467Z   File "/home/site/wwwroot/.python_packages/lib/site-packages/gunicorn/arbiter.py", line 609, in spawn_worker
+2025-11-07T17:11:33.2352494Z     worker.init_process()
+2025-11-07T17:11:33.2352525Z   File "/home/site/wwwroot/.python_packages/lib/site-packages/gunicorn/workers/base.py", line 134, in init_process
+2025-11-07T17:11:33.2352619Z     self.load_wsgi()
+2025-11-07T17:11:33.2352647Z   File "/home/site/wwwroot/.python_packages/lib/site-packages/gunicorn/workers/base.py", line 146, in load_wsgi
+2025-11-07T17:11:33.2352670Z     self.wsgi = self.app.wsgi()
+2025-11-07T17:11:33.2352693Z                 ^^^^^^^^^^^^^^^
+2025-11-07T17:11:33.2352717Z   File "/home/site/wwwroot/.python_packages/lib/site-packages/gunicorn/app/base.py", line 67, in wsgi
+2025-11-07T17:11:33.2352740Z     self.callable = self.load()
+2025-11-07T17:11:33.2352782Z                     ^^^^^^^^^^^
+2025-11-07T17:11:33.2352808Z   File "/home/site/wwwroot/.python_packages/lib/site-packages/gunicorn/app/wsgiapp.py", line 58, in load
+2025-11-07T17:11:33.2352831Z     return self.load_wsgiapp()
+2025-11-07T17:11:33.2352852Z            ^^^^^^^^^^^^^^^^^^^
+2025-11-07T17:11:33.2352878Z   File "/home/site/wwwroot/.python_packages/lib/site-packages/gunicorn/app/wsgiapp.py", line 48, in load_wsgiapp
+2025-11-07T17:11:33.2352901Z     return util.import_app(self.app_uri)
+2025-11-07T17:11:33.2352964Z            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2025-11-07T17:11:33.2352991Z   File "/home/site/wwwroot/.python_packages/lib/site-packages/gunicorn/util.py", line 371, in import_app
+2025-11-07T17:11:33.2353014Z     mod = importlib.import_module(module)
+2025-11-07T17:11:33.2353036Z           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2025-11-07T17:11:33.2353062Z   File "/opt/python/3.11.14/lib/python3.11/importlib/__init__.py", line 126, in import_module
+2025-11-07T17:11:33.2353086Z     return _bootstrap._gcd_import(name[level:], package, level)
+2025-11-07T17:11:33.2353129Z            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2025-11-07T17:11:33.2353154Z   File "<frozen importlib._bootstrap>", line 1204, in _gcd_import
+2025-11-07T17:11:33.2353178Z   File "<frozen importlib._bootstrap>", line 1176, in _find_and_load
+2025-11-07T17:11:33.2353202Z   File "<frozen importlib._bootstrap>", line 1147, in _find_and_load_unlocked
+2025-11-07T17:11:33.2353226Z   File "<frozen importlib._bootstrap>", line 690, in _load_unlocked
+2025-11-07T17:11:33.2353250Z   File "<frozen importlib._bootstrap_external>", line 940, in exec_module
+2025-11-07T17:11:33.2353288Z   File "<frozen importlib._bootstrap>", line 241, in _call_with_frames_removed
+2025-11-07T17:11:33.2353312Z   File "/tmp/8de1e2068b8ba9e/app/main.py", line 3, in <module>
+2025-11-07T17:11:33.2353335Z     from app.core.app import create_app
+2025-11-07T17:11:33.2419163Z   File "/tmp/8de1e2068b8ba9e/app/core/app.py", line 3, in <module>
+2025-11-07T17:11:33.2419406Z     from fastapi import FastAPI
+2025-11-07T17:11:33.2419445Z   File "/home/site/wwwroot/.python_packages/lib/site-packages/fastapi/__init__.py", line 7, in <module>
+2025-11-07T17:11:33.2419470Z     from .applications import FastAPI as FastAPI
+2025-11-07T17:11:33.2419560Z   File "/home/site/wwwroot/.python_packages/lib/site-packages/fastapi/applications.py", line 17, in <module>
+2025-11-07T17:11:33.2419583Z     from fastapi import routing
+2025-11-07T17:11:33.2419608Z   File "/home/site/wwwroot/.python_packages/lib/site-packages/fastapi/routing.py", line 28, in <module>
+2025-11-07T17:11:33.2419632Z     from fastapi import params, temp_pydantic_v1_params
+2025-11-07T17:11:33.2419658Z   File "/home/site/wwwroot/.python_packages/lib/site-packages/fastapi/params.py", line 6, in <module>
+2025-11-07T17:11:33.2419704Z     from fastapi.openapi.models import Example
+2025-11-07T17:11:33.2419732Z   File "/home/site/wwwroot/.python_packages/lib/site-packages/fastapi/openapi/models.py", line 4, in <module>
+2025-11-07T17:11:33.2419755Z     from fastapi._compat import (
+2025-11-07T17:11:33.2419781Z   File "/home/site/wwwroot/.python_packages/lib/site-packages/fastapi/_compat/__init__.py", line 1, in <module>
+2025-11-07T17:11:33.2419804Z     from .main import BaseConfig as BaseConfig
+2025-11-07T17:11:33.2419829Z   File "/home/site/wwwroot/.python_packages/lib/site-packages/fastapi/_compat/main.py", line 12, in <module>
+2025-11-07T17:11:33.2419877Z     from fastapi._compat import may_v1
+2025-11-07T17:11:33.2419903Z   File "/home/site/wwwroot/.python_packages/lib/site-packages/fastapi/_compat/may_v1.py", line 4, in <module>
+2025-11-07T17:11:33.2419926Z     from fastapi.types import ModelNameMap
+2025-11-07T17:11:33.2419951Z   File "/home/site/wwwroot/.python_packages/lib/site-packages/fastapi/types.py", line 5, in <module>
+2025-11-07T17:11:33.2419973Z     from pydantic import BaseModel
+2025-11-07T17:11:33.2419998Z   File "/home/site/wwwroot/.python_packages/lib/site-packages/pydantic/__init__.py", line 5, in <module>
+2025-11-07T17:11:33.2420037Z     from ._migration import getattr_migration
+2025-11-07T17:11:33.2420063Z   File "/home/site/wwwroot/.python_packages/lib/site-packages/pydantic/_migration.py", line 4, in <module>
+2025-11-07T17:11:33.2420087Z     from pydantic.warnings import PydanticDeprecatedSince20
+2025-11-07T17:11:33.2420113Z   File "/home/site/wwwroot/.python_packages/lib/site-packages/pydantic/warnings.py", line 5, in <module>
+2025-11-07T17:11:33.2420135Z     from .version import version_short
+2025-11-07T17:11:33.2420160Z   File "/home/site/wwwroot/.python_packages/lib/site-packages/pydantic/version.py", line 7, in <module>
+2025-11-07T17:11:33.2420460Z     from pydantic_core import __version__ as __pydantic_core_version__
+2025-11-07T17:11:33.2420491Z   File "/home/site/wwwroot/.python_packages/lib/site-packages/pydantic_core/__init__.py", line 8, in <module>
+2025-11-07T17:11:33.2420514Z     from ._pydantic_core import (
+2025-11-07T17:11:33.2420538Z ModuleNotFoundError: No module named 'pydantic_core._pydantic_core'
+2025-11-07T17:11:33.2420567Z [2025-11-07 17:11:33 +0000] [2118] [INFO] Worker exiting (pid: 2118)
+2025-11-07T17:11:33.5141737Z [2025-11-07 17:11:33 +0000] [2110] [ERROR] Worker (pid:2118) exited with code 3
+2025-11-07T17:11:33.5156439Z [2025-11-07 17:11:33 +0000] [2110] [ERROR] Shutting down: Master
+2025-11-07T17:11:33.5230537Z [2025-11-07 17:11:33 +0000] [2110] [ERROR] Reason: Worker failed to boot.

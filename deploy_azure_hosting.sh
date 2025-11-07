@@ -1,0 +1,783 @@
+#!/usr/bin/env bash
+# Deploy MindWell services to Azure Static Web Apps (frontend) and Azure App Service (backend + oauth2-proxy).
+set -euo pipefail
+
+###########################################
+# Defaults and argument parsing
+###########################################
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$SCRIPT_DIR"
+
+ENVIRONMENT="dev"
+LOCATION="eastasia"
+RESOURCE_GROUP=""
+SUBSCRIPTION=""
+NAME_PREFIX="mindwell"
+NAME_SUFFIX=""
+
+FRONTEND_APP_NAME=""
+FRONTEND_API_URL=""
+FRONTEND_SWA_SKU="Free"
+
+BACKEND_APP_NAME=""
+BACKEND_PLAN_NAME=""
+BACKEND_PLAN_SKU="B1"
+BACKEND_PYTHON_VERSION="PYTHON|3.11"
+BACKEND_RUN_FROM_PACKAGE=0
+BACKEND_STARTUP_COMMAND='gunicorn -k uvicorn.workers.UvicornWorker --bind=0.0.0.0:$PORT app.main:app'
+BACKEND_RUN_FROM_PACKAGE_EFFECTIVE=0
+
+OAUTH_APP_NAME=""
+OAUTH_PLAN_NAME=""
+OAUTH_PLAN_SKU="B1"
+OAUTH_IMAGE="quay.io/oauth2-proxy/oauth2-proxy:v7.7.1"
+OAUTH_CONTAINER_PORT="4180"
+OAUTH_ENV_FILE="${HOME}/.config/mindwell/oauth2-proxy.env"
+
+BACKEND_ENV_LIST_VAR="BACKEND_APP_SETTINGS"
+
+DIST_DIR_RELATIVE="clients/web/dist"
+FRONTEND_SOURCE_RELATIVE="clients/web"
+BACKEND_SOURCE_RELATIVE="services/backend"
+BACKEND_CONFIG_RELATIVE="services/backend/app/core/config.py"
+
+usage() {
+  cat <<'EOF'
+Usage: ./deploy_azure_hosting.sh [options]
+
+Required Azure prerequisites:
+  - Azure CLI (az) logged in (az login) and subscription set or provided via --subscription.
+  - Sufficient permissions to create resource groups, Static Web Apps, and App Services.
+  - Все необходимые переменные окружения (кроме oauth2-proxy) должны быть экспортированы в окружение
+    (например, через ~/.bashrc). Скрипт автоматически собирает список ключей из
+    services/backend/app/core/config.py. Дополнительно можно указать переменную
+    BACKEND_APP_SETTINGS для явного добавления ключей.
+
+Options:
+  -e, --environment <name>         Environment suffix used in generated resource names. Default: dev.
+  -l, --location <azure-region>    Azure region for all resources. Default: eastasia.
+  -g, --resource-group <name>      Existing or new resource group. Default: rg-<prefix>-<env>.
+  -s, --subscription <id|name>     Azure subscription to use.
+      --name-prefix <prefix>       Prefix for all generated resource names. Default: mindwell.
+      --name-suffix <suffix>       Optional suffix appended to resource names.
+
+Frontend:
+      --frontend-app-name <name>   Static Web App name. Default: <prefix>-<env>-web[<suffix>].
+      --frontend-api-url <url>     API base URL injected as VITE_API_BASE_URL. Defaults to backend host.
+      --frontend-sku <sku>         Static Web App SKU (Free, Standard, Dedicated). Default: Free.
+
+Backend:
+      --backend-app-name <name>    Azure WebApp (backend) name. Default: <prefix>-<env>-api[<suffix>].
+      --backend-plan-name <name>   App Service plan for backend. Default: asp-<prefix>-<env>-api[<suffix>].
+      --backend-plan-sku <sku>     App Service plan SKU. Default: B1.
+      --backend-python <stack>     Azure runtime stack (e.g. PYTHON|3.11). Default: PYTHON|3.11.
+      --backend-run-from-package   Enable WEBSITE_RUN_FROM_PACKAGE=1 and bundle site-packages locally.
+                                   Требует совпадения версии python3 с указанной в --backend-python.
+      --backend-startup-command    Custom startup command passed to App Service. Default: gunicorn -k
+                                   uvicorn.workers.UvicornWorker --bind=0.0.0.0:$PORT app.main:app.
+
+oauth2-proxy:
+      --oauth-app-name <name>      Azure WebApp (oauth2-proxy) name. Default: <prefix>-<env>-oauth[<suffix>].
+      --oauth-plan-name <name>     App Service plan for oauth2-proxy. Default: asp-<prefix>-<env>-oauth[<suffix>].
+      --oauth-plan-sku <sku>       Plan SKU. Default: B1.
+      --oauth-image <image>        Container image for oauth2-proxy. Default: quay.io/oauth2-proxy/oauth2-proxy:v7.7.1.
+      --oauth-port <port>          Container listen port (sets WEBSITES_PORT). Default: 4180.
+
+General:
+  -h, --help                       Show this help.
+
+The script will:
+  1. Build the frontend via npm (clients/web).
+  2. Create/update Azure Static Web App and upload the build.
+  3. Package the backend (services/backend) and deploy via zip to Azure App Service.
+  4. Provision an oauth2-proxy App Service backed by the specified container image.
+  5. Print the resulting hostnames for all services.
+
+Environment conventions:
+  - Переменные для backend извлекаются из services/backend/app/core/config.py. Значения
+    берутся из текущего окружения (включая ~/.bashrc). BACKEND_APP_SETTINGS можно
+    использовать для добавления дополнительных ключей (через пробел или запятую).
+  - Параметры oauth2-proxy читаются из файла ~/.config/mindwell/oauth2-proxy.env.
+EOF
+}
+
+###########################################
+# Helper functions
+###########################################
+
+log() {
+  echo "[$(date '+%H:%M:%S')] $*" >&2
+}
+
+fail() {
+  echo "ERROR: $*" >&2
+  exit 1
+}
+
+ensure_command() {
+  if ! command -v "$1" >/dev/null 2>&1; then
+    fail "Command '$1' is required but not found in PATH."
+  fi
+}
+
+normalize_name() {
+  local raw="$1"
+  local normalized
+  normalized="$(echo "${raw,,}" | tr -c 'a-z0-9-' '-' | sed -E 's/-+/-/g; s/^-//; s/-$//')"
+  [[ -z "$normalized" ]] && fail "Generated name from '$raw' is empty after normalization."
+  echo "$normalized"
+}
+
+read_settings_file() {
+  local file_path="$1"
+  local -n target_array="$2"
+  target_array=()
+
+  [[ ! -f "$file_path" ]] && fail "Settings file '$file_path' does not exist."
+
+  while IFS= read -r line || [[ -n "$line" ]]; do
+    # Skip blank lines and comments
+    [[ -z "$line" ]] && continue
+    [[ "$line" =~ ^[[:space:]]*# ]] && continue
+    target_array+=("$line")
+  done < "$file_path"
+}
+
+parse_key_list() {
+  local raw="$1"
+  local -n target="$2"
+  target=()
+  [[ -z "$raw" ]] && return 0
+  while IFS= read -r token; do
+    token="${token#"${token%%[![:space:]]*}"}"
+    token="${token%"${token##*[![:space:]]}"}"
+    [[ -z "$token" ]] && continue
+    target+=("$token")
+  done < <(printf '%s' "$raw" | tr ', ' '\n')
+}
+
+collect_backend_env_keys() {
+  local config_path="$1"
+
+  [[ -f "$config_path" ]] || fail "Backend config file '$config_path' not found."
+
+  python3 - "$config_path" <<'PY'
+import ast
+import sys
+from pathlib import Path
+
+config_path = Path(sys.argv[1])
+
+try:
+    source = config_path.read_text(encoding="utf-8")
+except FileNotFoundError:
+    sys.stderr.write(f"Missing backend config file: {config_path}\n")
+    sys.exit(1)
+
+tree = ast.parse(source, filename=str(config_path))
+aliases = set()
+
+
+class BackendSettingsVisitor(ast.NodeVisitor):
+    def visit_ClassDef(self, node):
+        if node.name != "AppSettings":
+            return
+        for stmt in node.body:
+            if isinstance(stmt, ast.AnnAssign):
+                alias = self._extract_alias(stmt)
+                if alias:
+                    aliases.add(alias)
+
+    @staticmethod
+    def _extract_alias(node):
+        target = node.target
+        if not isinstance(target, ast.Name):
+            return None
+        field_name = target.id
+        call = node.value
+        alias_value = None
+        if isinstance(call, ast.Call):
+            for kw in call.keywords:
+                if kw.arg == "alias":
+                    try:
+                        alias_value = ast.literal_eval(kw.value)
+                    except Exception:
+                        alias_value = None
+                    break
+        if not alias_value:
+            alias_value = field_name.upper()
+        if isinstance(alias_value, str):
+            return alias_value
+        return None
+
+
+BackendSettingsVisitor().visit(tree)
+
+for alias in sorted(aliases):
+    print(alias)
+PY
+}
+
+###########################################
+# Load shell environment
+###########################################
+
+if [[ -f "${HOME}/.bashrc" ]]; then
+  set +u
+  # shellcheck disable=SC1090
+  source "${HOME}/.bashrc"
+  set -u
+else
+  log "Warning: ~/.bashrc not found; proceeding with existing environment."
+fi
+
+###########################################
+# Argument parsing
+###########################################
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    -e|--environment) ENVIRONMENT="$2"; shift 2 ;;
+    -l|--location) LOCATION="$2"; shift 2 ;;
+    -g|--resource-group) RESOURCE_GROUP="$2"; shift 2 ;;
+    -s|--subscription) SUBSCRIPTION="$2"; shift 2 ;;
+    --name-prefix) NAME_PREFIX="$2"; shift 2 ;;
+    --name-suffix) NAME_SUFFIX="$2"; shift 2 ;;
+
+    --frontend-app-name) FRONTEND_APP_NAME="$2"; shift 2 ;;
+    --frontend-api-url) FRONTEND_API_URL="$2"; shift 2 ;;
+    --frontend-sku) FRONTEND_SWA_SKU="$2"; shift 2 ;;
+
+    --backend-app-name) BACKEND_APP_NAME="$2"; shift 2 ;;
+    --backend-plan-name) BACKEND_PLAN_NAME="$2"; shift 2 ;;
+    --backend-plan-sku) BACKEND_PLAN_SKU="$2"; shift 2 ;;
+    --backend-python) BACKEND_PYTHON_VERSION="$2"; shift 2 ;;
+    --backend-run-from-package) BACKEND_RUN_FROM_PACKAGE=1; shift ;;
+    --backend-startup-command) BACKEND_STARTUP_COMMAND="$2"; shift 2 ;;
+
+    --oauth-app-name) OAUTH_APP_NAME="$2"; shift 2 ;;
+    --oauth-plan-name) OAUTH_PLAN_NAME="$2"; shift 2 ;;
+    --oauth-plan-sku) OAUTH_PLAN_SKU="$2"; shift 2 ;;
+    --oauth-image) OAUTH_IMAGE="$2"; shift 2 ;;
+    --oauth-port) OAUTH_CONTAINER_PORT="$2"; shift 2 ;;
+
+    -h|--help) usage; exit 0 ;;
+    *) fail "Unknown argument: $1" ;;
+  esac
+done
+
+###########################################
+# Derived configuration
+###########################################
+
+if [[ -z "$RESOURCE_GROUP" ]]; then
+  RESOURCE_GROUP="rg-${NAME_PREFIX}-${ENVIRONMENT}"
+fi
+
+if [[ -z "$FRONTEND_APP_NAME" ]]; then
+  FRONTEND_APP_NAME="${NAME_PREFIX}-${ENVIRONMENT}-web"
+fi
+if [[ -z "$BACKEND_PLAN_NAME" ]]; then
+  BACKEND_PLAN_NAME="asp-${NAME_PREFIX}-${ENVIRONMENT}-api"
+fi
+if [[ -z "$BACKEND_APP_NAME" ]]; then
+  BACKEND_APP_NAME="${NAME_PREFIX}-${ENVIRONMENT}-api"
+fi
+if [[ -z "$OAUTH_PLAN_NAME" ]]; then
+  OAUTH_PLAN_NAME="asp-${NAME_PREFIX}-${ENVIRONMENT}-oauth"
+fi
+if [[ -z "$OAUTH_APP_NAME" ]]; then
+  OAUTH_APP_NAME="${NAME_PREFIX}-${ENVIRONMENT}-oauth"
+fi
+
+if [[ -n "$NAME_SUFFIX" ]]; then
+  FRONTEND_APP_NAME="${FRONTEND_APP_NAME}-${NAME_SUFFIX}"
+  BACKEND_PLAN_NAME="${BACKEND_PLAN_NAME}-${NAME_SUFFIX}"
+  BACKEND_APP_NAME="${BACKEND_APP_NAME}-${NAME_SUFFIX}"
+  OAUTH_PLAN_NAME="${OAUTH_PLAN_NAME}-${NAME_SUFFIX}"
+  OAUTH_APP_NAME="${OAUTH_APP_NAME}-${NAME_SUFFIX}"
+fi
+
+RESOURCE_GROUP="$(normalize_name "$RESOURCE_GROUP")"
+FRONTEND_APP_NAME="$(normalize_name "$FRONTEND_APP_NAME")"
+BACKEND_PLAN_NAME="$(normalize_name "$BACKEND_PLAN_NAME")"
+BACKEND_APP_NAME="$(normalize_name "$BACKEND_APP_NAME")"
+OAUTH_PLAN_NAME="$(normalize_name "$OAUTH_PLAN_NAME")"
+OAUTH_APP_NAME="$(normalize_name "$OAUTH_APP_NAME")"
+
+FRONTEND_DIR="$REPO_ROOT/$FRONTEND_SOURCE_RELATIVE"
+DIST_DIR="$REPO_ROOT/$DIST_DIR_RELATIVE"
+BACKEND_DIR="$REPO_ROOT/$BACKEND_SOURCE_RELATIVE"
+BACKEND_CONFIG_FILE="$REPO_ROOT/$BACKEND_CONFIG_RELATIVE"
+
+[[ ! -d "$FRONTEND_DIR" ]] && fail "Frontend directory '$FRONTEND_DIR' not found."
+[[ ! -f "$FRONTEND_DIR/package.json" ]] && fail "package.json not found in '$FRONTEND_DIR'."
+[[ ! -d "$BACKEND_DIR" ]] && fail "Backend directory '$BACKEND_DIR' not found."
+[[ ! -f "$BACKEND_DIR/pyproject.toml" ]] && fail "pyproject.toml not found in '$BACKEND_DIR'."
+[[ ! -f "$BACKEND_CONFIG_FILE" ]] && fail "Backend config file '$BACKEND_CONFIG_FILE' not found."
+
+###########################################
+# Pre-flight checks
+###########################################
+
+ensure_command az
+ensure_command npm
+ensure_command python3
+ensure_command zip
+ensure_command curl
+ensure_command rsync
+
+[[ -f "$OAUTH_ENV_FILE" ]] || fail "oauth2-proxy env file '$OAUTH_ENV_FILE' not found. Создайте его согласно инструкциям."
+
+if [[ -n "$SUBSCRIPTION" ]]; then
+  az account set --subscription "$SUBSCRIPTION" >/dev/null
+fi
+
+if ! az account show >/dev/null 2>&1; then
+  fail "Azure CLI is not logged in. Run 'az login' first."
+fi
+
+###########################################
+# Working directories
+###########################################
+
+AZ_COMMAND_PATH="$(command -v az || true)"
+AZ_USES_WINDOWS=0
+if [[ -n "$AZ_COMMAND_PATH" && "$AZ_COMMAND_PATH" == /mnt/* ]]; then
+  AZ_USES_WINDOWS=1
+  WINDOWS_TMP_ROOT="/mnt/c/tmp"
+  mkdir -p "$WINDOWS_TMP_ROOT"
+  WORK_ROOT="$(mktemp -d -p "$WINDOWS_TMP_ROOT" mindwell_deploy_XXXXXX)"
+else
+  WORK_ROOT="$(mktemp -d)"
+fi
+
+cleanup() {
+  rm -rf "$WORK_ROOT"
+}
+trap cleanup EXIT
+
+convert_path_for_az() {
+  local path="$1"
+  if [[ "$AZ_USES_WINDOWS" -eq 1 && -n "$path" ]]; then
+    if command -v wslpath >/dev/null 2>&1; then
+      wslpath -w "$path"
+      return
+    fi
+  fi
+  echo "$path"
+}
+
+###########################################
+# Step 1: Ensure resource group
+###########################################
+
+log "Ensuring resource group '$RESOURCE_GROUP' in '$LOCATION'..."
+if ! az group show --name "$RESOURCE_GROUP" >/dev/null 2>&1; then
+  az group create --name "$RESOURCE_GROUP" --location "$LOCATION" >/dev/null
+fi
+
+###########################################
+# Step 2: Backend plan + webapp
+###########################################
+
+log "Ensuring backend App Service plan '$BACKEND_PLAN_NAME'..."
+if ! az appservice plan show --name "$BACKEND_PLAN_NAME" --resource-group "$RESOURCE_GROUP" >/dev/null 2>&1; then
+  az appservice plan create \
+    --name "$BACKEND_PLAN_NAME" \
+    --resource-group "$RESOURCE_GROUP" \
+    --location "$LOCATION" \
+    --sku "$BACKEND_PLAN_SKU" \
+    --is-linux >/dev/null
+fi
+
+log "Ensuring backend webapp '$BACKEND_APP_NAME'..."
+if ! az webapp show --name "$BACKEND_APP_NAME" --resource-group "$RESOURCE_GROUP" >/dev/null 2>&1; then
+  az webapp create \
+    --name "$BACKEND_APP_NAME" \
+    --resource-group "$RESOURCE_GROUP" \
+    --plan "$BACKEND_PLAN_NAME" \
+    --runtime "$BACKEND_PYTHON_VERSION" >/dev/null
+fi
+
+BACKEND_RUN_FROM_PACKAGE_EFFECTIVE="$BACKEND_RUN_FROM_PACKAGE"
+existing_run_from_mode="$(az webapp config appsettings list \
+  --name "$BACKEND_APP_NAME" \
+  --resource-group "$RESOURCE_GROUP" \
+  --query "[?name=='WEBSITE_RUN_FROM_PACKAGE' || name=='WEBSITE_RUN_FROM_ZIP'].value" \
+  -o tsv || true)"
+if [[ -n "${existing_run_from_mode//[[:space:]]/}" && "$BACKEND_RUN_FROM_PACKAGE_EFFECTIVE" -eq 0 ]]; then
+  log "Azure уже содержит WEBSITE_RUN_FROM_PACKAGE/ZIP. Переключаем backend в режим локальной упаковки зависимостей."
+  BACKEND_RUN_FROM_PACKAGE_EFFECTIVE=1
+fi
+
+log "Ensuring backend startup command: $BACKEND_STARTUP_COMMAND"
+az webapp config set \
+  --name "$BACKEND_APP_NAME" \
+  --resource-group "$RESOURCE_GROUP" \
+  --startup-file "$BACKEND_STARTUP_COMMAND" \
+  >/dev/null
+
+log "Removing deprecated backend app settings if present..."
+deprecated_backend_settings=("PYTHONPATH")
+if [[ "$BACKEND_RUN_FROM_PACKAGE_EFFECTIVE" -eq 0 ]]; then
+  # Сбрасываем флаги Run-From-Package/Zip, иначе Azure пропускает Oryx build
+  deprecated_backend_settings+=("WEBSITE_RUN_FROM_PACKAGE" "WEBSITE_RUN_FROM_ZIP")
+fi
+
+if [[ ${#deprecated_backend_settings[@]} -gt 0 ]]; then
+  az webapp config appsettings delete \
+    --name "$BACKEND_APP_NAME" \
+    --resource-group "$RESOURCE_GROUP" \
+    --setting-names "${deprecated_backend_settings[@]}" \
+    >/dev/null || true
+fi
+
+###########################################
+# Step 3: Package backend and deploy
+###########################################
+
+log "Preparing backend deployment package..."
+BACKEND_STAGE="$WORK_ROOT/backend_stage"
+mkdir -p "$BACKEND_STAGE"
+rsync -a --delete \
+  --exclude '.venv' \
+  --exclude '__pycache__' \
+  --exclude '*.pyc' \
+  --exclude '*.pyo' \
+  --exclude '*.pytest_cache' \
+  --exclude '.mypy_cache' \
+  --exclude 'build' \
+  "$BACKEND_DIR/" "$BACKEND_STAGE/"
+
+BACKEND_REQ_FILE="$BACKEND_STAGE/requirements.txt"
+python3 - <<'PY' "$BACKEND_DIR/pyproject.toml" "$BACKEND_REQ_FILE"
+import sys
+from pathlib import Path
+
+pyproject_path = Path(sys.argv[1])
+output_path = Path(sys.argv[2])
+
+deps = []
+inside = False
+for line in pyproject_path.read_text(encoding="utf-8").splitlines():
+    stripped = line.strip()
+    if not inside and stripped.startswith("dependencies") and stripped.endswith("["):
+        inside = True
+        continue
+    if inside:
+        if stripped.startswith("]"):
+            break
+        if not stripped or stripped.startswith("#"):
+            continue
+        stripped = stripped.rstrip(",")
+        if stripped.startswith('"') and stripped.endswith('"'):
+            stripped = stripped[1:-1]
+        deps.append(stripped)
+
+if "gunicorn" not in [d.split(">=")[0].split("==")[0] for d in deps]:
+    deps.append("gunicorn>=21.2,<22.0")
+if all(not d.startswith("pydantic-core") for d in deps):
+    deps.append("pydantic-core>=2.18,<3.0")
+
+if not deps:
+    raise SystemExit("Не удалось определить зависимости из pyproject.toml")
+
+output_path.write_text("\n".join(deps) + "\n", encoding="utf-8")
+PY
+
+log "Generated backend requirements.txt for Azure build pipeline."
+
+backend_python_stack="${BACKEND_PYTHON_VERSION#PYTHON|}"
+[[ "$backend_python_stack" == "$BACKEND_PYTHON_VERSION" ]] && backend_python_stack=""
+
+if [[ "$BACKEND_RUN_FROM_PACKAGE_EFFECTIVE" -eq 1 ]]; then
+  if [[ -n "$backend_python_stack" ]]; then
+    local_python_version="$(python3 - <<'PY'
+import sys
+print(f"{sys.version_info.major}.{sys.version_info.minor}", end="")
+PY
+)"
+    if [[ "$local_python_version" != "$backend_python_stack" ]]; then
+      fail "Run-From-Package требует python3 версии $backend_python_stack, но локально используется $local_python_version. Установите корректную версию Python перед развёртыванием."
+    fi
+  fi
+
+  log "Installing backend dependencies into .python_packages (Run-From-Package mode)..."
+  BACKEND_SITE_PACKAGES="$BACKEND_STAGE/.python_packages/lib/site-packages"
+  mkdir -p "$BACKEND_SITE_PACKAGES"
+  python3 -m pip install \
+    --disable-pip-version-check \
+    --no-cache-dir \
+    --target "$BACKEND_SITE_PACKAGES" \
+    -r "$BACKEND_REQ_FILE" \
+    >/dev/null
+
+  log "Validating uvicorn availability inside staged site-packages..."
+  PYTHONPATH="${BACKEND_STAGE}:${BACKEND_STAGE}/.python_packages/lib/site-packages" \
+    python3 - <<'PY' >/dev/null
+import importlib
+import sys
+
+try:
+    importlib.import_module("uvicorn")
+except ModuleNotFoundError as exc:  # pragma: no cover - defensive
+    sys.stderr.write("Missing uvicorn inside packaged environment: %s\n" % exc)
+    raise
+PY
+else
+  log "Run-From-Package отключён: зависимости будут устанавливаться Oryx во время ZipDeploy."
+fi
+
+BACKEND_PACKAGE="$WORK_ROOT/backend.zip"
+(
+  cd "$BACKEND_STAGE"
+  zip -qr "$BACKEND_PACKAGE" .
+)
+
+BACKEND_PACKAGE_SRC="$(convert_path_for_az "$BACKEND_PACKAGE")"
+
+BACKEND_SETTINGS=(
+  "SCM_DO_BUILD_DURING_DEPLOYMENT=true"
+  "ENABLE_ORYX_BUILD=true"
+)
+
+if [[ "$BACKEND_RUN_FROM_PACKAGE_EFFECTIVE" -eq 1 ]]; then
+  BACKEND_SETTINGS+=("WEBSITE_RUN_FROM_PACKAGE=1")
+  BACKEND_SETTINGS+=("PYTHONPATH=/home/site/wwwroot:/home/site/wwwroot/.python_packages/lib/site-packages")
+else
+  log "WEBSITE_RUN_FROM_PACKAGE не устанавливается: Azure развернёт код и выполнит сборку на стороне сервиса."
+fi
+
+log "Collecting backend environment keys from '$BACKEND_CONFIG_FILE'..."
+backend_env_keys_auto=()
+while IFS= read -r key; do
+  [[ -z "$key" ]] && continue
+  backend_env_keys_auto+=("$key")
+done < <(collect_backend_env_keys "$BACKEND_CONFIG_FILE")
+
+BACKEND_ENV_KEYS_RAW="${!BACKEND_ENV_LIST_VAR-}"
+backend_env_keys_manual=()
+if [[ -n "$BACKEND_ENV_KEYS_RAW" ]]; then
+  parse_key_list "$BACKEND_ENV_KEYS_RAW" backend_env_keys_manual
+  if [[ ${#backend_env_keys_manual[@]} -gt 0 ]]; then
+    log "Adding manual backend keys from $BACKEND_ENV_LIST_VAR: ${backend_env_keys_manual[*]}"
+  fi
+fi
+
+combined_backend_env_keys=("${backend_env_keys_auto[@]}" "${backend_env_keys_manual[@]}")
+
+if [[ ${#combined_backend_env_keys[@]} -gt 0 ]]; then
+  unique_backend_keys=()
+  for key in "${combined_backend_env_keys[@]}"; do
+    [[ -z "$key" ]] && continue
+    duplicate=0
+    for seen_key in "${unique_backend_keys[@]}"; do
+      if [[ "$seen_key" == "$key" ]]; then
+        duplicate=1
+        break
+      fi
+    done
+    [[ $duplicate -eq 1 ]] && continue
+    unique_backend_keys+=("$key")
+  done
+
+  log "Applying backend app settings from environment (unique keys: ${#unique_backend_keys[@]})..."
+
+  applied_backend_settings=0
+  for key in "${unique_backend_keys[@]}"; do
+    if value="$(printenv "$key")"; then
+      BACKEND_SETTINGS+=("$key=$value")
+      applied_backend_settings=$((applied_backend_settings + 1))
+      continue
+    fi
+
+    manual_requested=0
+    for manual_key in "${backend_env_keys_manual[@]}"; do
+      if [[ "$manual_key" == "$key" ]]; then
+        manual_requested=1
+        break
+      fi
+    done
+
+    if [[ $manual_requested -eq 1 ]]; then
+      fail "Environment variable '$key' (referenced in $BACKEND_ENV_LIST_VAR) is not set."
+    else
+      # автособранные ключи пропускаем, если переменные отсутствуют
+      continue
+    fi
+  done
+  log "Applied $applied_backend_settings backend environment settings (plus defaults)."
+else
+  log "No backend environment keys detected; only default backend settings will be applied."
+fi
+
+az webapp config appsettings set \
+  --name "$BACKEND_APP_NAME" \
+  --resource-group "$RESOURCE_GROUP" \
+  --settings "${BACKEND_SETTINGS[@]}" \
+  >/dev/null
+
+log "Ожидаем применения настроек Azure (10s)..."
+sleep 10
+
+log "Deploying backend package to App Service..."
+if [[ "$BACKEND_RUN_FROM_PACKAGE_EFFECTIVE" -eq 1 ]]; then
+  log "Используем ZipDeploy (Run-From-Package включает .python_packages)."
+  az webapp deployment source config-zip \
+    --name "$BACKEND_APP_NAME" \
+    --resource-group "$RESOURCE_GROUP" \
+    --src "$BACKEND_PACKAGE_SRC" \
+    >/dev/null
+else
+  log "Используем az webapp deploy для вызова Oryx build."
+  az webapp deploy \
+    --name "$BACKEND_APP_NAME" \
+    --resource-group "$RESOURCE_GROUP" \
+    --src-path "$BACKEND_PACKAGE_SRC" \
+    --type zip \
+    --clean true \
+    --track-status true \
+    --restart true \
+    >/dev/null
+fi
+
+BACKEND_HOSTNAME="https://${BACKEND_APP_NAME}.azurewebsites.net"
+
+###########################################
+# Step 4: oauth2-proxy plan + webapp
+###########################################
+
+if [[ "$OAUTH_PLAN_NAME" != "$BACKEND_PLAN_NAME" ]]; then
+  log "Ensuring oauth2-proxy App Service plan '$OAUTH_PLAN_NAME'..."
+  if ! az appservice plan show --name "$OAUTH_PLAN_NAME" --resource-group "$RESOURCE_GROUP" >/dev/null 2>&1; then
+    az appservice plan create \
+      --name "$OAUTH_PLAN_NAME" \
+      --resource-group "$RESOURCE_GROUP" \
+      --location "$LOCATION" \
+      --sku "$OAUTH_PLAN_SKU" \
+      --is-linux >/dev/null
+  fi
+fi
+
+log "Ensuring oauth2-proxy webapp '$OAUTH_APP_NAME'..."
+if ! az webapp show --name "$OAUTH_APP_NAME" --resource-group "$RESOURCE_GROUP" >/dev/null 2>&1; then
+  az webapp create \
+    --name "$OAUTH_APP_NAME" \
+    --resource-group "$RESOURCE_GROUP" \
+    --plan "$OAUTH_PLAN_NAME" \
+    --deployment-container-image-name "$OAUTH_IMAGE" \
+    >/dev/null
+fi
+
+log "Updating oauth2-proxy container configuration..."
+az webapp config container set \
+  --name "$OAUTH_APP_NAME" \
+  --resource-group "$RESOURCE_GROUP" \
+  --docker-custom-image-name "$OAUTH_IMAGE" \
+  >/dev/null
+
+OAUTH_SETTINGS=("WEBSITES_PORT=$OAUTH_CONTAINER_PORT")
+if [[ -n "$OAUTH_ENV_FILE" ]]; then
+  log "Applying oauth2-proxy settings from '$OAUTH_ENV_FILE'..."
+  read_settings_file "$OAUTH_ENV_FILE" oauth_env_settings
+  OAUTH_SETTINGS+=("${oauth_env_settings[@]}")
+fi
+
+az webapp config appsettings set \
+  --name "$OAUTH_APP_NAME" \
+  --resource-group "$RESOURCE_GROUP" \
+  --settings "${OAUTH_SETTINGS[@]}" \
+  >/dev/null
+
+OAUTH_HOSTNAME="https://${OAUTH_APP_NAME}.azurewebsites.net"
+
+###########################################
+# Step 5: Build frontend
+###########################################
+
+log "Installing frontend dependencies via npm ci..."
+(cd "$FRONTEND_DIR" && npm ci >/dev/null)
+
+if [[ -z "$FRONTEND_API_URL" ]]; then
+  if [[ -n "${VITE_API_BASE_URL:-}" ]]; then
+    FRONTEND_API_URL="$VITE_API_BASE_URL"
+  else
+    FRONTEND_API_URL="$BACKEND_HOSTNAME"
+  fi
+fi
+
+log "Building frontend with VITE_API_BASE_URL='$FRONTEND_API_URL'..."
+build_env=()
+if [[ -n "$FRONTEND_API_URL" ]]; then
+  build_env+=("VITE_API_BASE_URL=$FRONTEND_API_URL")
+fi
+if [[ ${#build_env[@]} -gt 0 ]]; then
+  (cd "$FRONTEND_DIR" && env "${build_env[@]}" npm run build >/dev/null)
+else
+  (cd "$FRONTEND_DIR" && npm run build >/dev/null)
+fi
+
+if [[ ! -d "$DIST_DIR" ]]; then
+  fail "Frontend build output not found at '$DIST_DIR'."
+fi
+
+###########################################
+# Step 6: Static Web App provisioning + upload
+###########################################
+
+log "Ensuring Static Web App '$FRONTEND_APP_NAME'..."
+if ! az staticwebapp show --name "$FRONTEND_APP_NAME" --resource-group "$RESOURCE_GROUP" >/dev/null 2>&1; then
+  az staticwebapp create \
+    --name "$FRONTEND_APP_NAME" \
+    --resource-group "$RESOURCE_GROUP" \
+    --location "$LOCATION" \
+    --sku "$FRONTEND_SWA_SKU" \
+    >/dev/null
+fi
+
+DEPLOYMENT_TOKEN="$(az staticwebapp secrets list --name "$FRONTEND_APP_NAME" --resource-group "$RESOURCE_GROUP" --query 'properties.apiKey' -o tsv)"
+[[ -z "$DEPLOYMENT_TOKEN" ]] && fail "Failed to retrieve deployment token for Static Web App."
+
+FRONTEND_PACKAGE="$WORK_ROOT/frontend.zip"
+(
+  cd "$DIST_DIR"
+  zip -qr "$FRONTEND_PACKAGE" .
+)
+
+deploy_static_app() {
+  local deploy_url="$1"
+  local status output
+  output="$WORK_ROOT/swa_deploy_response.json"
+  status=$(curl -sS -w "%{http_code}" -o "$output" \
+    -X POST \
+    -H "Content-Type: application/zip" \
+    --data-binary @"$FRONTEND_PACKAGE" \
+    "$deploy_url")
+  echo "$status"
+}
+
+log "Uploading frontend package to Static Web App..."
+STATUS_CODE="$(deploy_static_app "https://${FRONTEND_APP_NAME}.azurestaticapps.net/api/deployments?api_token=${DEPLOYMENT_TOKEN}")"
+if [[ "$STATUS_CODE" != "200" && "$STATUS_CODE" != "202" ]]; then
+  log "Primary deployment endpoint returned HTTP $STATUS_CODE, retrying legacy zipdeploy..."
+  STATUS_CODE="$(deploy_static_app "https://${FRONTEND_APP_NAME}.azurestaticapps.net/api/zipdeploy?code=${DEPLOYMENT_TOKEN}")"
+  if [[ "$STATUS_CODE" != "200" && "$STATUS_CODE" != "202" ]]; then
+    fail "Failed to deploy frontend (HTTP $STATUS_CODE). Inspect '$WORK_ROOT/swa_deploy_response.json' for details."
+  fi
+fi
+
+FRONTEND_HOSTNAME="https://${FRONTEND_APP_NAME}.azurestaticapps.net"
+
+###########################################
+# Step 7: Output summary
+###########################################
+
+echo ""
+echo "Deployment completed successfully."
+echo "Frontend: ${FRONTEND_HOSTNAME}"
+echo "Backend : ${BACKEND_HOSTNAME}"
+echo "oauth2  : ${OAUTH_HOSTNAME}"
+echo ""
+log "All resources provisioned. Remember to configure database, storage, and other dependencies as needed."

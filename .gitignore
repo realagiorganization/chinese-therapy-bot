@@ -1,2 +1,4 @@
 services/backend/.venv
 services/backend/mindwell_backend.egg-info
+backend_logs*
+LogFiles

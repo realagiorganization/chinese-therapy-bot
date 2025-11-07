@@ -1,0 +1,250 @@
+2025-11-07T13:48:49.4537727Z Container start method called.
+2025-11-07T13:48:49.4540260Z Establishing network.
+2025-11-07T13:48:49.4541534Z Pulling image: appsvc/python:3.11_20251017.5.tuxprod.
+2025-11-07T13:48:49.7770565Z Container is starting.
+2025-11-07T13:48:49.7790214Z Establishing user namespace if not established already.
+2025-11-07T13:48:49.7874370Z Establishing network if not established already.
+2025-11-07T13:48:49.7875451Z Mounting volumes.
+2025-11-07T13:48:49.7878684Z Nested mountpoint site/wwwroot
+2025-11-07T13:48:49.8102922Z Nested mountpoint volatile/logs
+2025-11-07T13:48:49.8880772Z Nested mountpoint 
+2025-11-07T13:48:49.9784038Z Nested mountpoint 
+2025-11-07T13:48:50.0908469Z Nested mountpoint 
+2025-11-07T13:48:50.1129949Z Nested mountpoint 
+2025-11-07T13:48:52.9556095Z Creating container.
+2025-11-07T13:48:52.9557493Z Creating pipes for streaming container io.
+2025-11-07T13:48:52.9558285Z Creating stdout named pipe at /podr/container/pipe/7d6d6dcb8e8a_mindwell-dev-api/stdout_1a0e9611467d4220ba2f493c499da58c.
+2025-11-07T13:48:52.9560169Z Successfully created stdout named pipe at: /podr/container/pipe/7d6d6dcb8e8a_mindwell-dev-api/stdout_1a0e9611467d4220ba2f493c499da58c.
+2025-11-07T13:48:52.9560947Z Opening named pipe /podr/container/pipe/7d6d6dcb8e8a_mindwell-dev-api/stdout_1a0e9611467d4220ba2f493c499da58c for reading in non-blocking mode.
+2025-11-07T13:48:52.9561940Z Successfully opened named pipe: /podr/container/pipe/7d6d6dcb8e8a_mindwell-dev-api/stdout_1a0e9611467d4220ba2f493c499da58c.
+2025-11-07T13:48:52.9578185Z Successfully removed non-blocking flag from /podr/container/pipe/7d6d6dcb8e8a_mindwell-dev-api/stdout_1a0e9611467d4220ba2f493c499da58c.
+2025-11-07T13:48:52.9761140Z Creating stderr named pipe at /podr/container/pipe/7d6d6dcb8e8a_mindwell-dev-api/stderr_611da68ba74c474e8d654d53dcdc94da.
+2025-11-07T13:48:52.9767278Z Successfully created stderr named pipe at: /podr/container/pipe/7d6d6dcb8e8a_mindwell-dev-api/stderr_611da68ba74c474e8d654d53dcdc94da.
+2025-11-07T13:48:52.9768586Z Opening named pipe /podr/container/pipe/7d6d6dcb8e8a_mindwell-dev-api/stderr_611da68ba74c474e8d654d53dcdc94da for reading in non-blocking mode.
+2025-11-07T13:48:52.9769860Z Successfully opened named pipe: /podr/container/pipe/7d6d6dcb8e8a_mindwell-dev-api/stderr_611da68ba74c474e8d654d53dcdc94da.
+2025-11-07T13:48:52.9770613Z Successfully removed non-blocking flag from /podr/container/pipe/7d6d6dcb8e8a_mindwell-dev-api/stderr_611da68ba74c474e8d654d53dcdc94da.
+2025-11-07T13:48:52.9771403Z Creating container with image: appsvc/python:3.11_20251017.5.tuxprod from registry: 10.1.0.5:13209 and fully qualified image name: 10.1.0.5:13209/appsvc/python:3.11_20251017.5.tuxprod
+2025-11-07T13:48:53.7898262Z Starting container: 7d6d6dcb8e8a_mindwell-dev-api.
+2025-11-07T13:48:53.8712888Z Starting watchers and probes.
+2025-11-07T13:48:53.8912242Z Starting metrics collection.
+2025-11-07T13:48:53.9019844Z Container is running.
+2025-11-07T13:48:54.1814456Z Container start method finished after 4727 ms.
+2025-11-07T13:49:15.8632409Z Container has finished running with exit code: 127.
+2025-11-07T13:49:15.8640065Z Container is terminating. Grace period: 5 seconds.
+2025-11-07T13:49:15.8731562Z Stop and delete container. Retry count = 0
+2025-11-07T13:49:15.8741398Z Stopping container: 7d6d6dcb8e8a_mindwell-dev-api.
+2025-11-07T13:49:15.9833980Z Deleting container: 7d6d6dcb8e8a_mindwell-dev-api. Retry count = 0
+2025-11-07T13:49:16.2273588Z Container spec TerminationMessagePolicy  path 
+2025-11-07T13:49:16.2359040Z Container is terminated. Total time elapsed: 362 ms.
+2025-11-07T13:49:16.2443667Z Site container: mindwell-dev-api terminated during site startup.
+2025-11-07T13:49:16.7702021Z Site startup probe failed after 22.49674 seconds.
+2025-11-07T13:49:17.0401269Z Failed to start site. Revert by stopping site.
+2025-11-07T13:49:17.0697239Z Site: mindwell-dev-api stopped.
+2025-11-07T14:40:13.8263308Z Container start method called.
+2025-11-07T14:40:13.9557907Z Establishing network.
+2025-11-07T14:40:13.9654197Z Pulling image: appsvc/python:3.11_20251017.5.tuxprod.
+2025-11-07T14:40:14.3084241Z Container is starting.
+2025-11-07T14:40:14.3096569Z Establishing user namespace if not established already.
+2025-11-07T14:40:14.3272232Z Establishing network if not established already.
+2025-11-07T14:40:14.3275661Z Mounting volumes.
+2025-11-07T14:40:14.3284385Z Nested mountpoint site/wwwroot
+2025-11-07T14:40:14.3577361Z Nested mountpoint volatile/logs
+2025-11-07T14:40:14.3780598Z Nested mountpoint 
+2025-11-07T14:40:14.4482006Z Nested mountpoint 
+2025-11-07T14:40:14.5986209Z Nested mountpoint 
+2025-11-07T14:40:14.5993977Z Nested mountpoint 
+2025-11-07T14:40:15.8367178Z Creating container.
+2025-11-07T14:40:15.8380783Z Creating pipes for streaming container io.
+2025-11-07T14:40:15.8869292Z Creating stdout named pipe at /podr/container/pipe/3b5ce14598d2_mindwell-dev-api/stdout_9a35b4966c56437585c564fdcf7ccd12.
+2025-11-07T14:40:15.8879349Z Successfully created stdout named pipe at: /podr/container/pipe/3b5ce14598d2_mindwell-dev-api/stdout_9a35b4966c56437585c564fdcf7ccd12.
+2025-11-07T14:40:15.9064139Z Opening named pipe /podr/container/pipe/3b5ce14598d2_mindwell-dev-api/stdout_9a35b4966c56437585c564fdcf7ccd12 for reading in non-blocking mode.
+2025-11-07T14:40:15.9068484Z Successfully opened named pipe: /podr/container/pipe/3b5ce14598d2_mindwell-dev-api/stdout_9a35b4966c56437585c564fdcf7ccd12.
+2025-11-07T14:40:15.9069703Z Successfully removed non-blocking flag from /podr/container/pipe/3b5ce14598d2_mindwell-dev-api/stdout_9a35b4966c56437585c564fdcf7ccd12.
+2025-11-07T14:40:15.9074901Z Creating stderr named pipe at /podr/container/pipe/3b5ce14598d2_mindwell-dev-api/stderr_6a4474d3c00546309644afcd82cb21de.
+2025-11-07T14:40:15.9080975Z Successfully created stderr named pipe at: /podr/container/pipe/3b5ce14598d2_mindwell-dev-api/stderr_6a4474d3c00546309644afcd82cb21de.
+2025-11-07T14:40:15.9081985Z Opening named pipe /podr/container/pipe/3b5ce14598d2_mindwell-dev-api/stderr_6a4474d3c00546309644afcd82cb21de for reading in non-blocking mode.
+2025-11-07T14:40:15.9083538Z Successfully opened named pipe: /podr/container/pipe/3b5ce14598d2_mindwell-dev-api/stderr_6a4474d3c00546309644afcd82cb21de.
+2025-11-07T14:40:15.9084382Z Successfully removed non-blocking flag from /podr/container/pipe/3b5ce14598d2_mindwell-dev-api/stderr_6a4474d3c00546309644afcd82cb21de.
+2025-11-07T14:40:15.9085161Z Creating container with image: appsvc/python:3.11_20251017.5.tuxprod from registry: 10.1.0.4:13209 and fully qualified image name: 10.1.0.4:13209/appsvc/python:3.11_20251017.5.tuxprod
+2025-11-07T14:40:16.7140707Z Starting container: 3b5ce14598d2_mindwell-dev-api.
+2025-11-07T14:40:16.9038137Z Starting watchers and probes.
+2025-11-07T14:40:16.9056513Z Starting metrics collection.
+2025-11-07T14:40:16.9253483Z Container is running.
+2025-11-07T14:40:17.2369075Z Container start method finished after 3409 ms.
+2025-11-07T14:40:48.5288658Z Container has finished running with exit code: 127.
+2025-11-07T14:40:48.5294576Z Container is terminating. Grace period: 5 seconds.
+2025-11-07T14:40:48.5299128Z Stop and delete container. Retry count = 0
+2025-11-07T14:40:48.5301223Z Stopping container: 3b5ce14598d2_mindwell-dev-api.
+2025-11-07T14:40:48.6108983Z Deleting container: 3b5ce14598d2_mindwell-dev-api. Retry count = 0
+2025-11-07T14:40:48.8721149Z Container spec TerminationMessagePolicy  path 
+2025-11-07T14:40:48.8732368Z Container is terminated. Total time elapsed: 343 ms.
+2025-11-07T14:40:48.8747118Z Site container: mindwell-dev-api terminated during site startup.
+2025-11-07T14:40:48.9050039Z Site startup probe failed after 31.5290163 seconds.
+2025-11-07T14:40:49.1080385Z Failed to start site. Revert by stopping site.
+2025-11-07T14:40:49.1149785Z Site: mindwell-dev-api stopped.
+2025-11-07T15:00:41.0860633Z Container start method called.
+2025-11-07T15:00:41.1045385Z Establishing network.
+2025-11-07T15:00:41.1071068Z Pulling image: appsvc/python:3.11_20251017.5.tuxprod.
+2025-11-07T15:00:41.3589841Z Container is starting.
+2025-11-07T15:00:41.3592124Z Establishing user namespace if not established already.
+2025-11-07T15:00:41.3593228Z Establishing network if not established already.
+2025-11-07T15:00:41.3594412Z Mounting volumes.
+2025-11-07T15:00:41.3597103Z Nested mountpoint 
+2025-11-07T15:00:41.3611668Z Nested mountpoint volatile/logs
+2025-11-07T15:00:41.3799188Z Nested mountpoint 
+2025-11-07T15:00:41.3809307Z Nested mountpoint 
+2025-11-07T15:00:41.3895322Z Nested mountpoint 
+2025-11-07T15:00:41.8931663Z Creating container.
+2025-11-07T15:00:41.9233313Z Creating pipes for streaming container io.
+2025-11-07T15:00:41.9246199Z Creating stdout named pipe at /podr/container/pipe/55d5937dbf3a_mindwell-dev-api/stdout_73457ff1fb4f47fabf65209cce6f24c6.
+2025-11-07T15:00:41.9352252Z Successfully created stdout named pipe at: /podr/container/pipe/55d5937dbf3a_mindwell-dev-api/stdout_73457ff1fb4f47fabf65209cce6f24c6.
+2025-11-07T15:00:41.9449233Z Opening named pipe /podr/container/pipe/55d5937dbf3a_mindwell-dev-api/stdout_73457ff1fb4f47fabf65209cce6f24c6 for reading in non-blocking mode.
+2025-11-07T15:00:41.9454200Z Successfully opened named pipe: /podr/container/pipe/55d5937dbf3a_mindwell-dev-api/stdout_73457ff1fb4f47fabf65209cce6f24c6.
+2025-11-07T15:00:41.9525019Z Successfully removed non-blocking flag from /podr/container/pipe/55d5937dbf3a_mindwell-dev-api/stdout_73457ff1fb4f47fabf65209cce6f24c6.
+2025-11-07T15:00:41.9528245Z Creating stderr named pipe at /podr/container/pipe/55d5937dbf3a_mindwell-dev-api/stderr_5dc84e9754eb4450a987a183d8b0e416.
+2025-11-07T15:00:41.9530211Z Successfully created stderr named pipe at: /podr/container/pipe/55d5937dbf3a_mindwell-dev-api/stderr_5dc84e9754eb4450a987a183d8b0e416.
+2025-11-07T15:00:41.9531286Z Opening named pipe /podr/container/pipe/55d5937dbf3a_mindwell-dev-api/stderr_5dc84e9754eb4450a987a183d8b0e416 for reading in non-blocking mode.
+2025-11-07T15:00:41.9532573Z Successfully opened named pipe: /podr/container/pipe/55d5937dbf3a_mindwell-dev-api/stderr_5dc84e9754eb4450a987a183d8b0e416.
+2025-11-07T15:00:41.9533582Z Successfully removed non-blocking flag from /podr/container/pipe/55d5937dbf3a_mindwell-dev-api/stderr_5dc84e9754eb4450a987a183d8b0e416.
+2025-11-07T15:00:41.9534957Z Creating container with image: appsvc/python:3.11_20251017.5.tuxprod from registry: 10.1.0.5:13209 and fully qualified image name: 10.1.0.5:13209/appsvc/python:3.11_20251017.5.tuxprod
+2025-11-07T15:00:42.5971750Z Starting container: 55d5937dbf3a_mindwell-dev-api.
+2025-11-07T15:00:42.6902889Z Starting watchers and probes.
+2025-11-07T15:00:42.7076069Z Starting metrics collection.
+2025-11-07T15:00:42.7080174Z Container is running.
+2025-11-07T15:00:42.8505809Z Container start method finished after 1755 ms.
+2025-11-07T15:01:09.0654834Z Container get mounts received unexpected exception.
+2025-11-07T15:01:09.0662973Z Container get mounts received unexpected exception.
+2025-11-07T15:01:09.0749642Z Container has finished running with exit code: 127.
+2025-11-07T15:01:09.0761060Z Container is terminating. Grace period: 5 seconds.
+2025-11-07T15:01:09.0763979Z Stop and delete container. Retry count = 0
+2025-11-07T15:01:09.0764959Z Stopping container: 55d5937dbf3a_mindwell-dev-api.
+2025-11-07T15:01:09.2754740Z Deleting container: 55d5937dbf3a_mindwell-dev-api. Retry count = 0
+2025-11-07T15:01:09.6491209Z Container spec TerminationMessagePolicy  path 
+2025-11-07T15:01:09.6680570Z Container is terminated. Total time elapsed: 573 ms.
+2025-11-07T15:01:09.6683238Z Site container: mindwell-dev-api terminated during site startup.
+2025-11-07T15:01:09.8094426Z Site startup probe failed after 26.8688568 seconds.
+2025-11-07T15:01:11.0597146Z Failed to start site. Revert by stopping site.
+2025-11-07T15:01:11.0599704Z Site: mindwell-dev-api stopped.
+2025-11-07T15:33:11.2393690Z Container start method called.
+2025-11-07T15:33:11.2577022Z Establishing network.
+2025-11-07T15:33:11.2578644Z Pulling image: appsvc/python:3.11_20251017.5.tuxprod.
+2025-11-07T15:33:12.0426132Z Container is starting.
+2025-11-07T15:33:12.0510656Z Establishing user namespace if not established already.
+2025-11-07T15:33:12.0521730Z Establishing network if not established already.
+2025-11-07T15:33:12.0535423Z Mounting volumes.
+2025-11-07T15:33:12.0613138Z Nested mountpoint 
+2025-11-07T15:33:12.2112281Z Nested mountpoint volatile/logs
+2025-11-07T15:33:12.2239194Z Nested mountpoint 
+2025-11-07T15:33:12.3447036Z Nested mountpoint 
+2025-11-07T15:33:12.3541512Z Nested mountpoint 
+2025-11-07T15:33:12.9079355Z Creating container.
+2025-11-07T15:33:12.9171794Z Creating pipes for streaming container io.
+2025-11-07T15:33:12.9173752Z Creating stdout named pipe at /podr/container/pipe/3831cd997a74_mindwell-dev-api/stdout_67376524fe4e42b191b78e41c3b78634.
+2025-11-07T15:33:12.9260912Z Successfully created stdout named pipe at: /podr/container/pipe/3831cd997a74_mindwell-dev-api/stdout_67376524fe4e42b191b78e41c3b78634.
+2025-11-07T15:33:12.9270718Z Opening named pipe /podr/container/pipe/3831cd997a74_mindwell-dev-api/stdout_67376524fe4e42b191b78e41c3b78634 for reading in non-blocking mode.
+2025-11-07T15:33:12.9279081Z Successfully opened named pipe: /podr/container/pipe/3831cd997a74_mindwell-dev-api/stdout_67376524fe4e42b191b78e41c3b78634.
+2025-11-07T15:33:12.9462233Z Successfully removed non-blocking flag from /podr/container/pipe/3831cd997a74_mindwell-dev-api/stdout_67376524fe4e42b191b78e41c3b78634.
+2025-11-07T15:33:12.9463415Z Creating stderr named pipe at /podr/container/pipe/3831cd997a74_mindwell-dev-api/stderr_672e414a9d9f4f4785ebad0384744356.
+2025-11-07T15:33:12.9464778Z Successfully created stderr named pipe at: /podr/container/pipe/3831cd997a74_mindwell-dev-api/stderr_672e414a9d9f4f4785ebad0384744356.
+2025-11-07T15:33:12.9465557Z Opening named pipe /podr/container/pipe/3831cd997a74_mindwell-dev-api/stderr_672e414a9d9f4f4785ebad0384744356 for reading in non-blocking mode.
+2025-11-07T15:33:12.9466461Z Successfully opened named pipe: /podr/container/pipe/3831cd997a74_mindwell-dev-api/stderr_672e414a9d9f4f4785ebad0384744356.
+2025-11-07T15:33:12.9467166Z Successfully removed non-blocking flag from /podr/container/pipe/3831cd997a74_mindwell-dev-api/stderr_672e414a9d9f4f4785ebad0384744356.
+2025-11-07T15:33:12.9467993Z Creating container with image: appsvc/python:3.11_20251017.5.tuxprod from registry: 10.1.0.5:13209 and fully qualified image name: 10.1.0.5:13209/appsvc/python:3.11_20251017.5.tuxprod
+2025-11-07T15:33:14.0934047Z Starting container: 3831cd997a74_mindwell-dev-api.
+2025-11-07T15:33:14.1735121Z Starting watchers and probes.
+2025-11-07T15:33:14.1744301Z Starting metrics collection.
+2025-11-07T15:33:14.1830146Z Container is running.
+2025-11-07T15:33:15.7391178Z Container start method finished after 4499 ms.
+2025-11-07T15:33:48.4003766Z Container has finished running with exit code: 127.
+2025-11-07T15:33:48.4083174Z Container is terminating. Grace period: 5 seconds.
+2025-11-07T15:33:48.4091576Z Stop and delete container. Retry count = 0
+2025-11-07T15:33:48.4093755Z Stopping container: 3831cd997a74_mindwell-dev-api.
+2025-11-07T15:33:48.5912613Z Deleting container: 3831cd997a74_mindwell-dev-api. Retry count = 0
+2025-11-07T15:33:49.1545666Z Container spec TerminationMessagePolicy  path 
+2025-11-07T15:33:49.1558107Z Container is terminated. Total time elapsed: 747 ms.
+2025-11-07T15:33:49.1659940Z Site container: mindwell-dev-api terminated during site startup.
+2025-11-07T15:33:49.2142156Z Site startup probe failed after 33.2952995 seconds.
+2025-11-07T15:33:49.3977330Z Failed to start site. Revert by stopping site.
+2025-11-07T15:33:49.4086369Z Site: mindwell-dev-api stopped.
+2025-11-07T16:29:02.6993701Z Container start method called.
+2025-11-07T16:29:02.7038975Z Establishing network.
+2025-11-07T16:29:02.7040574Z Pulling image: appsvc/python:3.11_20251017.5.tuxprod.
+2025-11-07T16:29:03.8257778Z Container is starting.
+2025-11-07T16:29:03.8270493Z Establishing user namespace if not established already.
+2025-11-07T16:29:03.8274427Z Establishing network if not established already.
+2025-11-07T16:29:03.8352104Z Mounting volumes.
+2025-11-07T16:29:03.8365794Z Nested mountpoint 
+2025-11-07T16:29:03.9177683Z Nested mountpoint volatile/logs
+2025-11-07T16:29:03.9352599Z Nested mountpoint 
+2025-11-07T16:29:04.0470105Z Nested mountpoint 
+2025-11-07T16:29:04.0765284Z Nested mountpoint 
+2025-11-07T16:29:04.3785574Z Creating container.
+2025-11-07T16:29:04.3796880Z Creating pipes for streaming container io.
+2025-11-07T16:29:04.3972626Z Creating stdout named pipe at /podr/container/pipe/39a89102de84_mindwell-dev-api/stdout_0f696a63d31247dbb8eb946c1dbaa363.
+2025-11-07T16:29:04.3983622Z Successfully created stdout named pipe at: /podr/container/pipe/39a89102de84_mindwell-dev-api/stdout_0f696a63d31247dbb8eb946c1dbaa363.
+2025-11-07T16:29:04.3986666Z Opening named pipe /podr/container/pipe/39a89102de84_mindwell-dev-api/stdout_0f696a63d31247dbb8eb946c1dbaa363 for reading in non-blocking mode.
+2025-11-07T16:29:04.3994785Z Successfully opened named pipe: /podr/container/pipe/39a89102de84_mindwell-dev-api/stdout_0f696a63d31247dbb8eb946c1dbaa363.
+2025-11-07T16:29:04.4083629Z Successfully removed non-blocking flag from /podr/container/pipe/39a89102de84_mindwell-dev-api/stdout_0f696a63d31247dbb8eb946c1dbaa363.
+2025-11-07T16:29:04.4091423Z Creating stderr named pipe at /podr/container/pipe/39a89102de84_mindwell-dev-api/stderr_eb07dec7492e4e3788b1ffb49e335cc6.
+2025-11-07T16:29:04.4100348Z Successfully created stderr named pipe at: /podr/container/pipe/39a89102de84_mindwell-dev-api/stderr_eb07dec7492e4e3788b1ffb49e335cc6.
+2025-11-07T16:29:04.4191075Z Opening named pipe /podr/container/pipe/39a89102de84_mindwell-dev-api/stderr_eb07dec7492e4e3788b1ffb49e335cc6 for reading in non-blocking mode.
+2025-11-07T16:29:04.4201779Z Successfully opened named pipe: /podr/container/pipe/39a89102de84_mindwell-dev-api/stderr_eb07dec7492e4e3788b1ffb49e335cc6.
+2025-11-07T16:29:04.4279550Z Successfully removed non-blocking flag from /podr/container/pipe/39a89102de84_mindwell-dev-api/stderr_eb07dec7492e4e3788b1ffb49e335cc6.
+2025-11-07T16:29:04.4280626Z Creating container with image: appsvc/python:3.11_20251017.5.tuxprod from registry: 10.1.0.4:13209 and fully qualified image name: 10.1.0.4:13209/appsvc/python:3.11_20251017.5.tuxprod
+2025-11-07T16:29:04.9352682Z Starting container: 39a89102de84_mindwell-dev-api.
+2025-11-07T16:29:05.1172105Z Starting watchers and probes.
+2025-11-07T16:29:05.1175115Z Starting metrics collection.
+2025-11-07T16:29:05.1270399Z Container is running.
+2025-11-07T16:29:05.2585940Z Container start method finished after 2559 ms.
+2025-11-07T16:29:37.7881374Z Container has finished running with exit code: 3.
+2025-11-07T16:29:37.7934168Z Container is terminating. Grace period: 5 seconds.
+2025-11-07T16:29:37.7951730Z Stop and delete container. Retry count = 0
+2025-11-07T16:29:37.8031828Z Stopping container: 39a89102de84_mindwell-dev-api.
+2025-11-07T16:29:37.8547351Z Deleting container: 39a89102de84_mindwell-dev-api. Retry count = 0
+2025-11-07T16:29:38.2741240Z Container spec TerminationMessagePolicy  path 
+2025-11-07T16:29:38.2839910Z Container is terminated. Total time elapsed: 489 ms.
+2025-11-07T16:29:38.2851884Z Site container: mindwell-dev-api terminated during site startup.
+2025-11-07T16:29:38.3440077Z Site startup probe failed after 32.8939726 seconds.
+2025-11-07T16:29:38.6172079Z Failed to start site. Revert by stopping site.
+2025-11-07T16:29:38.6296582Z Site: mindwell-dev-api stopped.
+2025-11-07T17:10:56.5297833Z Container start method called.
+2025-11-07T17:10:56.5627605Z Establishing network.
+2025-11-07T17:10:56.5641015Z Pulling image: appsvc/python:3.11_20251017.5.tuxprod.
+2025-11-07T17:10:56.8847969Z Container is starting.
+2025-11-07T17:10:56.9036207Z Establishing user namespace if not established already.
+2025-11-07T17:10:56.9046974Z Establishing network if not established already.
+2025-11-07T17:10:56.9224051Z Mounting volumes.
+2025-11-07T17:10:56.9234742Z Nested mountpoint 
+2025-11-07T17:10:56.9326292Z Nested mountpoint volatile/logs
+2025-11-07T17:10:56.9438493Z Nested mountpoint 
+2025-11-07T17:10:56.9731335Z Nested mountpoint 
+2025-11-07T17:10:57.0744434Z Nested mountpoint 
+2025-11-07T17:10:57.5869541Z Creating container.
+2025-11-07T17:10:57.5881584Z Creating pipes for streaming container io.
+2025-11-07T17:10:57.6078246Z Creating stdout named pipe at /podr/container/pipe/20e11bac331f_mindwell-dev-api/stdout_2c52d598b2444f15847b3a4ed261936b.
+2025-11-07T17:10:57.6265262Z Successfully created stdout named pipe at: /podr/container/pipe/20e11bac331f_mindwell-dev-api/stdout_2c52d598b2444f15847b3a4ed261936b.
+2025-11-07T17:10:57.6269257Z Opening named pipe /podr/container/pipe/20e11bac331f_mindwell-dev-api/stdout_2c52d598b2444f15847b3a4ed261936b for reading in non-blocking mode.
+2025-11-07T17:10:57.6275990Z Successfully opened named pipe: /podr/container/pipe/20e11bac331f_mindwell-dev-api/stdout_2c52d598b2444f15847b3a4ed261936b.
+2025-11-07T17:10:57.6280095Z Successfully removed non-blocking flag from /podr/container/pipe/20e11bac331f_mindwell-dev-api/stdout_2c52d598b2444f15847b3a4ed261936b.
+2025-11-07T17:10:57.6283756Z Creating stderr named pipe at /podr/container/pipe/20e11bac331f_mindwell-dev-api/stderr_da93222c1d434ea8aaa38d6899132f60.
+2025-11-07T17:10:57.6287628Z Successfully created stderr named pipe at: /podr/container/pipe/20e11bac331f_mindwell-dev-api/stderr_da93222c1d434ea8aaa38d6899132f60.
+2025-11-07T17:10:57.6357696Z Opening named pipe /podr/container/pipe/20e11bac331f_mindwell-dev-api/stderr_da93222c1d434ea8aaa38d6899132f60 for reading in non-blocking mode.
+2025-11-07T17:10:57.6368790Z Successfully opened named pipe: /podr/container/pipe/20e11bac331f_mindwell-dev-api/stderr_da93222c1d434ea8aaa38d6899132f60.
+2025-11-07T17:10:57.6384158Z Successfully removed non-blocking flag from /podr/container/pipe/20e11bac331f_mindwell-dev-api/stderr_da93222c1d434ea8aaa38d6899132f60.
+2025-11-07T17:10:57.6654921Z Creating container with image: appsvc/python:3.11_20251017.5.tuxprod from registry: 10.1.0.4:13209 and fully qualified image name: 10.1.0.4:13209/appsvc/python:3.11_20251017.5.tuxprod
+2025-11-07T17:10:58.2530853Z Starting container: 20e11bac331f_mindwell-dev-api.
+2025-11-07T17:10:58.3839648Z Starting watchers and probes.
+2025-11-07T17:10:58.3942400Z Starting metrics collection.
+2025-11-07T17:10:58.3962688Z Container is running.
+2025-11-07T17:10:58.5555400Z Container start method finished after 2025 ms.
+2025-11-07T17:11:33.7140370Z Container has finished running with exit code: 3.
+2025-11-07T17:11:33.7158077Z Container is terminating. Grace period: 5 seconds.
+2025-11-07T17:11:33.7169532Z Stop and delete container. Retry count = 0
+2025-11-07T17:11:33.7250139Z Stopping container: 20e11bac331f_mindwell-dev-api.
+2025-11-07T17:11:33.7768717Z Deleting container: 20e11bac331f_mindwell-dev-api. Retry count = 0
+2025-11-07T17:11:34.1396903Z Container spec TerminationMessagePolicy  path 
+2025-11-07T17:11:34.1478747Z Container is terminated. Total time elapsed: 431 ms.
+2025-11-07T17:11:34.1488559Z Site container: mindwell-dev-api terminated during site startup.
+2025-11-07T17:11:34.1697870Z Site startup probe failed after 35.5240352 seconds.
+2025-11-07T17:11:34.3970163Z Failed to start site. Revert by stopping site.
+2025-11-07T17:11:34.4026308Z Site: mindwell-dev-api stopped.
