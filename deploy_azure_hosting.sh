@@ -25,8 +25,9 @@ BACKEND_PLAN_NAME=""
 BACKEND_PLAN_SKU="B1"
 BACKEND_PYTHON_VERSION="PYTHON|3.11"
 BACKEND_RUN_FROM_PACKAGE=0
-BACKEND_STARTUP_COMMAND='gunicorn -k uvicorn.workers.UvicornWorker --bind=0.0.0.0:$PORT app.main:app'
+BACKEND_STARTUP_COMMAND='bash azure_startup.sh'
 BACKEND_RUN_FROM_PACKAGE_EFFECTIVE=0
+SKIP_KUDU_CLEANUP="${SKIP_KUDU_CLEANUP:-0}"
 
 OAUTH_APP_NAME=""
 OAUTH_PLAN_NAME=""
@@ -72,10 +73,14 @@ Backend:
       --backend-plan-name <name>   App Service plan for backend. Default: asp-<prefix>-<env>-api[<suffix>].
       --backend-plan-sku <sku>     App Service plan SKU. Default: B1.
       --backend-python <stack>     Azure runtime stack (e.g. PYTHON|3.11). Default: PYTHON|3.11.
-      --backend-run-from-package   Enable WEBSITE_RUN_FROM_PACKAGE=1 and bundle site-packages locally.
-                                   Требует совпадения версии python3 с указанной в --backend-python.
-      --backend-startup-command    Custom startup command passed to App Service. Default: gunicorn -k
-                                   uvicorn.workers.UvicornWorker --bind=0.0.0.0:$PORT app.main:app.
+      --backend-run-from-package   Принудительно включает WEBSITE_RUN_FROM_PACKAGE=1 и собирает
+                                   зависимости локально. По умолчанию скрипт автоматически
+                                   переключится на этот режим, если Oryx build завершится с
+                                   ошибкой. Зависимости упаковываются с использованием локального
+                                   Python или Docker-образа mcr.microsoft.com/oryx/python:<версия>.
+      --backend-startup-command    Custom startup command passed to App Service. Default: bash
+                                   azure_startup.sh (wraps gunicorn and экспортирует PYTHONPATH для
+                                   .python_packages).
 
 oauth2-proxy:
       --oauth-app-name <name>      Azure WebApp (oauth2-proxy) name. Default: <prefix>-<env>-oauth[<suffix>].
@@ -217,6 +222,167 @@ BackendSettingsVisitor().visit(tree)
 for alias in sorted(aliases):
     print(alias)
 PY
+}
+
+run_kudu_command() {
+  local command="$1"
+  local profile kudu_user kudu_pass payload response
+
+  profile="$(az webapp deployment list-publishing-profiles \
+    --name "$BACKEND_APP_NAME" \
+    --resource-group "$RESOURCE_GROUP" \
+    --query "[?publishMethod=='MSDeploy']|[0].{user:userName,password:userPWD}" \
+    -o tsv 2>/dev/null || true)"
+
+  [[ -z "$profile" ]] && return 1
+  IFS=$'\t' read -r kudu_user kudu_pass <<<"$profile"
+  [[ -z "$kudu_user" || -z "$kudu_pass" ]] && return 1
+
+  payload="$(python3 - "$command" <<'PY'
+import json
+import sys
+
+print(json.dumps({"command": sys.argv[1]}))
+PY
+)" || return 1
+
+  response="$(curl -sS --fail \
+    -u "$kudu_user:$kudu_pass" \
+    -H "Content-Type: application/json" \
+    -d "$payload" \
+    "https://${BACKEND_APP_NAME}.scm.azurewebsites.net/api/command" 2>/dev/null)" || return 1
+
+  [[ "$response" == *'"ExitCode":0'* ]]
+}
+
+cleanup_remote_python_artifacts() {
+  local cleanup_cmd="rm -rf /home/site/wwwroot/.python_packages /home/site/wwwroot/antenv /home/site/wwwroot/output.tar.gz"
+  run_kudu_command "$cleanup_cmd"
+}
+
+install_backend_dependencies() {
+  local stage_dir="$1"
+  local requirements_file="$2"
+  local requested_version="$3"
+
+  local site_packages_dir="$stage_dir/.python_packages/lib/site-packages"
+  local used_docker=0
+  rm -rf "$stage_dir/.python_packages"
+  mkdir -p "$site_packages_dir"
+
+  local pip_log="$stage_dir/.pip_install.log"
+  rm -f "$pip_log"
+
+  local local_python_version=""
+  local_python_version="$(python3 - <<'PY'
+import sys
+print(f"{sys.version_info.major}.{sys.version_info.minor}", end="")
+PY
+)"
+
+  local requirements_basename
+  requirements_basename="$(basename "$requirements_file")"
+
+  if [[ -n "$requested_version" && "$requested_version" != "$local_python_version" ]]; then
+    if command -v docker >/dev/null 2>&1; then
+      log "Локальный Python ${local_python_version:-unknown} не совпадает с $requested_version. Устанавливаем зависимости внутри контейнера Docker."
+      if docker run --rm \
+        --user "$(id -u):$(id -g)" \
+        -v "${stage_dir}:/workspace" \
+        -w /workspace \
+        -e REQ_FILE="$requirements_basename" \
+        -e PY_VERSION="$requested_version" \
+        "mcr.microsoft.com/oryx/python:${requested_version}" \
+        bash -lc 'set -euo pipefail
+PYTHON_BIN="python3"
+if [[ -n "${PY_VERSION:-}" && -x "/opt/python/${PY_VERSION}/bin/python3" ]]; then
+  PYTHON_BIN="/opt/python/${PY_VERSION}/bin/python3"
+elif [[ -x "/opt/python/3/bin/python3" ]]; then
+  PYTHON_BIN="/opt/python/3/bin/python3"
+fi
+if ! "$PYTHON_BIN" -m pip --version >/dev/null 2>&1; then
+  "$PYTHON_BIN" -m ensurepip --upgrade >/dev/null 2>&1 || "$PYTHON_BIN" -m ensurepip >/dev/null 2>&1
+fi
+"$PYTHON_BIN" -m pip install --disable-pip-version-check --no-cache-dir --target .python_packages/lib/site-packages -r "$REQ_FILE"' \
+        >"$pip_log" 2>&1; then
+        used_docker=1
+        if ! chmod -R u+rwX "$stage_dir/.python_packages" >/dev/null 2>&1; then
+          log "Warning: chmod не смог обновить права в .python_packages после docker install (продолжаем, т.к. файлы принадлежат $(id -un))."
+        fi
+      else
+        log "Установка зависимостей в Docker завершилась с ошибкой. Последние строки журнала:"
+        tail -n 50 "$pip_log" || true
+        cp "$pip_log" "$REPO_ROOT/backend_pip_install_failed.log" >/dev/null 2>&1 || true
+        fail "pip install внутри Docker завершился неуспешно (лог сохранён в backend_pip_install_failed.log)."
+      fi
+    else
+      fail "Run-From-Package требует Python $requested_version. Установите соответствующую версию локально или Docker, чтобы упаковать зависимости."
+    fi
+  else
+    log "Installing backend dependencies locally (python $local_python_version)..."
+    if python3 -m pip install \
+      --disable-pip-version-check \
+      --no-cache-dir \
+      --target "$site_packages_dir" \
+      -r "$requirements_file" \
+      >"$pip_log" 2>&1; then
+      :
+    else
+      log "pip install на локальной машине завершился с ошибкой. Последние строки журнала:"
+      tail -n 50 "$pip_log" || true
+      cp "$pip_log" "$REPO_ROOT/backend_pip_install_failed.log" >/dev/null 2>&1 || true
+      fail "pip install локально завершился неуспешно (лог сохранён в backend_pip_install_failed.log)."
+    fi
+  fi
+
+  rm -f "$pip_log"
+
+  local validation_script="$stage_dir/.validate_imports.py"
+  cat >"$validation_script" <<'PY'
+import importlib
+import sys
+
+modules = ("uvicorn", "pydantic_core")
+
+for module in modules:
+    try:
+        importlib.import_module(module)
+    except Exception as exc:  # pragma: no cover
+        sys.stderr.write(f"Не удалось импортировать модуль {module} внутри упакованного окружения: {exc}\n")
+        raise
+PY
+
+  log "Validating uvicorn/pydantic_core availability inside staged site-packages..."
+
+  local validation_ok=0
+  if [[ "$used_docker" -eq 1 ]]; then
+    if docker run --rm \
+      --user "$(id -u):$(id -g)" \
+      -v "${stage_dir}:/workspace" \
+      -w /workspace \
+      -e PY_VERSION="$requested_version" \
+      "mcr.microsoft.com/oryx/python:${requested_version}" \
+      bash -lc 'set -euo pipefail
+PYTHON_BIN="python3"
+if [[ -n "${PY_VERSION:-}" && -x "/opt/python/${PY_VERSION}/bin/python3" ]]; then
+  PYTHON_BIN="/opt/python/${PY_VERSION}/bin/python3"
+elif [[ -x "/opt/python/3/bin/python3" ]]; then
+  PYTHON_BIN="/opt/python/3/bin/python3"
+fi
+PYTHONPATH="/workspace:/workspace/.python_packages/lib/site-packages" "$PYTHON_BIN" /workspace/.validate_imports.py' >/dev/null; then
+      validation_ok=1
+    fi
+  else
+    if PYTHONPATH="${stage_dir}:${site_packages_dir}" python3 "$validation_script" >/dev/null; then
+      validation_ok=1
+    fi
+  fi
+
+  rm -f "$validation_script"
+
+  if [[ "$validation_ok" -ne 1 ]]; then
+    fail "Не удалось проверить установленные модули внутри упакованного окружения."
+  fi
 }
 
 ###########################################
@@ -401,15 +567,22 @@ if ! az webapp show --name "$BACKEND_APP_NAME" --resource-group "$RESOURCE_GROUP
     --runtime "$BACKEND_PYTHON_VERSION" >/dev/null
 fi
 
-BACKEND_RUN_FROM_PACKAGE_EFFECTIVE="$BACKEND_RUN_FROM_PACKAGE"
 existing_run_from_mode="$(az webapp config appsettings list \
   --name "$BACKEND_APP_NAME" \
   --resource-group "$RESOURCE_GROUP" \
   --query "[?name=='WEBSITE_RUN_FROM_PACKAGE' || name=='WEBSITE_RUN_FROM_ZIP'].value" \
   -o tsv || true)"
-if [[ -n "${existing_run_from_mode//[[:space:]]/}" && "$BACKEND_RUN_FROM_PACKAGE_EFFECTIVE" -eq 0 ]]; then
-  log "Azure уже содержит WEBSITE_RUN_FROM_PACKAGE/ZIP. Переключаем backend в режим локальной упаковки зависимостей."
-  BACKEND_RUN_FROM_PACKAGE_EFFECTIVE=1
+trimmed_existing="${existing_run_from_mode//[[:space:]]/}"
+if [[ -n "$trimmed_existing" ]]; then
+  if [[ "$BACKEND_RUN_FROM_PACKAGE" -eq 1 ]]; then
+    log "Azure уже содержит WEBSITE_RUN_FROM_PACKAGE/ZIP. Сохраняем Run-From-Package (запрошено явно)."
+    BACKEND_RUN_FROM_PACKAGE_EFFECTIVE=1
+  else
+    log "Azure уже содержит WEBSITE_RUN_FROM_PACKAGE/ZIP, но флаг --backend-run-from-package не задан. Сбрасываем эти настройки, чтобы позволить Oryx собрать зависимости (для сохранения режима передайте --backend-run-from-package)."
+    BACKEND_RUN_FROM_PACKAGE_EFFECTIVE=0
+  fi
+else
+  BACKEND_RUN_FROM_PACKAGE_EFFECTIVE="$BACKEND_RUN_FROM_PACKAGE"
 fi
 
 log "Ensuring backend startup command: $BACKEND_STARTUP_COMMAND"
@@ -450,6 +623,10 @@ rsync -a --delete \
   --exclude '.mypy_cache' \
   --exclude 'build' \
   "$BACKEND_DIR/" "$BACKEND_STAGE/"
+
+if [[ -f "$BACKEND_STAGE/azure_startup.sh" ]]; then
+  chmod +x "$BACKEND_STAGE/azure_startup.sh"
+fi
 
 BACKEND_REQ_FILE="$BACKEND_STAGE/requirements.txt"
 python3 - <<'PY' "$BACKEND_DIR/pyproject.toml" "$BACKEND_REQ_FILE"
@@ -492,63 +669,10 @@ log "Generated backend requirements.txt for Azure build pipeline."
 backend_python_stack="${BACKEND_PYTHON_VERSION#PYTHON|}"
 [[ "$backend_python_stack" == "$BACKEND_PYTHON_VERSION" ]] && backend_python_stack=""
 
-if [[ "$BACKEND_RUN_FROM_PACKAGE_EFFECTIVE" -eq 1 ]]; then
-  if [[ -n "$backend_python_stack" ]]; then
-    local_python_version="$(python3 - <<'PY'
-import sys
-print(f"{sys.version_info.major}.{sys.version_info.minor}", end="")
-PY
-)"
-    if [[ "$local_python_version" != "$backend_python_stack" ]]; then
-      fail "Run-From-Package требует python3 версии $backend_python_stack, но локально используется $local_python_version. Установите корректную версию Python перед развёртыванием."
-    fi
-  fi
-
-  log "Installing backend dependencies into .python_packages (Run-From-Package mode)..."
-  BACKEND_SITE_PACKAGES="$BACKEND_STAGE/.python_packages/lib/site-packages"
-  mkdir -p "$BACKEND_SITE_PACKAGES"
-  python3 -m pip install \
-    --disable-pip-version-check \
-    --no-cache-dir \
-    --target "$BACKEND_SITE_PACKAGES" \
-    -r "$BACKEND_REQ_FILE" \
-    >/dev/null
-
-  log "Validating uvicorn availability inside staged site-packages..."
-  PYTHONPATH="${BACKEND_STAGE}:${BACKEND_STAGE}/.python_packages/lib/site-packages" \
-    python3 - <<'PY' >/dev/null
-import importlib
-import sys
-
-try:
-    importlib.import_module("uvicorn")
-except ModuleNotFoundError as exc:  # pragma: no cover - defensive
-    sys.stderr.write("Missing uvicorn inside packaged environment: %s\n" % exc)
-    raise
-PY
-else
-  log "Run-From-Package отключён: зависимости будут устанавливаться Oryx во время ZipDeploy."
-fi
-
 BACKEND_PACKAGE="$WORK_ROOT/backend.zip"
-(
-  cd "$BACKEND_STAGE"
-  zip -qr "$BACKEND_PACKAGE" .
-)
-
 BACKEND_PACKAGE_SRC="$(convert_path_for_az "$BACKEND_PACKAGE")"
 
-BACKEND_SETTINGS=(
-  "SCM_DO_BUILD_DURING_DEPLOYMENT=true"
-  "ENABLE_ORYX_BUILD=true"
-)
-
-if [[ "$BACKEND_RUN_FROM_PACKAGE_EFFECTIVE" -eq 1 ]]; then
-  BACKEND_SETTINGS+=("WEBSITE_RUN_FROM_PACKAGE=1")
-  BACKEND_SETTINGS+=("PYTHONPATH=/home/site/wwwroot:/home/site/wwwroot/.python_packages/lib/site-packages")
-else
-  log "WEBSITE_RUN_FROM_PACKAGE не устанавливается: Azure развернёт код и выполнит сборку на стороне сервиса."
-fi
+BACKEND_ENV_SETTINGS=()
 
 log "Collecting backend environment keys from '$BACKEND_CONFIG_FILE'..."
 backend_env_keys_auto=()
@@ -588,7 +712,7 @@ if [[ ${#combined_backend_env_keys[@]} -gt 0 ]]; then
   applied_backend_settings=0
   for key in "${unique_backend_keys[@]}"; do
     if value="$(printenv "$key")"; then
-      BACKEND_SETTINGS+=("$key=$value")
+      BACKEND_ENV_SETTINGS+=("$key=$value")
       applied_backend_settings=$((applied_backend_settings + 1))
       continue
     fi
@@ -613,35 +737,105 @@ else
   log "No backend environment keys detected; only default backend settings will be applied."
 fi
 
-az webapp config appsettings set \
-  --name "$BACKEND_APP_NAME" \
-  --resource-group "$RESOURCE_GROUP" \
-  --settings "${BACKEND_SETTINGS[@]}" \
-  >/dev/null
-
-log "Ожидаем применения настроек Azure (10s)..."
-sleep 10
-
-log "Deploying backend package to App Service..."
 if [[ "$BACKEND_RUN_FROM_PACKAGE_EFFECTIVE" -eq 1 ]]; then
-  log "Используем ZipDeploy (Run-From-Package включает .python_packages)."
-  az webapp deployment source config-zip \
-    --name "$BACKEND_APP_NAME" \
-    --resource-group "$RESOURCE_GROUP" \
-    --src "$BACKEND_PACKAGE_SRC" \
-    >/dev/null
+  log "Run-From-Package включён: зависимости будут запакованы локально."
 else
-  log "Используем az webapp deploy для вызова Oryx build."
-  az webapp deploy \
+  log "Run-From-Package отключён: зависимости будут устанавливаться Oryx во время ZipDeploy."
+fi
+
+if [[ "$SKIP_KUDU_CLEANUP" -eq 1 ]]; then
+  log "Пропускаем очистку .python_packages/antenv в Azure (SKIP_KUDU_CLEANUP=1). Убедитесь, что каталоги удалены вручную."
+else
+  log "Очищаем остатки Python окружения в Azure (через Kudu)..."
+  if cleanup_remote_python_artifacts; then
+    log "Удалены предыдущие каталоги .python_packages/antenv/output.tar.gz на сервере."
+  else
+    fail "Не удалось очистить удалённые зависимости через Kudu (rm -rf .python_packages/antenv/output.tar.gz). Повторите попытку после ручной очистки через Kudu/SSH или установите SKIP_KUDU_CLEANUP=1, если очистка уже проведена."
+  fi
+fi
+
+deploy_attempt=1
+current_backend_mode="$BACKEND_RUN_FROM_PACKAGE_EFFECTIVE"
+backend_deps_installed=0
+
+while :; do
+  log "Deploying backend package (attempt $deploy_attempt, run_from_package=$current_backend_mode)..."
+
+  if [[ "$current_backend_mode" -eq 1 && "$backend_deps_installed" -eq 0 ]]; then
+    log "Installing backend dependencies into .python_packages (Run-From-Package mode)..."
+    install_backend_dependencies "$BACKEND_STAGE" "$BACKEND_REQ_FILE" "$backend_python_stack"
+    backend_deps_installed=1
+  fi
+
+  rm -f "$BACKEND_PACKAGE"
+  (
+    cd "$BACKEND_STAGE"
+    zip -qr "$BACKEND_PACKAGE" .
+  )
+
+  backend_control_settings=()
+  if [[ "$current_backend_mode" -eq 1 ]]; then
+    backend_control_settings+=(
+      "SCM_DO_BUILD_DURING_DEPLOYMENT=false"
+      "ENABLE_ORYX_BUILD=false"
+      "WEBSITE_RUN_FROM_PACKAGE=1"
+      "PYTHONPATH=/home/site/wwwroot:/home/site/wwwroot/.python_packages/lib/site-packages"
+    )
+  else
+    backend_control_settings+=(
+      "SCM_DO_BUILD_DURING_DEPLOYMENT=true"
+      "ENABLE_ORYX_BUILD=true"
+    )
+  fi
+  current_backend_settings=("${backend_control_settings[@]}" "${BACKEND_ENV_SETTINGS[@]}")
+
+  az webapp config appsettings set \
     --name "$BACKEND_APP_NAME" \
     --resource-group "$RESOURCE_GROUP" \
-    --src-path "$BACKEND_PACKAGE_SRC" \
-    --type zip \
-    --clean true \
-    --track-status true \
-    --restart true \
+    --settings "${current_backend_settings[@]}" \
     >/dev/null
-fi
+
+  log "Ожидаем применения настроек Azure (10s)..."
+  sleep 10
+
+  if [[ "$current_backend_mode" -eq 1 ]]; then
+    log "Используем ZipDeploy (Run-From-Package включает .python_packages)."
+    if az webapp deployment source config-zip \
+      --name "$BACKEND_APP_NAME" \
+      --resource-group "$RESOURCE_GROUP" \
+      --src "$BACKEND_PACKAGE_SRC" \
+      >/dev/null; then
+      BACKEND_RUN_FROM_PACKAGE_EFFECTIVE=1
+      break
+    fi
+  else
+    log "Используем az webapp deploy для вызова Oryx build."
+    if az webapp deploy \
+      --name "$BACKEND_APP_NAME" \
+      --resource-group "$RESOURCE_GROUP" \
+      --src-path "$BACKEND_PACKAGE_SRC" \
+      --type zip \
+      --clean true \
+      --track-status true \
+      --restart true \
+      >/dev/null; then
+      break
+    fi
+  fi
+
+  if [[ "$current_backend_mode" -eq 0 ]]; then
+    log "Oryx deploy завершился с ошибкой, переключаемся на Run-From-Package и повторяем..."
+    current_backend_mode=1
+    BACKEND_RUN_FROM_PACKAGE_EFFECTIVE=1
+    backend_deps_installed=0
+    ((deploy_attempt++))
+    continue
+  fi
+
+  fail "Backend deployment failed даже в Run-From-Package режиме. Проверьте логи Kudu/ZipDeploy."
+done
+
+log "Backend package deployed successfully."
 
 BACKEND_HOSTNAME="https://${BACKEND_APP_NAME}.azurewebsites.net"
 
