@@ -19,6 +19,8 @@ NAME_SUFFIX=""
 FRONTEND_APP_NAME=""
 FRONTEND_API_URL=""
 FRONTEND_SWA_SKU="Free"
+SWA_DEPLOY_PACKAGE="${SWA_DEPLOY_PACKAGE:-@azure/static-web-apps-cli@1.1.7}"
+SWA_DEPLOY_ENVIRONMENT="${SWA_DEPLOY_ENVIRONMENT:-production}"
 
 BACKEND_APP_NAME=""
 BACKEND_PLAN_NAME=""
@@ -527,6 +529,7 @@ BACKEND_CONFIG_FILE="$REPO_ROOT/$BACKEND_CONFIG_RELATIVE"
 
 ensure_command az
 ensure_command npm
+ensure_command npx
 ensure_command python3
 ensure_command zip
 ensure_command curl
@@ -978,32 +981,15 @@ FRONTEND_DEFAULT_HOSTNAME="$(az staticwebapp show --name "$FRONTEND_APP_NAME" --
 [[ -z "$FRONTEND_DEFAULT_HOSTNAME" ]] && fail "Failed to determine Static Web App hostname."
 FRONTEND_BASE_URL="https://${FRONTEND_DEFAULT_HOSTNAME}"
 
-FRONTEND_PACKAGE="$WORK_ROOT/frontend.zip"
-(
-  cd "$DIST_DIR"
-  zip -qr "$FRONTEND_PACKAGE" .
-)
-
-deploy_static_app() {
-  local deploy_url="$1"
-  local status output
-  output="$WORK_ROOT/swa_deploy_response.json"
-  status=$(curl -sS -w "%{http_code}" -o "$output" \
-    -X POST \
-    -H "Content-Type: application/zip" \
-    --data-binary @"$FRONTEND_PACKAGE" \
-    "$deploy_url")
-  echo "$status"
-}
-
-log "Uploading frontend package to Static Web App..."
-STATUS_CODE="$(deploy_static_app "${FRONTEND_BASE_URL}/api/deployments?code=${DEPLOYMENT_TOKEN}")"
-if [[ "$STATUS_CODE" != "200" && "$STATUS_CODE" != "202" ]]; then
-  log "Primary deployment endpoint returned HTTP $STATUS_CODE, retrying legacy zipdeploy..."
-  STATUS_CODE="$(deploy_static_app "${FRONTEND_BASE_URL}/api/zipdeploy?code=${DEPLOYMENT_TOKEN}")"
-  if [[ "$STATUS_CODE" != "200" && "$STATUS_CODE" != "202" ]]; then
-    fail "Failed to deploy frontend (HTTP $STATUS_CODE). Inspect '$WORK_ROOT/swa_deploy_response.json' for details."
-  fi
+log "Uploading frontend package to Static Web App via swa deploy (${SWA_DEPLOY_PACKAGE}, env=${SWA_DEPLOY_ENVIRONMENT})..."
+SWA_DEPLOY_LOG="$WORK_ROOT/swa_deploy.log"
+set +e
+SWA_CLI_DEPLOYMENT_TOKEN="$DEPLOYMENT_TOKEN" npx --yes "$SWA_DEPLOY_PACKAGE" deploy "$DIST_DIR" --env "$SWA_DEPLOY_ENVIRONMENT" 2>&1 | tee "$SWA_DEPLOY_LOG"
+SWA_DEPLOY_EXIT=${PIPESTATUS[0]}
+set -e
+if [[ "$SWA_DEPLOY_EXIT" -ne 0 ]]; then
+  log "Static Web App deployment failed. Inspect '$SWA_DEPLOY_LOG' for details."
+  fail "Failed to deploy frontend via swa deploy (exit code $SWA_DEPLOY_EXIT)."
 fi
 
 FRONTEND_HOSTNAME="$FRONTEND_BASE_URL"
