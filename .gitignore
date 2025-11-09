@@ -2,3 +2,7 @@ services/backend/.venv
 services/backend/mindwell_backend.egg-info
 backend_logs*
 LogFiles
+.venv
+backend_*
+output_remote.tar.gz
+tmp/

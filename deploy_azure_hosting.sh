@@ -27,9 +27,10 @@ BACKEND_PLAN_NAME=""
 BACKEND_PLAN_SKU="B1"
 BACKEND_PYTHON_VERSION="PYTHON|3.11"
 BACKEND_RUN_FROM_PACKAGE=0
-BACKEND_STARTUP_COMMAND='bash //home/site/wwwroot/azure_startup.sh'
+BACKEND_STARTUP_COMMAND='bash -lc "APP_DIR=\"\${APP_PATH:-/home/site/wwwroot}\"; if [[ ! -f \"\$APP_DIR/azure_startup.sh\" ]]; then if [[ -f /home/site/wwwroot/output.tar.gz ]]; then APP_DIR=\"\$(mktemp -d /tmp/mindwell-app-XXXXXX)\"; tar -xzf /home/site/wwwroot/output.tar.gz -C \"\$APP_DIR\"; else echo \"azure_startup.sh не найден в \${APP_DIR}, а /home/site/wwwroot/output.tar.gz отсутствует\" >&2; ls -al \"\$APP_DIR\" >&2 || true; exit 1; fi; fi; cd \"\$APP_DIR\"; exec ./azure_startup.sh"'
 BACKEND_RUN_FROM_PACKAGE_EFFECTIVE=0
 SKIP_KUDU_CLEANUP="${SKIP_KUDU_CLEANUP:-0}"
+KUDU_PROFILE_CACHE=""
 
 OAUTH_APP_NAME=""
 OAUTH_PLAN_NAME=""
@@ -80,9 +81,12 @@ Backend:
                                    переключится на этот режим, если Oryx build завершится с
                                    ошибкой. Зависимости упаковываются с использованием локального
                                    Python или Docker-образа mcr.microsoft.com/oryx/python:<версия>.
-      --backend-startup-command    Custom startup command passed to App Service. Default: bash
-                                   //home/site/wwwroot/azure_startup.sh (wraps gunicorn и добавляет
-                                   .python_packages в PYTHONPATH).
+      --backend-startup-command    Custom startup command passed to App Service. По умолчанию
+                                   используется `bash -lc "<команда без set -euo>"`, которая при необходимости
+                                   распаковывает /home/site/wwwroot/output.tar.gz во временный
+                                   каталог, затем запускает azure_startup.sh (подготавливает
+                                   PYTHONPATH и стартует gunicorn). Всё содержимое хранится в одной
+                                   строке, чтобы Oryx корректно передал startup-команду.
 
 oauth2-proxy:
       --oauth-app-name <name>      Azure WebApp (oauth2-proxy) name. Default: <prefix>-<env>-oauth[<suffix>].
@@ -226,17 +230,27 @@ for alias in sorted(aliases):
 PY
 }
 
+get_kudu_credentials() {
+  local profile
+  if [[ -z "$KUDU_PROFILE_CACHE" ]]; then
+    KUDU_PROFILE_CACHE="$(az webapp deployment list-publishing-profiles \
+      --name "$BACKEND_APP_NAME" \
+      --resource-group "$RESOURCE_GROUP" \
+      --query "[?publishMethod=='MSDeploy']|[0].{user:userName,password:userPWD}" \
+      -o tsv 2>/dev/null || true)"
+  fi
+  profile="$KUDU_PROFILE_CACHE"
+  [[ -z "$profile" ]] && return 1
+  printf '%s' "$profile"
+}
+
 run_kudu_command() {
   local command="$1"
   local profile kudu_user kudu_pass payload response
 
-  profile="$(az webapp deployment list-publishing-profiles \
-    --name "$BACKEND_APP_NAME" \
-    --resource-group "$RESOURCE_GROUP" \
-    --query "[?publishMethod=='MSDeploy']|[0].{user:userName,password:userPWD}" \
-    -o tsv 2>/dev/null || true)"
-
-  [[ -z "$profile" ]] && return 1
+  if ! profile="$(get_kudu_credentials)"; then
+    return 1
+  fi
   IFS=$'\t' read -r kudu_user kudu_pass <<<"$profile"
   [[ -z "$kudu_user" || -z "$kudu_pass" ]] && return 1
 
@@ -255,6 +269,205 @@ PY
     "https://${BACKEND_APP_NAME}.scm.azurewebsites.net/api/command" 2>/dev/null)" || return 1
 
   [[ "$response" == *'"ExitCode":0'* ]]
+}
+
+kudu_api_get() {
+  local endpoint="$1"
+  local profile kudu_user kudu_pass
+
+  if ! profile="$(get_kudu_credentials)"; then
+    return 1
+  fi
+
+  IFS=$'\t' read -r kudu_user kudu_pass <<<"$profile"
+  [[ -z "$kudu_user" || -z "$kudu_pass" ]] && return 1
+
+  curl -sS --fail \
+    -u "$kudu_user:$kudu_pass" \
+    "https://${BACKEND_APP_NAME}.scm.azurewebsites.net${endpoint}" \
+    2>/dev/null
+}
+
+kudu_deployment_succeeded_since() {
+  local since_epoch="$1"
+  local payload
+  [[ -z "$since_epoch" ]] && return 1
+
+  if ! payload="$(kudu_api_get "/api/deployments/latest")"; then
+    return 1
+  fi
+
+  if KUDU_DEPLOYMENT_JSON="$payload" python3 - "$since_epoch" <<'PY'; then
+import json
+import os
+import sys
+from datetime import datetime, timezone
+
+since_epoch = float(sys.argv[1])
+payload = os.environ.get("KUDU_DEPLOYMENT_JSON", "")
+if not payload:
+    raise SystemExit(1)
+
+data = json.loads(payload)
+status_text = str(data.get("status_text") or data.get("statusText") or "").lower()
+status_code = str(data.get("status") or "").lower()
+if status_text != "success" and status_code not in {"4", "success"}:
+    raise SystemExit(1)
+
+def parse_timestamp(value):
+    if not value:
+        return None
+    value = value.strip()
+    if value.endswith("Z"):
+        value = value[:-1] + "+00:00"
+    t_pos = value.find("T")
+    tz_sep = -1
+    for idx in range(len(value) - 1, t_pos, -1):
+        if value[idx] in "+-":
+            tz_sep = idx
+            break
+    if tz_sep == -1:
+        base = value
+        tz = "+00:00"
+    else:
+        base = value[:tz_sep]
+        tz = value[tz_sep:]
+    if "." in base:
+        main, frac = base.split(".", 1)
+        frac_digits = "".join(ch for ch in frac if ch.isdigit())
+        frac_digits = (frac_digits + "000000")[:6]
+        base = f"{main}.{frac_digits}" if frac_digits else main
+    ts = base + tz
+    try:
+        return datetime.fromisoformat(ts)
+    except ValueError:
+        return None
+
+end_time = parse_timestamp(
+    data.get("end_time")
+    or data.get("endTime")
+    or data.get("last_success_end_time")
+    or data.get("lastSuccessEndTime")
+)
+received_time = parse_timestamp(data.get("received_time") or data.get("receivedTime"))
+
+if received_time and received_time.timestamp() + 5 < since_epoch:
+    raise SystemExit(1)
+
+if end_time and end_time.timestamp() >= since_epoch:
+    raise SystemExit(0)
+
+raise SystemExit(1)
+PY
+    return 0
+  fi
+  return 1
+}
+
+kudu_deployment_failed_since() {
+  local since_epoch="$1"
+  local payload
+  [[ -z "$since_epoch" ]] && return 1
+
+  if ! payload="$(kudu_api_get "/api/deployments/latest")"; then
+    return 1
+  fi
+
+  if KUDU_DEPLOYMENT_JSON="$payload" python3 - "$since_epoch" <<'PY'; then
+import json
+import os
+import sys
+from datetime import datetime
+
+since_epoch = float(sys.argv[1])
+payload = os.environ.get("KUDU_DEPLOYMENT_JSON", "")
+if not payload:
+    raise SystemExit(1)
+
+data = json.loads(payload)
+status_text = str(data.get("status_text") or data.get("statusText") or "").lower()
+status_code = str(data.get("status") or "").lower()
+failed = status_text in {"failed", "fail", "error"} or status_code in {"3", "failed", "error"}
+if not failed:
+    raise SystemExit(1)
+
+def parse_timestamp(value):
+    if not value:
+        return None
+    value = value.strip()
+    if value.endswith("Z"):
+        value = value[:-1] + "+00:00"
+    t_pos = value.find("T")
+    tz_sep = -1
+    for idx in range(len(value) - 1, t_pos, -1):
+        if value[idx] in "+-":
+            tz_sep = idx
+            break
+    if tz_sep == -1:
+        base = value
+        tz = "+00:00"
+    else:
+        base = value[:tz_sep]
+        tz = value[tz_sep:]
+    if "." in base:
+        main, frac = base.split(".", 1)
+        frac_digits = "".join(ch for ch in frac if ch.isdigit())
+        frac_digits = (frac_digits + "000000")[:6]
+        base = f"{main}.{frac_digits}" if frac_digits else main
+    ts = base + tz
+    try:
+        return datetime.fromisoformat(ts)
+    except ValueError:
+        return None
+
+end_time = parse_timestamp(
+    data.get("end_time")
+    or data.get("endTime")
+    or data.get("complete_time")
+    or data.get("completeTime")
+)
+received_time = parse_timestamp(data.get("received_time") or data.get("receivedTime"))
+
+if received_time and received_time.timestamp() + 5 < since_epoch:
+    raise SystemExit(1)
+
+if end_time and end_time.timestamp() >= since_epoch:
+    raise SystemExit(0)
+
+raise SystemExit(1)
+PY
+    return 0
+  fi
+  return 1
+}
+
+wait_for_kudu_deployment() {
+  local since_epoch="$1"
+  local timeout="${2:-600}"
+  local interval="${3:-10}"
+  local start_time deadline now
+
+  [[ -z "$since_epoch" ]] && return 2
+
+  start_time="$(date +%s)"
+  deadline=$((start_time + timeout))
+
+  while :; do
+    now="$(date +%s)"
+    if (( now > deadline )); then
+      log "Kudu OneDeploy не завершился за ${timeout}s ожидания."
+      return 2
+    fi
+    if kudu_deployment_succeeded_since "$since_epoch"; then
+      log "Kudu OneDeploy завершился успешно через $((now - start_time))s."
+      return 0
+    fi
+    if kudu_deployment_failed_since "$since_epoch"; then
+      log "Kudu OneDeploy сообщил об ошибке через $((now - start_time))s."
+      return 1
+    fi
+    sleep "$interval"
+  done
 }
 
 cleanup_remote_python_artifacts() {
@@ -376,6 +589,44 @@ fi
   fi
 
   rm -f "$pip_log"
+
+  local enforce_crypto_spec="cryptography>=41,<42"
+  log "Ensuring $enforce_crypto_spec installed inside packaged site-packages..."
+  if [[ "$used_docker" -eq 1 ]]; then
+    if docker run --rm \
+      --user "$(id -u):$(id -g)" \
+      -v "${stage_dir}:/workspace" \
+      -w /workspace \
+      -e PY_VERSION="$requested_version" \
+      -e ENFORCE_SPEC="$enforce_crypto_spec" \
+      "mcr.microsoft.com/oryx/python:${requested_version}" \
+      bash -lc 'set -euo pipefail
+PYTHON_BIN="python3"
+if [[ -n "${PY_VERSION:-}" && -x "/opt/python/${PY_VERSION}/bin/python3" ]]; then
+  PYTHON_BIN="/opt/python/${PY_VERSION}/bin/python3"
+elif [[ -x "/opt/python/3/bin/python3" ]]; then
+  PYTHON_BIN="/opt/python/3/bin/python3"
+fi
+if ! "$PYTHON_BIN" -m pip install --disable-pip-version-check --no-cache-dir --no-deps --upgrade \
+  --target .python_packages/lib/site-packages "${ENFORCE_SPEC:?}"; then
+  echo "Failed to enforce ${ENFORCE_SPEC} inside docker" >&2
+  exit 1
+fi' >/dev/null; then
+      :
+    else
+      fail "Не удалось зафиксировать версию cryptography (docker)."
+    fi
+  else
+    if ! python3 -m pip install \
+      --disable-pip-version-check \
+      --no-cache-dir \
+      --no-deps \
+      --upgrade \
+      --target "$site_packages_dir" \
+      "$enforce_crypto_spec" >/dev/null 2>&1; then
+      fail "Не удалось зафиксировать версию cryptography (local pip)."
+    fi
+  fi
 
   local validation_script="$stage_dir/.validate_imports.py"
   cat >"$validation_script" <<'PY'
@@ -694,10 +945,13 @@ for line in pyproject_path.read_text(encoding="utf-8").splitlines():
             stripped = stripped[1:-1]
         deps.append(stripped)
 
-if "gunicorn" not in [d.split(">=")[0].split("==")[0] for d in deps]:
+normalized = [d.split(">=")[0].split("==")[0] for d in deps]
+if "gunicorn" not in normalized:
     deps.append("gunicorn>=21.2,<22.0")
 if all(not d.startswith("pydantic-core") for d in deps):
     deps.append("pydantic-core>=2.18,<3.0")
+if all(not d.startswith("cryptography") for d in deps):
+    deps.append("cryptography>=41,<42")
 
 if not deps:
     raise SystemExit("Не удалось определить зависимости из pyproject.toml")
@@ -853,15 +1107,27 @@ while :; do
     fi
   else
     log "Используем az webapp deploy для вызова Oryx build."
+    deploy_start_epoch="$(date +%s)"
     if az webapp deploy \
       --name "$BACKEND_APP_NAME" \
       --resource-group "$RESOURCE_GROUP" \
       --src-path "$BACKEND_PACKAGE_SRC" \
       --type zip \
       --clean true \
-      --track-status true \
+      --track-status false \
       --restart true \
       >/dev/null; then
+      if wait_for_kudu_deployment "$deploy_start_epoch"; then
+        break
+      fi
+      wait_status=$?
+      if [[ "$wait_status" -eq 1 ]]; then
+        log "Kudu OneDeploy вернул ошибку, az webapp deploy будет повторён (или переключимся на Run-From-Package)."
+      else
+        log "Не дождались завершения Kudu OneDeploy за разумное время, az webapp deploy будет повторён."
+      fi
+    elif kudu_deployment_succeeded_since "$deploy_start_epoch"; then
+      log "az webapp deploy завершился ошибкой (например, 504 GatewayTimeout), но Kudu сообщил об успешном OneDeploy. Продолжаем без переключения на Run-From-Package."
       break
     fi
   fi
