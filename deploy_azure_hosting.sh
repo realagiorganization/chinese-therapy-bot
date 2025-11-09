@@ -36,7 +36,7 @@ OAUTH_PLAN_NAME=""
 OAUTH_PLAN_SKU="B1"
 OAUTH_IMAGE="quay.io/oauth2-proxy/oauth2-proxy:v7.7.1"
 OAUTH_CONTAINER_PORT="4180"
-OAUTH_ENV_FILE="${HOME}/.config/mindwell/oauth2-proxy.env"
+OAUTH_ENV_FILE="${HOME}/.config/mindwell/oauth2-proxy.azure.env"
 
 BACKEND_ENV_LIST_VAR="BACKEND_APP_SETTINGS"
 
@@ -105,7 +105,7 @@ Environment conventions:
   - Переменные для backend извлекаются из services/backend/app/core/config.py. Значения
     берутся из текущего окружения (включая ~/.bashrc). BACKEND_APP_SETTINGS можно
     использовать для добавления дополнительных ключей (через пробел или запятую).
-  - Параметры oauth2-proxy читаются из файла ~/.config/mindwell/oauth2-proxy.env.
+  - Параметры oauth2-proxy читаются из файла ~/.config/mindwell/oauth2-proxy.azure.env.
 EOF
 }
 
