@@ -25,7 +25,7 @@ BACKEND_PLAN_NAME=""
 BACKEND_PLAN_SKU="B1"
 BACKEND_PYTHON_VERSION="PYTHON|3.11"
 BACKEND_RUN_FROM_PACKAGE=0
-BACKEND_STARTUP_COMMAND='bash azure_startup.sh'
+BACKEND_STARTUP_COMMAND='bash //home/site/wwwroot/azure_startup.sh'
 BACKEND_RUN_FROM_PACKAGE_EFFECTIVE=0
 SKIP_KUDU_CLEANUP="${SKIP_KUDU_CLEANUP:-0}"
 
@@ -79,8 +79,8 @@ Backend:
                                    ошибкой. Зависимости упаковываются с использованием локального
                                    Python или Docker-образа mcr.microsoft.com/oryx/python:<версия>.
       --backend-startup-command    Custom startup command passed to App Service. Default: bash
-                                   azure_startup.sh (wraps gunicorn and экспортирует PYTHONPATH для
-                                   .python_packages).
+                                   //home/site/wwwroot/azure_startup.sh (wraps gunicorn и добавляет
+                                   .python_packages в PYTHONPATH).
 
 oauth2-proxy:
       --oauth-app-name <name>      Azure WebApp (oauth2-proxy) name. Default: <prefix>-<env>-oauth[<suffix>].
@@ -258,6 +258,44 @@ PY
 cleanup_remote_python_artifacts() {
   local cleanup_cmd="rm -rf /home/site/wwwroot/.python_packages /home/site/wwwroot/antenv /home/site/wwwroot/output.tar.gz"
   run_kudu_command "$cleanup_cmd"
+}
+
+is_local_connection_host() {
+  local host="${1,,}"
+  case "$host" in
+    ""|"localhost"|localhost.*|*.localdomain|*.local)
+      return 0
+      ;;
+  esac
+  if [[ "$host" == "[::1]" || "$host" == "::1" ]]; then
+    return 0
+  fi
+  if [[ "$host" == "0.0.0.0" ]]; then
+    return 0
+  fi
+  if [[ "$host" == 127.* ]]; then
+    return 0
+  fi
+  return 1
+}
+
+should_skip_backend_env_setting() {
+  local key="$1"
+  local value="$2"
+
+  if [[ "$key" == "DATABASE_URL" && -n "$value" ]]; then
+    if [[ "$value" =~ @([^/?#]+) ]]; then
+      local host_port="${BASH_REMATCH[1]}"
+      local host="${host_port%%:*}"
+      if ! is_local_connection_host "$host"; then
+        return 1
+      fi
+      log "Skipping DATABASE_URL that points to local host '$host'. Azure контейнер не сможет подключиться к вашей локальной БД; задайте внешний адрес через BACKEND_APP_SETTINGS или az webapp config appsettings set."
+      return 0
+    fi
+  fi
+
+  return 1
 }
 
 install_backend_dependencies() {
@@ -712,8 +750,10 @@ if [[ ${#combined_backend_env_keys[@]} -gt 0 ]]; then
   applied_backend_settings=0
   for key in "${unique_backend_keys[@]}"; do
     if value="$(printenv "$key")"; then
-      BACKEND_ENV_SETTINGS+=("$key=$value")
-      applied_backend_settings=$((applied_backend_settings + 1))
+      if ! should_skip_backend_env_setting "$key" "$value"; then
+        BACKEND_ENV_SETTINGS+=("$key=$value")
+        applied_backend_settings=$((applied_backend_settings + 1))
+      fi
       continue
     fi
 
@@ -934,6 +974,10 @@ fi
 DEPLOYMENT_TOKEN="$(az staticwebapp secrets list --name "$FRONTEND_APP_NAME" --resource-group "$RESOURCE_GROUP" --query 'properties.apiKey' -o tsv)"
 [[ -z "$DEPLOYMENT_TOKEN" ]] && fail "Failed to retrieve deployment token for Static Web App."
 
+FRONTEND_DEFAULT_HOSTNAME="$(az staticwebapp show --name "$FRONTEND_APP_NAME" --resource-group "$RESOURCE_GROUP" --query 'defaultHostname' -o tsv)"
+[[ -z "$FRONTEND_DEFAULT_HOSTNAME" ]] && fail "Failed to determine Static Web App hostname."
+FRONTEND_BASE_URL="https://${FRONTEND_DEFAULT_HOSTNAME}"
+
 FRONTEND_PACKAGE="$WORK_ROOT/frontend.zip"
 (
   cd "$DIST_DIR"
@@ -953,16 +997,16 @@ deploy_static_app() {
 }
 
 log "Uploading frontend package to Static Web App..."
-STATUS_CODE="$(deploy_static_app "https://${FRONTEND_APP_NAME}.azurestaticapps.net/api/deployments?api_token=${DEPLOYMENT_TOKEN}")"
+STATUS_CODE="$(deploy_static_app "${FRONTEND_BASE_URL}/api/deployments?code=${DEPLOYMENT_TOKEN}")"
 if [[ "$STATUS_CODE" != "200" && "$STATUS_CODE" != "202" ]]; then
   log "Primary deployment endpoint returned HTTP $STATUS_CODE, retrying legacy zipdeploy..."
-  STATUS_CODE="$(deploy_static_app "https://${FRONTEND_APP_NAME}.azurestaticapps.net/api/zipdeploy?code=${DEPLOYMENT_TOKEN}")"
+  STATUS_CODE="$(deploy_static_app "${FRONTEND_BASE_URL}/api/zipdeploy?code=${DEPLOYMENT_TOKEN}")"
   if [[ "$STATUS_CODE" != "200" && "$STATUS_CODE" != "202" ]]; then
     fail "Failed to deploy frontend (HTTP $STATUS_CODE). Inspect '$WORK_ROOT/swa_deploy_response.json' for details."
   fi
 fi
 
-FRONTEND_HOSTNAME="https://${FRONTEND_APP_NAME}.azurestaticapps.net"
+FRONTEND_HOSTNAME="$FRONTEND_BASE_URL"
 
 ###########################################
 # Step 7: Output summary

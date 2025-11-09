@@ -1,0 +1,478 @@
+from __future__ import annotations
+
+import logging
+from collections.abc import AsyncIterator
+from typing import Any
+from uuid import UUID
+
+from sqlalchemy import func, select
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.core.config import get_settings
+from app.integrations.llm import ChatOrchestrator
+from app.integrations.storage import ChatTranscriptStorage
+from app.models import ChatMessage as ChatMessageModel
+from app.models import ChatSession, User
+from app.schemas.chat import ChatMessage, ChatRequest, ChatResponse, MemoryHighlight
+from app.schemas.therapists import TherapistRecommendation
+from app.services.analytics import ProductAnalyticsService
+from app.services.language_detection import LanguageDetector
+from app.services.memory import ConversationMemoryService
+from app.services.recommendations import TherapistRecommendationService
+
+
+logger = logging.getLogger(__name__)
+
+
+class TokenQuotaExceeded(ValueError):
+    """Raised when a user exhausts their chat token allowance."""
+
+
+class ChatService:
+    """Chat orchestration coordinating persistence, LLM responses, and transcript storage."""
+
+    def __init__(
+        self,
+        session: AsyncSession,
+        orchestrator: ChatOrchestrator,
+        storage: ChatTranscriptStorage,
+        memory_service: ConversationMemoryService | None = None,
+        recommendation_service: TherapistRecommendationService | None = None,
+        language_detector: LanguageDetector | None = None,
+        analytics_service: ProductAnalyticsService | None = None,
+    ):
+        self._session = session
+        self._orchestrator = orchestrator
+        self._storage = storage
+        self._memory = memory_service
+        self._recommendations = recommendation_service
+        self._language_detector = language_detector or LanguageDetector()
+        self._analytics = analytics_service
+        self._settings = get_settings()
+
+    async def process_turn(self, payload: ChatRequest) -> ChatResponse:
+        context = await self._prepare_turn(payload)
+        reply_text = await self._orchestrator.generate_reply(
+            context["history"],
+            language=context["resolved_locale"],
+            context_prompt=context["context_prompt"],
+        )
+
+        assistant_message = await self._append_message(
+            context["chat_session"],
+            role="assistant",
+            content=reply_text,
+        )
+
+        history = await self._persist_transcript(context["chat_session"], context["user"].id)
+        await self._capture_memory(
+            user=context["user"],
+            chat_session=context["chat_session"],
+            history=history,
+        )
+
+        return ChatResponse(
+            session_id=context["chat_session"].id,
+            reply=ChatMessage.model_validate(assistant_message),
+            recommended_therapist_ids=context["recommended_ids"],
+            recommendations=context["recommendations"],
+            memory_highlights=context["memories"],
+            resolved_locale=context["resolved_locale"],
+        )
+
+    async def stream_turn(self, payload: ChatRequest) -> AsyncIterator[dict[str, Any]]:
+        context = await self._prepare_turn(payload)
+
+        yield {
+            "event": "session_established",
+            "data": {
+                "session_id": str(context["chat_session"].id),
+                "locale": context["resolved_locale"],
+                "resolved_locale": context["resolved_locale"],
+                "recommended_therapist_ids": context["recommended_ids"],
+                "recommendations": [
+                    recommendation.model_dump()
+                    for recommendation in context["recommendations"]
+                ],
+                "memory_highlights": [
+                    highlight.model_dump() for highlight in context["memories"]
+                ],
+            },
+        }
+
+        reply_fragments: list[str] = []
+        async for delta in self._orchestrator.stream_reply(
+            context["history"],
+            language=context["resolved_locale"],
+            context_prompt=context["context_prompt"],
+        ):
+            if not delta:
+                continue
+            reply_fragments.append(delta)
+            yield {
+                "event": "token",
+                "data": {"delta": delta},
+            }
+
+        reply_text = "".join(reply_fragments).strip()
+        if not reply_text:
+            reply_text = await self._orchestrator.generate_reply(
+                context["history"],
+                language=context["resolved_locale"],
+            )
+
+        assistant_message = await self._append_message(
+            context["chat_session"],
+            role="assistant",
+            content=reply_text,
+        )
+
+        history = await self._persist_transcript(context["chat_session"], context["user"].id)
+        await self._capture_memory(
+            user=context["user"],
+            chat_session=context["chat_session"],
+            history=history,
+        )
+
+        yield {
+            "event": "complete",
+            "data": {
+                "session_id": str(context["chat_session"].id),
+                "message": ChatMessage.model_validate(assistant_message).model_dump(),
+                "resolved_locale": context["resolved_locale"],
+                "recommended_therapist_ids": context["recommended_ids"],
+                "recommendations": [
+                    recommendation.model_dump()
+                    for recommendation in context["recommendations"]
+                ],
+                "memory_highlights": [
+                    highlight.model_dump() for highlight in context["memories"]
+                ],
+            },
+        }
+
+    async def _get_or_create_user(self, user_id: UUID) -> User:
+        user = await self._session.get(User, user_id)
+        if user:
+            self._ensure_chat_quota_initialized(user)
+            return user
+
+        user = User(id=user_id)
+        self._ensure_chat_quota_initialized(user)
+        self._session.add(user)
+        await self._session.flush()
+        return user
+
+    async def _get_or_create_session(
+        self, user: User, session_id: UUID | None
+    ) -> ChatSession:
+        if session_id:
+            existing = await self._session.get(ChatSession, session_id)
+            if existing:
+                if existing.user_id != user.id:
+                    raise ValueError("Session does not belong to requesting user.")
+                return existing
+
+        chat_session = ChatSession(user_id=user.id)
+        self._session.add(chat_session)
+        await self._session.flush()
+        return chat_session
+
+    async def _append_message(
+        self, chat_session: ChatSession, role: str, content: str
+    ) -> ChatMessage:
+        next_index = await self._next_sequence_index(chat_session.id)
+        record = ChatMessageModel(
+            session_id=chat_session.id,
+            role=role,
+            content=content,
+            sequence_index=next_index,
+        )
+        self._session.add(record)
+        await self._session.flush()
+
+        await self._storage.persist_message(
+            session_id=chat_session.id,
+            user_id=chat_session.user_id,
+            sequence_index=record.sequence_index,
+            role=record.role,
+            content=record.content,
+            created_at=record.created_at,
+        )
+        return ChatMessage(
+            role=record.role,
+            content=record.content,
+            created_at=record.created_at,
+        )
+
+    async def _prepare_turn(self, payload: ChatRequest) -> dict[str, Any]:
+        user = await self._get_or_create_user(payload.user_id)
+        await self._consume_chat_token(user)
+        chat_session = await self._get_or_create_session(user, payload.session_id)
+        await self._append_message(chat_session, role="user", content=payload.message)
+
+        hint_locale = payload.locale or getattr(user, "locale", None) or "zh-CN"
+        resolved_locale = self._language_detector.detect_locale(
+            payload.message,
+            hinted_locale=hint_locale,
+        )
+        if resolved_locale and resolved_locale != getattr(user, "locale", None):
+            user.locale = resolved_locale
+            await self._session.flush()
+
+        if self._analytics:
+            try:
+                await self._analytics.track_chat_turn(
+                    user_id=user.id,
+                    session_id=chat_session.id,
+                    locale=resolved_locale,
+                    message_length=len(payload.message),
+                )
+            except Exception as exc:  # pragma: no cover - analytics failures shouldn't break chat
+                logger.debug("Failed to record chat analytics event: %s", exc, exc_info=exc)
+
+        history = await self._load_history(chat_session.id)
+        therapist_recs = await self._recommend_therapists(
+            payload.message,
+            locale=resolved_locale,
+        )
+        memories = await self._load_memories(user.id, locale=resolved_locale)
+        recommended_ids = [recommendation.therapist_id for recommendation in therapist_recs]
+        context_prompt = self._build_context_prompt(
+            recommendations=therapist_recs,
+            memories=memories,
+            locale=resolved_locale,
+        )
+
+        return {
+            "user": user,
+            "chat_session": chat_session,
+            "history": history,
+            "therapist_recs": therapist_recs,
+            "recommended_ids": recommended_ids,
+            "recommendations": therapist_recs,
+            "memories": memories,
+            "context_prompt": context_prompt,
+            "resolved_locale": resolved_locale,
+        }
+
+    async def _persist_transcript(self, chat_session: ChatSession, user_id: UUID) -> list[dict[str, str]]:
+        history = await self._load_history(chat_session.id)
+        await self._storage.persist_transcript(
+            session_id=chat_session.id,
+            user_id=user_id,
+            messages=history,
+        )
+        return history
+
+    async def _load_history(self, session_id: UUID) -> list[dict[str, str]]:
+        stmt = (
+            select(ChatMessageModel)
+            .where(ChatMessageModel.session_id == session_id)
+            .order_by(ChatMessageModel.sequence_index.asc())
+        )
+        result = await self._session.execute(stmt)
+        messages = result.scalars().all()
+        return [
+            {
+                "role": message.role,
+                "content": message.content,
+                "created_at": message.created_at.isoformat(),
+            }
+            for message in messages
+        ]
+
+    async def _next_sequence_index(self, session_id: UUID) -> int:
+        stmt = (
+            select(func.max(ChatMessageModel.sequence_index))
+            .where(ChatMessageModel.session_id == session_id)
+            .limit(1)
+        )
+        result = await self._session.execute(stmt)
+        current = result.scalar_one_or_none()
+        if current is None:
+            return 0
+        return current + 1
+
+    async def _recommend_therapists(
+        self,
+        message: str,
+        *,
+        locale: str,
+    ) -> list[TherapistRecommendation]:
+        if not self._recommendations:
+            return []
+
+        try:
+            return await self._recommendations.recommend(
+                message,
+                locale=locale,
+                limit=3,
+            )
+        except Exception as exc:  # pragma: no cover - defensive logging
+            logger.warning("Therapist recommendation failed: %s", exc, exc_info=exc)
+            return []
+
+    async def _load_memories(
+        self,
+        user_id: UUID,
+        *,
+        locale: str,
+        limit: int = 5,
+    ) -> list[MemoryHighlight]:
+        if not self._memory:
+            return []
+
+        try:
+            records = await self._memory.list_memories(user_id, limit=limit)
+        except Exception as exc:  # pragma: no cover - defensive logging
+            logger.warning("Failed to load conversation memories: %s", exc, exc_info=exc)
+            return []
+
+        formatted: list[MemoryHighlight] = []
+        for memory in records:
+            summary = memory.summary or ""
+            formatted.append(
+                MemoryHighlight(
+                    summary=summary,
+                    keywords=list(memory.keywords or []),
+                )
+            )
+        return formatted
+
+    def _build_context_prompt(
+        self,
+        *,
+        recommendations: list[TherapistRecommendation],
+        memories: list[MemoryHighlight],
+        locale: str,
+    ) -> str | None:
+        sections: list[str] = []
+        normalized = (locale or "").lower()
+        is_chinese = normalized.startswith("zh")
+        is_russian = normalized.startswith("ru")
+
+        if recommendations:
+            if is_chinese:
+                rec_lines = ["以下是适合本次对话的治疗师推荐，请在回复中适时给出温和的转介建议："]
+                for recommendation in recommendations:
+                    specialties = "、".join(recommendation.specialties[:3]) or "综合心理支持"
+                    reason = recommendation.reason or "擅长相关主题。"
+                    rec_lines.append(
+                        f"- {recommendation.name}（{recommendation.title}）：专长 {specialties}。{reason}"
+                    )
+            elif is_russian:
+                rec_lines = [
+                    "Ниже перечислены терапевты, которые могут поддержать этот разговор. "
+                    "Если будет уместно, мягко предложите обратиться к ним:"
+                ]
+                for recommendation in recommendations:
+                    specialties = " · ".join(recommendation.specialties[:3]) or "психологическая поддержка"
+                    reason = recommendation.reason or "опыт в соответствующих темах."
+                    rec_lines.append(
+                        f"- {recommendation.name} ({recommendation.title}): специализации {specialties}. {reason}"
+                    )
+            else:
+                rec_lines = [
+                    "These therapists could complement the current session. "
+                    "Offer a gentle referral if it feels supportive:"
+                ]
+                for recommendation in recommendations:
+                    specialties = ", ".join(recommendation.specialties[:3]) or "integrative support"
+                    reason = recommendation.reason or "Experienced in related topics."
+                    rec_lines.append(
+                        f"- {recommendation.name} ({recommendation.title}): specialties {specialties}. {reason}"
+                    )
+            sections.append("\n".join(rec_lines))
+
+        if memories:
+            if is_chinese:
+                memory_heading = "用户近期重点关切："
+                mem_lines = [memory_heading]
+                for memory in memories:
+                    keywords = "、".join(memory.keywords)
+                    summary = memory.summary
+                    if keywords:
+                        mem_lines.append(f"- 关键词：{keywords}。摘要：{summary}")
+                    else:
+                        mem_lines.append(f"- 摘要：{summary}")
+            elif is_russian:
+                memory_heading = "Недавние фокусы клиента:"
+                mem_lines = [memory_heading]
+                for memory in memories:
+                    keywords = " · ".join(memory.keywords)
+                    summary = memory.summary
+                    if keywords:
+                        mem_lines.append(f"- Ключевые слова: {keywords}. Кратко: {summary}")
+                    else:
+                        mem_lines.append(f"- Краткое содержание: {summary}")
+            else:
+                memory_heading = "Recent focus areas:"
+                mem_lines = [memory_heading]
+                for memory in memories:
+                    keywords = ", ".join(memory.keywords)
+                    summary = memory.summary
+                    if keywords:
+                        mem_lines.append(f"- Keywords: {keywords}. Summary: {summary}")
+                    else:
+                        mem_lines.append(f"- Summary: {summary}")
+            sections.append("\n".join(mem_lines))
+
+        if not sections:
+            return None
+
+        lines = []
+        for section in sections:
+            lines.append(section)
+        return "\n".join(lines)
+
+    async def _capture_memory(
+        self,
+        *,
+        user: User,
+        chat_session: ChatSession,
+        history: list[dict[str, str]],
+    ) -> None:
+        if not self._memory:
+            return
+
+        try:
+            await self._memory.capture(
+                user=user,
+                session=chat_session,
+                history=history,
+            )
+        except Exception as exc:  # pragma: no cover - defensive logging
+            logger.warning("Failed to capture conversation memory: %s", exc, exc_info=exc)
+
+    def _default_chat_quota(self, user: User) -> int:
+        account_type = (user.account_type or "").lower()
+        if account_type == "demo" or user.demo_code:
+            return max(0, self._settings.chat_token_demo_quota)
+        return max(0, self._settings.chat_token_default_quota)
+
+    def _ensure_chat_quota_initialized(self, user: User) -> None:
+        quota = user.chat_token_quota
+        if quota is None or quota < 0:
+            quota = self._default_chat_quota(user)
+            user.chat_token_quota = quota
+        if user.chat_tokens_remaining is None:
+            user.chat_tokens_remaining = quota
+        elif user.chat_tokens_remaining < 0:
+            user.chat_tokens_remaining = 0
+        elif quota >= 0 and user.chat_tokens_remaining > quota > 0:
+            user.chat_tokens_remaining = quota
+
+    async def _consume_chat_token(self, user: User) -> None:
+        self._ensure_chat_quota_initialized(user)
+        quota = user.chat_token_quota or 0
+        if quota == 0:
+            return
+        remaining = user.chat_tokens_remaining
+        if remaining is None:
+            remaining = quota
+            user.chat_tokens_remaining = remaining
+        if remaining <= 0:
+            raise TokenQuotaExceeded("Лимит чат-токенов для этого аккаунта исчерпан.")
+        user.chat_tokens_remaining = remaining - 1
+        await self._session.flush()

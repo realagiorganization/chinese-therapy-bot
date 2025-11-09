@@ -158,6 +158,9 @@ Use `mindwell-monitoring-agent --dry-run` to verify telemetry access without dis
 - Kubernetes manifests/overlays live under `infra/kubernetes/`.
 - CI/CD runs on GitHub Actions (self-hosted EC2 runners) executing lint, tests, and deployment stages.
 - Azure is the preferred runtime due to available credits; AWS is primarily used for S3 storage and Bedrock fallback.
+- Use `./deploy_azure_database.sh` to provision an Azure PostgreSQL Flexible Server before invoking
+  `./deploy_azure_hosting.sh`. The script prints the `DATABASE_URL` (and related variables) that must be exported so
+  the hosting deploy can pick up the newly created database.
 - Release workflows, semantic versioning, and store checklists are documented in `docs/release_management.md`.
 
 ## Observability & Operations
