@@ -27,7 +27,8 @@ BACKEND_PLAN_NAME=""
 BACKEND_PLAN_SKU="B1"
 BACKEND_PYTHON_VERSION="PYTHON|3.11"
 BACKEND_RUN_FROM_PACKAGE=0
-BACKEND_STARTUP_COMMAND='bash -lc "APP_DIR=\"\${APP_PATH:-/home/site/wwwroot}\"; if [[ ! -f \"\$APP_DIR/azure_startup.sh\" ]]; then if [[ -f /home/site/wwwroot/output.tar.gz ]]; then APP_DIR=\"\$(mktemp -d /tmp/mindwell-app-XXXXXX)\"; tar -xzf /home/site/wwwroot/output.tar.gz -C \"\$APP_DIR\"; else echo \"azure_startup.sh не найден в \${APP_DIR}, а /home/site/wwwroot/output.tar.gz отсутствует\" >&2; ls -al \"\$APP_DIR\" >&2 || true; exit 1; fi; fi; cd \"\$APP_DIR\"; exec ./azure_startup.sh"'
+BACKEND_FORCE_DOCKER_PIP="${BACKEND_FORCE_DOCKER_PIP:-0}"
+BACKEND_STARTUP_COMMAND='bash -lc "APP_DIR=\"\${APP_PATH:-/home/site/wwwroot}\"; cd \"\$APP_DIR\"; exec ./azure_startup.sh"'
 BACKEND_RUN_FROM_PACKAGE_EFFECTIVE=0
 SKIP_KUDU_CLEANUP="${SKIP_KUDU_CLEANUP:-0}"
 KUDU_PROFILE_CACHE=""
@@ -82,11 +83,11 @@ Backend:
                                    ошибкой. Зависимости упаковываются с использованием локального
                                    Python или Docker-образа mcr.microsoft.com/oryx/python:<версия>.
       --backend-startup-command    Custom startup command passed to App Service. По умолчанию
-                                   используется `bash -lc "<команда без set -euo>"`, которая при необходимости
-                                   распаковывает /home/site/wwwroot/output.tar.gz во временный
-                                   каталог, затем запускает azure_startup.sh (подготавливает
-                                   PYTHONPATH и стартует gunicorn). Всё содержимое хранится в одной
-                                   строке, чтобы Oryx корректно передал startup-команду.
+                                   используется `bash -lc "<команда без set -euo>"`, которая просто
+                                   переходит в ${APP_PATH:-/home/site/wwwroot} и запускает
+                                   azure_startup.sh (готовит PYTHONPATH и стартует gunicorn).
+                                   Всё содержимое хранится в одной строке, чтобы Oryx корректно
+                                   передал startup-команду.
 
 oauth2-proxy:
       --oauth-app-name <name>      Azure WebApp (oauth2-proxy) name. Default: <prefix>-<env>-oauth[<suffix>].
@@ -109,6 +110,9 @@ Environment conventions:
   - Переменные для backend извлекаются из services/backend/app/core/config.py. Значения
     берутся из текущего окружения (включая ~/.bashrc). BACKEND_APP_SETTINGS можно
     использовать для добавления дополнительных ключей (через пробел или запятую).
+  - BACKEND_FORCE_DOCKER_PIP=1 заставит упаковку зависимостей выполняться внутри
+    контейнера mcr.microsoft.com/oryx/python:<версия>, что помогает избежать
+    несовместимости glibc между WSL/desktop и Azure App Service.
   - Параметры oauth2-proxy читаются из файла ~/.config/mindwell/oauth2-proxy.azure.env.
 EOF
 }
@@ -471,7 +475,7 @@ wait_for_kudu_deployment() {
 }
 
 cleanup_remote_python_artifacts() {
-  local cleanup_cmd="rm -rf /home/site/wwwroot/.python_packages /home/site/wwwroot/antenv /home/site/wwwroot/output.tar.gz"
+  local cleanup_cmd="rm -rf /home/site/wwwroot/.python_packages /home/site/wwwroot/antenv /home/site/wwwroot/output.tar.gz /home/site/wwwroot/oryx-manifest.toml /home/site/wwwroot/oryx-manifest.json"
   run_kudu_command "$cleanup_cmd"
 }
 
@@ -536,9 +540,19 @@ PY
   local requirements_basename
   requirements_basename="$(basename "$requirements_file")"
 
+  local use_docker=0
+  local docker_reason=""
   if [[ -n "$requested_version" && "$requested_version" != "$local_python_version" ]]; then
+    use_docker=1
+    docker_reason="локальный Python ${local_python_version:-unknown} не совпадает с $requested_version"
+  elif [[ "$BACKEND_FORCE_DOCKER_PIP" -eq 1 ]]; then
+    use_docker=1
+    docker_reason="BACKEND_FORCE_DOCKER_PIP=1"
+  fi
+
+  if [[ "$use_docker" -eq 1 ]]; then
     if command -v docker >/dev/null 2>&1; then
-      log "Локальный Python ${local_python_version:-unknown} не совпадает с $requested_version. Устанавливаем зависимости внутри контейнера Docker."
+      log "Устанавливаем зависимости внутри контейнера Docker (${docker_reason})."
       if docker run --rm \
         --user "$(id -u):$(id -g)" \
         -v "${stage_dir}:/workspace" \
@@ -569,7 +583,7 @@ fi
         fail "pip install внутри Docker завершился неуспешно (лог сохранён в backend_pip_install_failed.log)."
       fi
     else
-      fail "Run-From-Package требует Python $requested_version. Установите соответствующую версию локально или Docker, чтобы упаковать зависимости."
+      fail "Run-From-Package требует Python $requested_version. Установите Docker или запустите скрипт в среде с совместимой glibc."
     fi
   else
     log "Installing backend dependencies locally (python $local_python_version)..."
@@ -1096,12 +1110,30 @@ while :; do
   sleep 10
 
   if [[ "$current_backend_mode" -eq 1 ]]; then
-    log "Используем ZipDeploy (Run-From-Package включает .python_packages)."
-    if az webapp deployment source config-zip \
+    log "Используем az webapp deploy (zip, без Oryx) для Run-From-Package."
+    deploy_start_epoch="$(date +%s)"
+    if az webapp deploy \
       --name "$BACKEND_APP_NAME" \
       --resource-group "$RESOURCE_GROUP" \
-      --src "$BACKEND_PACKAGE_SRC" \
+      --src-path "$BACKEND_PACKAGE_SRC" \
+      --type zip \
+      --ignore-stack true \
+      --clean true \
+      --track-status false \
+      --restart true \
       >/dev/null; then
+      if wait_for_kudu_deployment "$deploy_start_epoch"; then
+        BACKEND_RUN_FROM_PACKAGE_EFFECTIVE=1
+        break
+      fi
+      wait_status=$?
+      if [[ "$wait_status" -eq 1 ]]; then
+        log "Kudu OneDeploy сообщил об ошибке в Run-From-Package режиме. Попробуем ещё раз или завершим."
+      else
+        log "Не дождались завершения Kudu OneDeploy (Run-From-Package) за разумное время."
+      fi
+    elif kudu_deployment_succeeded_since "$deploy_start_epoch"; then
+      log "az webapp deploy вернулся с ошибкой (например, 504), но Kudu OneDeploy завершился успешно в Run-From-Package режиме. Продолжаем."
       BACKEND_RUN_FROM_PACKAGE_EFFECTIVE=1
       break
     fi
