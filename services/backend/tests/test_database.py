@@ -1,6 +1,7 @@
 import ssl
 
 import pytest
+from sqlalchemy.engine import make_url
 
 from app.core.database import prepare_engine_arguments, _sslmode_to_asyncpg_ssl
 
@@ -21,6 +22,19 @@ def test_prepare_engine_arguments_ignores_non_asyncpg_drivers():
 
     assert sanitized_url == original
     assert connect_args == {}
+
+
+def test_prepare_engine_arguments_preserves_password_when_rendering_url():
+    secret = "pa55-word-123!"
+    sanitized_url, connect_args = prepare_engine_arguments(
+        f"postgresql+asyncpg://mindwelladmin:{secret}@host/db?sslmode=require"
+    )
+
+    parsed = make_url(sanitized_url)
+    assert parsed.password == secret
+    assert parsed.username == "mindwelladmin"
+    assert parsed.host == "host"
+    assert connect_args == {"ssl": True}
 
 
 @pytest.mark.parametrize(

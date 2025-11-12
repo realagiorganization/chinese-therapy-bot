@@ -6,3 +6,4 @@ LogFiles
 backend_*
 output_remote.tar.gz
 tmp/
+oauth_logs*
