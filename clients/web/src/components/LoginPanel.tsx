@@ -39,6 +39,19 @@ function isPendingOAuth(): boolean {
   }
 }
 
+function hasProxySessionCookie(): boolean {
+  if (typeof document === "undefined") {
+    return false;
+  }
+  try {
+    return document.cookie
+      .split(";")
+      .some((entry) => entry.trim().startsWith("_oauth2_proxy="));
+  } catch {
+    return false;
+  }
+}
+
 export function LoginPanel() {
   const { t } = useTranslation();
   const { setTokens } = useAuth();
@@ -56,7 +69,10 @@ export function LoginPanel() {
   useEffect(() => {
     let cancelled = false;
     const pending = isPendingOAuth();
-    if (!pending) {
+    if (!pending || !hasProxySessionCookie()) {
+      if (pending) {
+        setPendingOAuth(false);
+      }
       return () => {
         cancelled = true;
       };
