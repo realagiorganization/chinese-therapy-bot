@@ -11,6 +11,7 @@ class AppSettings(BaseSettings):
     app_name: str = Field(default="MindWell API Platform")
     app_env: str = Field(default="dev", alias="APP_ENV")
     debug: bool = Field(default=False, alias="APP_DEBUG")
+    log_level: str = Field(default="WARNING", alias="LOG_LEVEL")
     api_host: str = Field(default="127.0.0.1", alias="API_HOST")
     api_port: int = Field(default=8000, alias="API_PORT")
     cors_allow_origins: list[str] = Field(
@@ -52,6 +53,12 @@ class AppSettings(BaseSettings):
     azure_speech_region: Optional[str] = Field(default=None, alias="AZURE_SPEECH_REGION")
     azure_speech_endpoint: Optional[str] = Field(default=None, alias="AZURE_SPEECH_ENDPOINT")
     database_url: Optional[str] = Field(default=None, alias="DATABASE_URL")
+    run_migrations_on_startup: bool = Field(
+        default=True, alias="RUN_MIGRATIONS_ON_STARTUP"
+    )
+    database_migration_timeout: int = Field(
+        default=120, alias="DATABASE_MIGRATION_TIMEOUT"
+    )
     aws_region: Optional[str] = Field(default=None, alias="AWS_REGION")
     aws_access_key_id: Optional[SecretStr] = Field(default=None, alias="AWS_ACCESS_KEY_ID")
     aws_secret_access_key: Optional[SecretStr] = Field(default=None, alias="AWS_SECRET_ACCESS_KEY")

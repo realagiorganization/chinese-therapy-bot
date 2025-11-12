@@ -28,6 +28,8 @@ BACKEND_PLAN_SKU="B1"
 BACKEND_PYTHON_VERSION="PYTHON|3.11"
 BACKEND_RUN_FROM_PACKAGE=0
 BACKEND_FORCE_DOCKER_PIP="${BACKEND_FORCE_DOCKER_PIP:-0}"
+BACKEND_PIP_ONLY_BINARY="${BACKEND_PIP_ONLY_BINARY:-pydantic-core}"
+AZURE_TARGET_GLIBC="${AZURE_TARGET_GLIBC:-2.31}"
 BACKEND_STARTUP_COMMAND='bash -lc "APP_DIR=\"\${APP_PATH:-/home/site/wwwroot}\"; cd \"\$APP_DIR\"; exec ./azure_startup.sh"'
 BACKEND_RUN_FROM_PACKAGE_EFFECTIVE=0
 SKIP_KUDU_CLEANUP="${SKIP_KUDU_CLEANUP:-0}"
@@ -113,6 +115,12 @@ Environment conventions:
   - BACKEND_FORCE_DOCKER_PIP=1 заставит упаковку зависимостей выполняться внутри
     контейнера mcr.microsoft.com/oryx/python:<версия>, что помогает избежать
     несовместимости glibc между WSL/desktop и Azure App Service.
+  - BACKEND_PIP_ONLY_BINARY задаёт значение PIP_ONLY_BINARY на время pip install
+    (по умолчанию pydantic-core). Можно указать ':all:' или конкретные пакеты,
+    чтобы принудить установку wheel вместо сборки из исходников.
+  - AZURE_TARGET_GLIBC задаёт минимальную версию glibc целевой среды
+    (по умолчанию 2.31). Если локальная glibc выше, зависимости автоматически
+    собираются внутри Docker-контейнера, чтобы избежать несовместимых wheel.
   - Параметры oauth2-proxy читаются из файла ~/.config/mindwell/oauth2-proxy.azure.env.
 EOF
 }
@@ -142,6 +150,44 @@ normalize_name() {
   normalized="$(echo "${raw,,}" | tr -c 'a-z0-9-' '-' | sed -E 's/-+/-/g; s/^-//; s/-$//')"
   [[ -z "$normalized" ]] && fail "Generated name from '$raw' is empty after normalization."
   echo "$normalized"
+}
+
+detect_glibc_version() {
+  if ! command -v ldd >/dev/null 2>&1; then
+    return 1
+  fi
+  local first_line
+  if ! first_line="$(ldd --version 2>/dev/null | head -n 1)"; then
+    return 1
+  fi
+  local version
+  version="$(printf '%s\n' "$first_line" | grep -Eo '[0-9]+(\.[0-9]+)+' | tail -n 1)"
+  [[ -n "$version" ]] || return 1
+  printf '%s' "$version"
+}
+
+version_gt() {
+  local lhs="$1"
+  local rhs="$2"
+  [[ -z "$lhs" || -z "$rhs" ]] && return 1
+  local IFS=.
+  read -ra left_parts <<<"$lhs"
+  read -ra right_parts <<<"$rhs"
+  local len="${#left_parts[@]}"
+  if [[ "${#right_parts[@]}" -gt "$len" ]]; then
+    len="${#right_parts[@]}"
+  fi
+  local i
+  for ((i = 0; i < len; i++)); do
+    local a="${left_parts[i]:-0}"
+    local b="${right_parts[i]:-0}"
+    if ((10#$a > 10#$b)); then
+      return 0
+    elif ((10#$a < 10#$b)); then
+      return 1
+    fi
+  done
+  return 1
 }
 
 read_settings_file() {
@@ -529,6 +575,14 @@ install_backend_dependencies() {
 
   local pip_log="$stage_dir/.pip_install.log"
   rm -f "$pip_log"
+  local pip_only_binary="$BACKEND_PIP_ONLY_BINARY"
+  if [[ -n "$pip_only_binary" ]]; then
+    log "PIP_ONLY_BINARY='$pip_only_binary' будет применён при установке backend зависимостей."
+  fi
+  local pip_only_binary_args=()
+  if [[ -n "$pip_only_binary" ]]; then
+    pip_only_binary_args=( "--only-binary" "$pip_only_binary" )
+  fi
 
   local local_python_version=""
   local_python_version="$(python3 - <<'PY'
@@ -550,6 +604,19 @@ PY
     docker_reason="BACKEND_FORCE_DOCKER_PIP=1"
   fi
 
+  if [[ -n "${AZURE_TARGET_GLIBC:-}" ]]; then
+    local detected_glibc=""
+    if detected_glibc="$(detect_glibc_version)"; then
+      if version_gt "$detected_glibc" "$AZURE_TARGET_GLIBC"; then
+        use_docker=1
+        if [[ -n "$docker_reason" ]]; then
+          docker_reason+=", "
+        fi
+        docker_reason+="локальная glibc $detected_glibc > целевой $AZURE_TARGET_GLIBC"
+      fi
+    fi
+  fi
+
   if [[ "$use_docker" -eq 1 ]]; then
     if command -v docker >/dev/null 2>&1; then
       log "Устанавливаем зависимости внутри контейнера Docker (${docker_reason})."
@@ -559,8 +626,13 @@ PY
         -w /workspace \
         -e REQ_FILE="$requirements_basename" \
         -e PY_VERSION="$requested_version" \
+        -e PIP_ONLY_BINARY="$pip_only_binary" \
         "mcr.microsoft.com/oryx/python:${requested_version}" \
         bash -lc 'set -euo pipefail
+pip_args=()
+if [[ -n "${PIP_ONLY_BINARY:-}" ]]; then
+  pip_args+=("--only-binary" "${PIP_ONLY_BINARY}")
+fi
 PYTHON_BIN="python3"
 if [[ -n "${PY_VERSION:-}" && -x "/opt/python/${PY_VERSION}/bin/python3" ]]; then
   PYTHON_BIN="/opt/python/${PY_VERSION}/bin/python3"
@@ -570,7 +642,7 @@ fi
 if ! "$PYTHON_BIN" -m pip --version >/dev/null 2>&1; then
   "$PYTHON_BIN" -m ensurepip --upgrade >/dev/null 2>&1 || "$PYTHON_BIN" -m ensurepip >/dev/null 2>&1
 fi
-"$PYTHON_BIN" -m pip install --disable-pip-version-check --no-cache-dir --target .python_packages/lib/site-packages -r "$REQ_FILE"' \
+"$PYTHON_BIN" -m pip install --disable-pip-version-check --no-cache-dir "${pip_args[@]}" --target .python_packages/lib/site-packages -r "$REQ_FILE"' \
         >"$pip_log" 2>&1; then
         used_docker=1
         if ! chmod -R u+rwX "$stage_dir/.python_packages" >/dev/null 2>&1; then
@@ -583,13 +655,15 @@ fi
         fail "pip install внутри Docker завершился неуспешно (лог сохранён в backend_pip_install_failed.log)."
       fi
     else
-      fail "Run-From-Package требует Python $requested_version. Установите Docker или запустите скрипт в среде с совместимой glibc."
+      local reason="${docker_reason:-Python $requested_version несовместим с локальной средой}"
+      fail "Run-From-Package требует Docker для сборки зависимостей (${reason}). Установите Docker или запустите скрипт в среде с совместимой glibc."
     fi
   else
     log "Installing backend dependencies locally (python $local_python_version)..."
-    if python3 -m pip install \
+    if PIP_ONLY_BINARY="$pip_only_binary" python3 -m pip install \
       --disable-pip-version-check \
       --no-cache-dir \
+      "${pip_only_binary_args[@]}" \
       --target "$site_packages_dir" \
       -r "$requirements_file" \
       >"$pip_log" 2>&1; then
@@ -613,8 +687,13 @@ fi
       -w /workspace \
       -e PY_VERSION="$requested_version" \
       -e ENFORCE_SPEC="$enforce_crypto_spec" \
+      -e PIP_ONLY_BINARY="$pip_only_binary" \
       "mcr.microsoft.com/oryx/python:${requested_version}" \
       bash -lc 'set -euo pipefail
+pip_args=()
+if [[ -n "${PIP_ONLY_BINARY:-}" ]]; then
+  pip_args+=("--only-binary" "${PIP_ONLY_BINARY}")
+fi
 PYTHON_BIN="python3"
 if [[ -n "${PY_VERSION:-}" && -x "/opt/python/${PY_VERSION}/bin/python3" ]]; then
   PYTHON_BIN="/opt/python/${PY_VERSION}/bin/python3"
@@ -622,6 +701,7 @@ elif [[ -x "/opt/python/3/bin/python3" ]]; then
   PYTHON_BIN="/opt/python/3/bin/python3"
 fi
 if ! "$PYTHON_BIN" -m pip install --disable-pip-version-check --no-cache-dir --no-deps --upgrade \
+  "${pip_args[@]}" \
   --target .python_packages/lib/site-packages "${ENFORCE_SPEC:?}"; then
   echo "Failed to enforce ${ENFORCE_SPEC} inside docker" >&2
   exit 1
@@ -631,11 +711,12 @@ fi' >/dev/null; then
       fail "Не удалось зафиксировать версию cryptography (docker)."
     fi
   else
-    if ! python3 -m pip install \
+    if ! PIP_ONLY_BINARY="$pip_only_binary" python3 -m pip install \
       --disable-pip-version-check \
       --no-cache-dir \
       --no-deps \
       --upgrade \
+      "${pip_only_binary_args[@]}" \
       --target "$site_packages_dir" \
       "$enforce_crypto_spec" >/dev/null 2>&1; then
       fail "Не удалось зафиксировать версию cryptography (local pip)."
@@ -687,6 +768,27 @@ PYTHONPATH="/workspace:/workspace/.python_packages/lib/site-packages" "$PYTHON_B
 
   if [[ "$validation_ok" -ne 1 ]]; then
     fail "Не удалось проверить установленные модули внутри упакованного окружения."
+  fi
+}
+
+prepare_run_from_package_tarball() {
+  local stage_dir="$1"
+  local tar_path="$stage_dir/output.tar.gz"
+  local stage_parent
+  stage_parent="$(dirname "$stage_dir")"
+  local tmp_tar
+  tmp_tar="$(mktemp "${stage_parent}/output.tar.gz.XXXXXX")"
+  log "Упаковываем stage в output.tar.gz для Azure Run-From-Package..."
+  if tar -czf "$tmp_tar" --exclude='./output.tar.gz' -C "$stage_dir" . >/dev/null; then
+    mv "$tmp_tar" "$tar_path"
+    if [[ -f "$tar_path" ]]; then
+      log "output.tar.gz готов ($(du -h "$tar_path" | awk '{print $1}'))."
+    else
+      fail "Не удалось создать $tar_path."
+    fi
+  else
+    rm -f "$tmp_tar"
+    fail "tar не смог собрать $tar_path."
   fi
 }
 
@@ -872,6 +974,13 @@ if ! az webapp show --name "$BACKEND_APP_NAME" --resource-group "$RESOURCE_GROUP
     --plan "$BACKEND_PLAN_NAME" \
     --runtime "$BACKEND_PYTHON_VERSION" >/dev/null
 fi
+
+log "Ensuring backend runtime stack: $BACKEND_PYTHON_VERSION"
+az webapp config set \
+  --name "$BACKEND_APP_NAME" \
+  --resource-group "$RESOURCE_GROUP" \
+  --linux-fx-version "$BACKEND_PYTHON_VERSION" \
+  >/dev/null
 
 existing_run_from_mode="$(az webapp config appsettings list \
   --name "$BACKEND_APP_NAME" \
@@ -1076,6 +1185,12 @@ while :; do
     log "Installing backend dependencies into .python_packages (Run-From-Package mode)..."
     install_backend_dependencies "$BACKEND_STAGE" "$BACKEND_REQ_FILE" "$backend_python_stack"
     backend_deps_installed=1
+  fi
+
+  if [[ "$current_backend_mode" -eq 1 ]]; then
+    prepare_run_from_package_tarball "$BACKEND_STAGE"
+  else
+    rm -f "$BACKEND_STAGE/output.tar.gz"
   fi
 
   rm -f "$BACKEND_PACKAGE"

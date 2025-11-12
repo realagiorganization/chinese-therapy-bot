@@ -28,6 +28,7 @@ The backend reads configuration from environment variables via `AppSettings` (`s
 ### Backend Services
 - `APP_NAME`: Overrides the default service name shown in health endpoints.
 - `APP_DEBUG`: Enables FastAPI debug/reload mode (`true`/`false`).
+- `LOG_LEVEL`: Controls application logging verbosity (`DEBUG`, `INFO`, `WARNING`, `ERROR`); defaults to `WARNING`.
 - `API_HOST` / `API_PORT`: Bind address and port for the FastAPI server (defaults `0.0.0.0:8000`).
 - `CORS_ALLOW_ORIGINS`: Comma-separated list of allowed origins; defaults to `*` during early development.
 - `AZURE_OPENAI_API_VERSION`: API version for Azure OpenAI (defaults to `2024-02-15-preview` when omitted).
@@ -49,6 +50,8 @@ The backend reads configuration from environment variables via `AppSettings` (`s
 - `AZURE_SPEECH_ENDPOINT`: Optional override for the Speech-to-Text endpoint when using a private link or custom domain.
 - `TTS_SERVICE_API_KEY`: Credential for the text-to-speech provider powering voice playback.
 - `ASR_SERVICE_API_KEY`: Credential for server-side automatic speech recognition.
+- `RUN_MIGRATIONS_ON_STARTUP`: Set to `0` to boot the API without running Alembic migrations (default `1`).
+- `DATABASE_MIGRATION_TIMEOUT`: Seconds to wait for Alembic to finish before aborting startup (default `120`).
 - `APP_INSIGHTS_APP_ID`: Azure Application Insights application identifier used by the Monitoring Agent to query metrics.
 - `APP_INSIGHTS_API_KEY`: API key granting query access to Application Insights for observability checks.
 - `WECHAT_APP_ID`: Application identifier enabling WeChat voice input integration.

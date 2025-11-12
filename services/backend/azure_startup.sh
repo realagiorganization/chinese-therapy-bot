@@ -5,26 +5,61 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 APP_ROOT="$SCRIPT_DIR"
 ANTENV_DIR="$APP_ROOT/antenv"
 
-# If the site is configured with WEBSITE_RUN_FROM_PACKAGE, Azure may invoke this
-# script from the mutable /home/site/wwwroot copy that no longer includes the
-# packaged dependencies. In that case, re-extract the active SitePackages ZIP
-# into /tmp and restart the script from the extracted location so that
-# .python_packages is guaranteed to exist.
+# If Azure разворачивает Run-From-Package, реальный код может исполняться из
+# временного /home/site/wwwroot, где каталоги .python_packages/antenv отсутствуют.
+# В этом случае нужно распаковать локальный output.tar.gz (упакованный при
+# деплое) либо, в крайнем случае, весь архив из /home/data/SitePackages и
+# перезапустить скрипт уже из полной копии, чтобы gunicorn увидел все зависимости.
 PACKAGE_NAME_FILE="/home/data/SitePackages/packagename.txt"
 RUN_FROM_PACKAGE_ROOT="$APP_ROOT/.python_packages/lib/site-packages"
-if [[ ! -d "$RUN_FROM_PACKAGE_ROOT" && -f "$PACKAGE_NAME_FILE" ]]; then
-  package_basename="$(<"$PACKAGE_NAME_FILE")"
-  package_zip="/home/data/SitePackages/${package_basename}"
-  if [[ -n "$package_basename" && -f "$package_zip" ]]; then
+FALLBACK_TAR="$APP_ROOT/output.tar.gz"
+
+ensure_packaged_environment() {
+  local target_module="$RUN_FROM_PACKAGE_ROOT/uvicorn/__init__.py"
+  if [[ -f "$target_module" ]]; then
+    return 0
+  fi
+
+  if [[ -f "$FALLBACK_TAR" ]]; then
+    local tmp_app_dir
     tmp_app_dir="$(mktemp -d /tmp/mindwell-app-XXXXXX)"
-    if unzip -q "$package_zip" -d "$tmp_app_dir"; then
-      echo "azure_startup: .python_packages отсутствует в ${APP_ROOT}, перезапускаем из ${tmp_app_dir}" >&2
+    if tar -xzf "$FALLBACK_TAR" -C "$tmp_app_dir"; then
+      echo "azure_startup: зависимости распакованы из output.tar.gz в ${tmp_app_dir}" >&2
       exec "$tmp_app_dir/azure_startup.sh" "$@"
     else
-      echo "azure_startup: не удалось распаковать ${package_zip}" >&2
+      echo "azure_startup: не удалось распаковать ${FALLBACK_TAR}" >&2
+      rm -rf "$tmp_app_dir"
     fi
   fi
-fi
+
+  if [[ -f "$PACKAGE_NAME_FILE" ]]; then
+    local package_basename package_zip tmp_app_dir
+    package_basename="$(<"$PACKAGE_NAME_FILE")"
+    package_zip="/home/data/SitePackages/${package_basename}"
+    if [[ -n "$package_basename" && -f "$package_zip" ]]; then
+      tmp_app_dir="$(mktemp -d /tmp/mindwell-app-XXXXXX)"
+      if unzip -q "$package_zip" -d "$tmp_app_dir"; then
+        echo "azure_startup: .python_packages отсутствует в ${APP_ROOT}, перезапускаем из ${tmp_app_dir}" >&2
+        exec "$tmp_app_dir/azure_startup.sh" "$@"
+      else
+        echo "azure_startup: не удалось распаковать ${package_zip}" >&2
+        rm -rf "$tmp_app_dir"
+      fi
+    fi
+  fi
+}
+
+ensure_packaged_environment "$@"
+
+normalize_timeout() {
+  local raw="$1"
+  local fallback="$2"
+  if [[ "$raw" =~ ^[0-9]+$ ]]; then
+    printf '%s\n' "$raw"
+  else
+    printf '%s\n' "$fallback"
+  fi
+}
 
 # When Oryx performs the build it creates a virtualenv (antenv); make sure we
 # activate it so gunicorn sees all packages just like the stock startup script.
@@ -60,7 +95,23 @@ for candidate in "${PYTHONPATH_BUILDER[@]}"; do
 done
 
 export PYTHONPATH
+export PYTHONUNBUFFERED="${PYTHONUNBUFFERED:-1}"
+
+DATABASE_MIGRATION_TIMEOUT="$(normalize_timeout "${DATABASE_MIGRATION_TIMEOUT:-}" 120)"
+export DATABASE_MIGRATION_TIMEOUT
+
+GUNICORN_TIMEOUT="$(normalize_timeout "${GUNICORN_TIMEOUT:-}" 90)"
+MIN_GUNICORN_TIMEOUT=180
+if (( GUNICORN_TIMEOUT < DATABASE_MIGRATION_TIMEOUT || GUNICORN_TIMEOUT < MIN_GUNICORN_TIMEOUT )); then
+  local_timeout_buffer=$((DATABASE_MIGRATION_TIMEOUT + 30))
+  if (( local_timeout_buffer < MIN_GUNICORN_TIMEOUT )); then
+    local_timeout_buffer=$MIN_GUNICORN_TIMEOUT
+  fi
+  echo "azure_startup: увеличиваем GUNICORN_TIMEOUT с ${GUNICORN_TIMEOUT}s до ${local_timeout_buffer}s (DATABASE_MIGRATION_TIMEOUT=${DATABASE_MIGRATION_TIMEOUT}s)" >&2
+  GUNICORN_TIMEOUT="$local_timeout_buffer"
+fi
 
 exec gunicorn -k uvicorn.workers.UvicornWorker \
   --bind="0.0.0.0:${PORT:-8000}" \
+  --timeout="${GUNICORN_TIMEOUT}" \
   app.main:app

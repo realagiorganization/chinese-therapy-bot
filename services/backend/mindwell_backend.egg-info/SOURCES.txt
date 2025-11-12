@@ -23,6 +23,7 @@ app/api/routes/health.py
 app/api/routes/memory.py
 app/api/routes/reports.py
 app/api/routes/therapists.py
+app/api/routes/translation.py
 app/api/routes/voice.py
 app/core/app.py
 app/core/config.py
@@ -53,6 +54,7 @@ app/schemas/memory.py
 app/schemas/reports.py
 app/schemas/templates.py
 app/schemas/therapists.py
+app/schemas/translation.py
 app/schemas/voice.py
 app/services/__init__.py
 app/services/analytics.py
@@ -73,6 +75,7 @@ app/services/reports.py
 app/services/summaries.py
 app/services/templates.py
 app/services/therapists.py
+app/services/translation.py
 mindwell_backend.egg-info/PKG-INFO
 mindwell_backend.egg-info/SOURCES.txt
 mindwell_backend.egg-info/dependency_links.txt
@@ -87,6 +90,7 @@ tests/test_chat_api.py
 tests/test_chat_service.py
 tests/test_data_subject_service.py
 tests/test_data_sync_agent.py
+tests/test_database.py
 tests/test_evaluation.py
 tests/test_explore_service.py
 tests/test_feedback_api.py

@@ -44,8 +44,11 @@ This command applies the latest migrations, including the bootstrap revision tha
 Application settings are defined in `app/core/config.py` using `pydantic-settings`. Populate a `.env` file or environment variables for the following fields as they become available:
 
 - `APP_ENV`
+- `LOG_LEVEL`
 - `OPENAI_API_KEY`
 - `DATABASE_URL`
+- `RUN_MIGRATIONS_ON_STARTUP`
+- `DATABASE_MIGRATION_TIMEOUT`
 - `AWS_REGION`
 - `S3_SUMMARIES_BUCKET`
 - `S3_BUCKET_THERAPISTS`

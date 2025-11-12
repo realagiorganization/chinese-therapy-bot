@@ -1,4 +1,5 @@
 from contextlib import asynccontextmanager
+import logging
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -9,8 +10,21 @@ from app.core.config import get_settings
 from app.core.database import init_database
 
 
+def _configure_logging(level_name: str) -> None:
+    """Ensure application logs propagate with the requested verbosity."""
+    level = getattr(logging, level_name.upper(), logging.WARNING)
+    root_logger = logging.getLogger()
+    if not root_logger.handlers:
+        logging.basicConfig(
+            level=level,
+            format="%(asctime)s %(levelname)s %(name)s - %(message)s",
+        )
+    root_logger.setLevel(level)
+
+
 def create_app() -> FastAPI:
     settings = get_settings()
+    _configure_logging(settings.log_level)
 
     @asynccontextmanager
     async def lifespan(_: FastAPI):
