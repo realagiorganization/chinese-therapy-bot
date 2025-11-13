@@ -41,7 +41,7 @@ OAUTH_PLAN_SKU="B1"
 OAUTH_IMAGE_DEFAULT="mindwelloauthacr.azurecr.io/oauth2-proxy:v7.8.1-cors"
 OAUTH_IMAGE="${OAUTH_IMAGE:-$OAUTH_IMAGE_DEFAULT}"
 OAUTH_CONTAINER_PORT="4180"
-OAUTH_ENV_FILE="${HOME}/.config/mindwell/oauth2-proxy.azure.env"
+OAUTH_ENV_FILE="${HOME}/.config/mindwell/oauth2-proxy.azure.json"
 
 BACKEND_ENV_LIST_VAR="BACKEND_APP_SETTINGS"
 
@@ -123,7 +123,7 @@ Environment conventions:
   - AZURE_TARGET_GLIBC задаёт минимальную версию glibc целевой среды
     (по умолчанию 2.31). Если локальная glibc выше, зависимости автоматически
     собираются внутри Docker-контейнера, чтобы избежать несовместимых wheel.
-  - Параметры oauth2-proxy читаются из файла ~/.config/mindwell/oauth2-proxy.azure.env.
+  - Параметры oauth2-proxy читаются из файла ~/.config/mindwell/oauth2-proxy.azure.json (JSON-объект вида {"KEY":"VALUE"}).
 EOF
 }
 
@@ -198,6 +198,51 @@ read_settings_file() {
   target_array=()
 
   [[ ! -f "$file_path" ]] && fail "Settings file '$file_path' does not exist."
+
+  if [[ "$file_path" == *.json ]]; then
+    local parsed_lines=()
+    if ! mapfile -t parsed_lines < <(python3 - "$file_path" <<'PY'
+import json
+import pathlib
+import sys
+
+path = pathlib.Path(sys.argv[1])
+try:
+    data = json.loads(path.read_text(encoding="utf-8"))
+except Exception as exc:
+    sys.stderr.write(f"Failed to parse JSON settings file {path}: {exc}\n")
+    sys.exit(1)
+
+if not isinstance(data, dict):
+    sys.stderr.write(f"JSON settings file must contain an object at the top level: {path}\n")
+    sys.exit(1)
+
+for key, value in data.items():
+    if not isinstance(key, str) or not key:
+        sys.stderr.write(f"JSON settings keys must be non-empty strings (file {path}).\n")
+        sys.exit(1)
+    if isinstance(value, bool):
+        rendered = "true" if value else "false"
+    elif value is None:
+        rendered = ""
+    elif isinstance(value, (int, float)):
+        rendered = str(value)
+    elif isinstance(value, str):
+        rendered = value
+    else:
+        sys.stderr.write(f"Unsupported value type for key '{key}' in {path}: {type(value).__name__}\n")
+        sys.exit(1)
+    if "\n" in rendered or "\n" in key:
+        sys.stderr.write(f"Multiline keys or values are not supported (key '{key}')\n")
+        sys.exit(1)
+    print(f"{key}={rendered}")
+PY
+    ); then
+      fail "Failed to parse JSON settings file '$file_path'."
+    fi
+    target_array+=("${parsed_lines[@]}")
+    return
+  fi
 
   while IFS= read -r line || [[ -n "$line" ]]; do
     # Skip blank lines and comments
@@ -527,6 +572,26 @@ cleanup_remote_python_artifacts() {
   run_kudu_command "$cleanup_cmd"
 }
 
+kudu_zipdeploy() {
+  local package_path="$1"
+  [[ -f "$package_path" ]] || return 1
+
+  local profile kudu_user kudu_pass
+  if ! profile="$(get_kudu_credentials)"; then
+    return 1
+  fi
+  IFS=$'\t' read -r kudu_user kudu_pass <<<"$profile"
+  [[ -n "$kudu_user" && -n "$kudu_pass" ]] || return 1
+
+  curl -sS --fail \
+    -u "$kudu_user:$kudu_pass" \
+    -X POST \
+    -H "Content-Type: application/zip" \
+    --data-binary @"$package_path" \
+    "https://${BACKEND_APP_NAME}.scm.azurewebsites.net/api/zipdeploy?isAsync=true&clean=true" \
+    >/dev/null
+}
+
 is_local_connection_host() {
   local host="${1,,}"
   case "$host" in
@@ -770,27 +835,6 @@ PYTHONPATH="/workspace:/workspace/.python_packages/lib/site-packages" "$PYTHON_B
 
   if [[ "$validation_ok" -ne 1 ]]; then
     fail "Не удалось проверить установленные модули внутри упакованного окружения."
-  fi
-}
-
-prepare_run_from_package_tarball() {
-  local stage_dir="$1"
-  local tar_path="$stage_dir/output.tar.gz"
-  local stage_parent
-  stage_parent="$(dirname "$stage_dir")"
-  local tmp_tar
-  tmp_tar="$(mktemp "${stage_parent}/output.tar.gz.XXXXXX")"
-  log "Упаковываем stage в output.tar.gz для Azure Run-From-Package..."
-  if tar -czf "$tmp_tar" --exclude='./output.tar.gz' -C "$stage_dir" . >/dev/null; then
-    mv "$tmp_tar" "$tar_path"
-    if [[ -f "$tar_path" ]]; then
-      log "output.tar.gz готов ($(du -h "$tar_path" | awk '{print $1}'))."
-    else
-      fail "Не удалось создать $tar_path."
-    fi
-  else
-    rm -f "$tmp_tar"
-    fail "tar не смог собрать $tar_path."
   fi
 }
 
@@ -1197,12 +1241,6 @@ while :; do
     backend_deps_installed=1
   fi
 
-  if [[ "$current_backend_mode" -eq 1 ]]; then
-    prepare_run_from_package_tarball "$BACKEND_STAGE"
-  else
-    rm -f "$BACKEND_STAGE/output.tar.gz"
-  fi
-
   rm -f "$BACKEND_PACKAGE"
   (
     cd "$BACKEND_STAGE"
@@ -1214,7 +1252,6 @@ while :; do
     backend_control_settings+=(
       "SCM_DO_BUILD_DURING_DEPLOYMENT=false"
       "ENABLE_ORYX_BUILD=false"
-      "WEBSITE_RUN_FROM_PACKAGE=1"
       "PYTHONPATH=/home/site/wwwroot:/home/site/wwwroot/.python_packages/lib/site-packages"
     )
   else
@@ -1235,36 +1272,26 @@ while :; do
   sleep 10
 
   if [[ "$current_backend_mode" -eq 1 ]]; then
-    log "Используем az webapp deploy (zip, без Oryx) для Run-From-Package."
+    log "Загружаем архив через Kudu zipdeploy (без Oryx)..."
     deploy_start_epoch="$(date +%s)"
-    if az webapp deploy \
-      --name "$BACKEND_APP_NAME" \
-      --resource-group "$RESOURCE_GROUP" \
-      --src-path "$BACKEND_PACKAGE_SRC" \
-      --type zip \
-      --ignore-stack true \
-      --clean true \
-      --track-status false \
-      --restart true \
-      >/dev/null; then
+    if kudu_zipdeploy "$BACKEND_PACKAGE_SRC"; then
       if wait_for_kudu_deployment "$deploy_start_epoch"; then
         BACKEND_RUN_FROM_PACKAGE_EFFECTIVE=1
         break
       fi
       wait_status=$?
       if [[ "$wait_status" -eq 1 ]]; then
-        log "Kudu OneDeploy сообщил об ошибке в Run-From-Package режиме. Попробуем ещё раз или завершим."
+        log "Kudu zipdeploy сообщил об ошибке."
       else
-        log "Не дождались завершения Kudu OneDeploy (Run-From-Package) за разумное время."
+        log "Не дождались завершения Kudu zipdeploy за разумное время."
       fi
-    elif kudu_deployment_succeeded_since "$deploy_start_epoch"; then
-      log "az webapp deploy вернулся с ошибкой (например, 504), но Kudu OneDeploy завершился успешно в Run-From-Package режиме. Продолжаем."
-      BACKEND_RUN_FROM_PACKAGE_EFFECTIVE=1
-      break
+    else
+      log "Не удалось вызвать Kudu zipdeploy."
     fi
   else
     log "Используем az webapp deploy для вызова Oryx build."
     deploy_start_epoch="$(date +%s)"
+    deploy_exit=0
     if az webapp deploy \
       --name "$BACKEND_APP_NAME" \
       --resource-group "$RESOURCE_GROUP" \
@@ -1274,18 +1301,19 @@ while :; do
       --track-status false \
       --restart true \
       >/dev/null; then
-      if wait_for_kudu_deployment "$deploy_start_epoch"; then
-        break
-      fi
-      wait_status=$?
-      if [[ "$wait_status" -eq 1 ]]; then
-        log "Kudu OneDeploy вернул ошибку, az webapp deploy будет повторён (или переключимся на Run-From-Package)."
-      else
-        log "Не дождались завершения Kudu OneDeploy за разумное время, az webapp deploy будет повторён."
-      fi
-    elif kudu_deployment_succeeded_since "$deploy_start_epoch"; then
-      log "az webapp deploy завершился ошибкой (например, 504 GatewayTimeout), но Kudu сообщил об успешном OneDeploy. Продолжаем без переключения на Run-From-Package."
+      :
+    else
+      deploy_exit=$?
+      log "az webapp deploy завершился с кодом $deploy_exit. Проверяем статус Kudu OneDeploy..."
+    fi
+    if wait_for_kudu_deployment "$deploy_start_epoch"; then
       break
+    fi
+    wait_status=$?
+    if [[ "$wait_status" -eq 1 ]]; then
+      log "Kudu OneDeploy вернул ошибку, az webapp deploy будет повторён (или переключимся на Run-From-Package)."
+    else
+      log "Не дождались завершения Kudu OneDeploy за разумное время, az webapp deploy будет повторён."
     fi
   fi
 

@@ -1,0 +1,3 @@
+CMD-LOG-LINE-BEGIN 40547 | 2025-11-13 13:15:09,290 | INFO | az_command_data_logger | command args: webapp config appsettings list --name {} --resource-group {}
+CMD-LOG-LINE-BEGIN 40547 | 2025-11-13 13:15:09,801 | ERROR | az_command_data_logger | <urllib3.connection.HTTPSConnection object at 0x7b949bce6a50>: Failed to resolve 'management.azure.com' ([Errno -2] Name or service not known)
+CMD-LOG-LINE-BEGIN 40547 | 2025-11-13 13:15:09,802 | INFO | az_command_data_logger | exit code: 1

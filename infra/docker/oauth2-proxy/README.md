@@ -21,7 +21,7 @@ docker push mindwelloauthacr.azurecr.io/oauth2-proxy:v7.8.1-cors
 `deploy_azure_hosting.sh` по умолчанию использует `mindwelloauthacr.azurecr.io/oauth2-proxy:v7.8.1-cors`,
 поэтому дополнительный флаг не нужен. При необходимости передайте `--oauth-image <registry>/<tag>` (или
 экспортируйте `OAUTH_IMAGE`). App Service по-прежнему читает `WEBSITES_PORT=4180` и значения из
-`~/.config/mindwell/oauth2-proxy.azure.env`.
+`~/.config/mindwell/oauth2-proxy.azure.json` (JSON-объект с парами `"OAUTH2_PROXY_*": "<значение>"`).
 
 ## Проверка после деплоя
 

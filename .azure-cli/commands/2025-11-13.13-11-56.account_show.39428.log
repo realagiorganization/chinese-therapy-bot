@@ -1,0 +1,2 @@
+CMD-LOG-LINE-BEGIN 39428 | 2025-11-13 13:11:56,449 | INFO | az_command_data_logger | command args: account show
+CMD-LOG-LINE-BEGIN 39428 | 2025-11-13 13:11:56,452 | INFO | az_command_data_logger | exit code: 0

@@ -188,7 +188,7 @@ to raise JSON snapshots for the growth team.
    docker push mindwelloauthacr.azurecr.io/oauth2-proxy:v7.8.1-cors
    ```
    Multi-stage Dockerfile запускает oauth2-proxy на `127.0.0.1:4181`, а Caddy публикует `:4180`, так что при необходимости можно добавлять/убирать заголовки, не пересобирая бинарник. Используете другой реестр — передайте `--oauth-image`.
-2. **Подготовьте секреты** в `~/.config/mindwell/oauth2-proxy.azure.env` (см. `infra/local/oauth2-proxy/.env.oauth2-proxy.example` и раздел "oauth2-proxy Deployment" в `ENVS.md`). Укажите `OAUTH2_PROXY_CLIENT_ID/SECRET`, `OAUTH2_PROXY_COOKIE_SECRET`, `OAUTH2_PROXY_UPSTREAMS`, `OAUTH2_PROXY_CORS_ALLOWED_ORIGINS`, `OAUTH2_PROXY_WHITELIST_DOMАINS`, `OAUTH2_PROXY_ALLOWED_REDIRECT_URLS` и т.д.
+2. **Подготовьте секреты** в `~/.config/mindwell/oauth2-proxy.azure.json` — это JSON-объект вида `{"KEY":"VALUE"}` с теми же ключами, что и в `infra/local/oauth2-proxy/.env.oauth2-proxy.example` (см. также раздел "oauth2-proxy Deployment" в `ENVS.md`). Укажите `OAUTH2_PROXY_CLIENT_ID/SECRET`, `OAUTH2_PROXY_COOKIE_SECRET`, `OAUTH2_PROXY_UPSTREAMS`, `OAUTH2_PROXY_CORS_ALLOWED_ORIGINS`, `OAUTH2_PROXY_WHITELIST_DOMАINS`, `OAUTH2_PROXY_ALLOWED_REDIRECT_URLS` и т.д.
 3. **Разверните контейнер**:
    ```bash
    ./deploy_azure_hosting.sh --environment dev --resource-group rg-mindwell-dev
