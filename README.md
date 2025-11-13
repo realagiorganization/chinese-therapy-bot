@@ -85,6 +85,60 @@ Run them within the same virtual environment once credentials are configured. Us
 to enforce S3 transcript/summary retention, and `mindwell-analytics-agent --window-hours 24`
 to raise JSON snapshots for the growth team.
 
+### Inspecting registered accounts and chat quotas
+Есть два способа попасть в Azure Postgres и посмотреть таблицу `users`:
+
+#### Вариант A — Azure Cloud Shell (если разрешён доступ “Allow Azure Services”)
+1. Запустите [shell.azure.com](https://shell.azure.com) (Bash) и вытащите `DATABASE_URL`:
+   ```bash
+   az webapp config appsettings list \
+     --resource-group rg-mindwell-dev \
+     --name mindwell-dev-api \
+     --query "[?name=='DATABASE_URL'].value" -o tsv
+   ```
+2. Уберите `+asyncpg` и подключитесь из Cloud Shell:
+   ```bash
+   psql "postgres://USER:PASSWORD@pgflex-mindwell-dev.postgres.database.azure.com:5432/mindwell?sslmode=require"
+   ```
+
+#### Вариант B — внутри VNet (если сервер закрыт Private Endpoint’ом)
+1. Поднимите VM / Azure Bastion / Container Instance в той же подсети, что `pgflex-mindwell-dev`.
+2. Установите `psql` (`sudo apt install postgresql-client`) и используйте тот же URI:
+   ```bash
+   psql "postgres://USER:PASSWORD@pgflex-mindwell-dev.postgres.database.azure.com:5432/mindwell?sslmode=require"
+   ```
+   Благодаря приватной сети подключение не блокируется firewall’ом.
+
+#### Полезные SQL-запросы
+```sql
+-- последние 50 зарегистрированных аккаунтов
+SELECT id, email, account_type,
+       chat_token_quota, chat_tokens_remaining,
+       created_at
+  FROM users
+ ORDER BY created_at DESC
+ LIMIT 50;
+
+-- демо-пользователи, у кого закончились токены
+SELECT email, demo_code,
+       chat_token_quota, chat_tokens_remaining
+  FROM users
+ WHERE account_type = 'demo'
+   AND chat_tokens_remaining <= 0;
+
+-- подсчёт активных email-аккаунтов
+SELECT COUNT(*) AS email_accounts
+  FROM users
+ WHERE account_type = 'email';
+
+-- восстановить квоту конкретному пользователю
+UPDATE users
+   SET chat_token_quota = 50,
+       chat_tokens_remaining = 50
+ WHERE email = 'demo-user@example.com';
+```
+После работы закройте сессию и очистите историю shell’а, чтобы пароль Postgres не остался в логах.
+
 ### Frontend (Vite/React)
 1. Install dependencies:
    ```bash
