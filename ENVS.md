@@ -69,6 +69,7 @@ The backend reads configuration from environment variables via `AppSettings` (`s
 - `MONITORING_METRICS_PATH`: Absolute or relative path where the Monitoring Agent writes the latest metrics snapshot as JSON for downstream ingestion. Accepts either a file (`/var/log/mindwell/monitoring.json`) or directory (`/var/log/mindwell/`) path.
 - `ALERT_WEBHOOK_URL`: Optional HTTPS webhook endpoint (e.g. Slack, Teams) that receives Monitoring Agent alert payloads.
 - `ALERT_CHANNEL`: Optional channel or room override supplied with alert webhook payloads.
+- `MINDWELL_PUBLISHING_PROFILE_PASSWORD`: Secret used by `scripts/render_publishing_profile.sh` to hydrate `publishing_profiles.secrets.json` before invoking Azure WebApp deployment tooling. Source it from Azure Portal (reset the publish profile if needed) and avoid committing the generated file.
 
 ### oauth2-proxy Deployment
 - `OAUTH2_PROXY_MANAGED_IDENTITY_CLIENT_ID`: Client ID of the managed identity authorised to read oauth2-proxy secrets from Azure Key Vault. Reuse the backend identity if a dedicated one is not available.
@@ -78,6 +79,8 @@ The backend reads configuration from environment variables via `AppSettings` (`s
 - `OAUTH2_PROXY_WHITELIST_DOMAINS`: Domains for which oauth2-proxy should set session cookies (`mindwell.cn`, `.mindwell.cn`, etc.).
 - `OAUTH2_PROXY_COOKIE_DOMAIN`: Cookie domain shared with the frontend so browser sessions persist across subdomains.
 - `OAUTH2_PROXY_UPSTREAMS`: Comma-separated upstream URLs protected by oauth2-proxy (defaults to the internal `http://mindwell-backend.mindwell.svc.cluster.local` service).
+- `OAUTH2_PROXY_CORS_ALLOWED_ORIGINS`: List of SPA origins (comma-separated) that receive `Access-Control-Allow-Origin` in oauth2-proxy responses.
+- `OAUTH2_PROXY_CORS_ALLOW_CREDENTIALS`: Optional override for upstream images; MindWell's custom image (≥7.8.1) already enables `Access-Control-Allow-Credentials: true`.
 
 ### Notes
 - When Azure OpenAI variables are omitted, the orchestrator falls back to OpenAI (if configured) and deterministic heuristics for development environments.
@@ -97,7 +100,7 @@ The table below captures the authoritative location, owning team, and rotation c
 | `S3_CONVERSATION_LOGS_BUCKET` | all | Terraform output `conversation_logs_bucket` (AWS account) | Platform Engineering | N/A (infrastructure identifier) | Lifecycle and bucket policies managed by Terraform; Monitoring Agent verifies encryption flag nightly |
 | `S3_SUMMARIES_BUCKET` | all | Terraform output `summaries_bucket` | Platform Engineering | N/A | Daily summary job checks bucket existence before upload |
 | `S3_BUCKET_THERAPISTS` | all | Terraform output `therapists_bucket` | Data Ops | N/A | Data Sync Agent uploads to prefixed folders per locale |
-| `DEMO_CODE_FILE` | all | Git-managed JSON (e.g. `config/demo_codes.json`) synced to AKS ConfigMap | Platform Engineering | As codes change | Update allowlist file, trigger rollout of oauth2-proxy + API deployment |
+| `DEMO_CODE_FILE` | all | Git-managed JSON (e.g. `services/backend/config/demo_codes.json`) synced to AKS ConfigMap | Platform Engineering | As codes change | Update allowlist file, trigger rollout of oauth2-proxy + API deployment |
 | `AZURE_SPEECH_KEY` | staging / prod | Azure Key Vault secret `azure-speech-key` | Voice Experience | 90 days | Monitoring Agent alarms if key age > 100 days |
 | `BEDROCK_MODEL_ID` | dev / staging / prod | Terraform variable `bedrock_model_id` | Platform Engineering | On fallback provider change | Terraform apply triggered by infra release pipeline |
 | `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` | dev (local only) | `.env.local` generated via `scripts/bootstrap-local-env.sh` | Platform Engineering | As needed when sandbox IAM user rotated | Local bootstrap script pulls credentials using `aws sts assume-role` |

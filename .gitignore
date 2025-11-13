@@ -8,3 +8,4 @@ output_remote.tar.gz
 tmp/
 oauth_logs*
 oauth2-proxy.azure.env
+publishing_profiles.secrets.json

@@ -13,7 +13,7 @@
 - Clearing the entry or calling `AuthContext.clearTokens` drops authentication state immediately.
 
 ## Demo code exchange (allowlisted)
-- Administrators maintain an allowlist in the JSON file referenced by `DEMO_CODE_FILE` (sample: `config/demo_codes.json`).
+- Administrators maintain an allowlist in the JSON file referenced by `DEMO_CODE_FILE` (sample: `services/backend/config/demo_codes.json`).
 - Each entry supports `chat_token_quota` (chat turns before the subscription prompt). If omitted, the backend falls back to `CHAT_TOKEN_DEMO_QUOTA`.
 - Enter a permitted code in the second form on the login panel; the frontend submits `POST /api/auth/demo` with that value.
 - The backend validates the code against the registry, provisions a dedicated demo `User` for that exact code (or loads the existing one), enforces the demo chat quota, and returns JWT/refresh tokens. Demo users are isolated from email accounts; chat credits are tracked per-code.

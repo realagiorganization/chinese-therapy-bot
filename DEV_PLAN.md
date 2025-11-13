@@ -212,7 +212,7 @@
 
 ## **8. Additional Notes**
 
-- oauth2-proxy identity provider integration complete; demo-code governance handled via `config/demo_codes.json`.
+- oauth2-proxy identity provider integration complete; demo-code governance handled via `services/backend/config/demo_codes.json`.
 - Release artefact pipeline `.github/workflows/release.yml` produces backend wheels plus web/mobile bundles for tag builds and manual dispatch.
 - Investor/partner summary brief lives in `docs/investor_partner_brief.md` for fundraising and partnership outreach.
 

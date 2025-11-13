@@ -1,0 +1,6 @@
+:4180 {
+    reverse_proxy 127.0.0.1:4181 {
+        header_up Host {http.request.host}
+        header_up X-Forwarded-Proto {http.request.scheme}
+    }
+}

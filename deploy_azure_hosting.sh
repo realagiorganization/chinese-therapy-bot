@@ -38,7 +38,8 @@ KUDU_PROFILE_CACHE=""
 OAUTH_APP_NAME=""
 OAUTH_PLAN_NAME=""
 OAUTH_PLAN_SKU="B1"
-OAUTH_IMAGE="quay.io/oauth2-proxy/oauth2-proxy:v7.7.1"
+OAUTH_IMAGE_DEFAULT="mindwelloauthacr.azurecr.io/oauth2-proxy:v7.8.1-cors"
+OAUTH_IMAGE="${OAUTH_IMAGE:-$OAUTH_IMAGE_DEFAULT}"
 OAUTH_CONTAINER_PORT="4180"
 OAUTH_ENV_FILE="${HOME}/.config/mindwell/oauth2-proxy.azure.env"
 
@@ -95,7 +96,8 @@ oauth2-proxy:
       --oauth-app-name <name>      Azure WebApp (oauth2-proxy) name. Default: <prefix>-<env>-oauth[<suffix>].
       --oauth-plan-name <name>     App Service plan for oauth2-proxy. Default: asp-<prefix>-<env>-oauth[<suffix>].
       --oauth-plan-sku <sku>       Plan SKU. Default: B1.
-      --oauth-image <image>        Container image for oauth2-proxy. Default: quay.io/oauth2-proxy/oauth2-proxy:v7.7.1.
+      --oauth-image <image>        Container image for oauth2-proxy. Default: mindwelloauthacr.azurecr.io/oauth2-proxy:v7.8.1-cors
+                                   (соберите/запушьте образ из infra/docker/oauth2-proxy перед запуском).
       --oauth-port <port>          Container listen port (sets WEBSITES_PORT). Default: 4180.
 
 General:
@@ -1038,6 +1040,14 @@ rsync -a --delete \
   --exclude '.mypy_cache' \
   --exclude 'build' \
   "$BACKEND_DIR/" "$BACKEND_STAGE/"
+
+# Ensure runtime package always includes demo code allowlist under app/config.
+DEMO_CODES_SOURCE="$BACKEND_DIR/config/demo_codes.json"
+DEMO_CODES_TARGET="$BACKEND_STAGE/app/config/demo_codes.json"
+if [[ -f "$DEMO_CODES_SOURCE" ]]; then
+  mkdir -p "$(dirname "$DEMO_CODES_TARGET")"
+  cp "$DEMO_CODES_SOURCE" "$DEMO_CODES_TARGET"
+fi
 
 if [[ -f "$BACKEND_STAGE/azure_startup.sh" ]]; then
   chmod +x "$BACKEND_STAGE/azure_startup.sh"

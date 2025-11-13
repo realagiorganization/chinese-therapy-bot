@@ -1,6 +1,8 @@
 # Локальный oauth2-proxy
 
-Этот docker-compose манифест помогает запустить oauth2-proxy рядом с локальным бекендом MindWell, чтобы тестировать email-авторизацию без обращения к демо-кодам.
+Этот docker-compose манифест собирает тот же кастомный образ (oauth2-proxy + Caddy), который
+используется на Azure (`infra/docker/oauth2-proxy/`). Так локальные тесты повторяют production-настройки
+(`skip_auth_preflight=true`, прокси на `127.0.0.1:4181`, и т.д.).
 
 ## Шаги
 
@@ -17,9 +19,9 @@
    - `OAUTH2_PROXY_OIDC_ISSUER_URL` и `OAUTH2_PROXY_REDIRECT_URL` должны совпадать с настройками приложения.
    - `OAUTH2_PROXY_UPSTREAMS` по умолчанию указывает на `http://host.docker.internal:8000`, что соответствует локально запущенному FastAPI.
    - Для локального `http://localhost` обязательно задайте `OAUTH2_PROXY_COOKIE_SECURE=false`, уберите `OAUTH2_PROXY_COOKIE_DOMAIN` и включите `OAUTH2_PROXY_SKIP_AUTH_PREFLIGHT=true`, чтобы CORS preflight (`OPTIONS`) проходил без авторизации.
-3. Запустите контейнер:
+3. Соберите и запустите контейнер:
    ```bash
-   docker compose up -d
+   docker compose up --build -d
    ```
 4. Установите для фронтенда `VITE_API_BASE_URL=http://localhost:4180`, чтобы запросы шли через oauth2-proxy. Очистите куки `_oauth2_proxy` при повторных тестах.
 

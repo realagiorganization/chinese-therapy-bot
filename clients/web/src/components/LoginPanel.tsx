@@ -52,6 +52,23 @@ function hasProxySessionCookie(): boolean {
   }
 }
 
+function triggerOAuthRedirect(url: string): void {
+  if (typeof document !== "undefined" && document.body) {
+    const form = document.createElement("form");
+    form.method = "GET";
+    form.action = url;
+    form.style.position = "absolute";
+    form.style.left = "-9999px";
+    form.style.top = "-9999px";
+    document.body.appendChild(form);
+    form.submit();
+    return;
+  }
+  if (typeof window !== "undefined") {
+    window.location.href = url;
+  }
+}
+
 export function LoginPanel() {
   const { t } = useTranslation();
   const { setTokens } = useAuth();
@@ -146,22 +163,25 @@ export function LoginPanel() {
       setPendingOAuth(true);
       setEmailStatus("redirecting");
 
-      if (typeof window !== "undefined") {
-        const base = window.location.origin;
-        const redirectTarget = `${base}${window.location.pathname}`;
-        const search = new URLSearchParams();
-        search.set("rd", redirectTarget);
-        search.set("prompt", "select_account");
-        if (trimmed) {
-          search.set("login_hint", trimmed);
-          const domain = trimmed.split("@")[1]?.toLowerCase();
-          if (domain) {
-            search.set("hd", domain);
-          }
-        }
-        const oauthStartUrl = `${getAuthProxyUrl("/oauth2/start")}?${search.toString()}`;
-        window.location.assign(oauthStartUrl);
+      if (typeof window === "undefined") {
+        setEmailStatus("idle");
+        setPendingOAuth(false);
+        return;
       }
+      const base = window.location.origin;
+      const redirectTarget = `${base}${window.location.pathname}`;
+      const search = new URLSearchParams();
+      search.set("rd", redirectTarget);
+      search.set("prompt", "select_account");
+      if (trimmed) {
+        search.set("login_hint", trimmed);
+        const domain = trimmed.split("@")[1]?.toLowerCase();
+        if (domain) {
+          search.set("hd", domain);
+        }
+      }
+      const oauthStartUrl = `${getAuthProxyUrl("/oauth2/start")}?${search.toString()}`;
+      triggerOAuthRedirect(oauthStartUrl);
     },
     [email, t]
   );

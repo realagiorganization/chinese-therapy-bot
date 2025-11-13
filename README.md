@@ -59,7 +59,7 @@ web client, infrastructure-as-code, and the supporting automation services descr
    ```
 2. Configure environment variables (e.g. export locally or use a `.env` file).
    > Provide `DEMO_CODE_FILE` for the allowlisted demo codes, configure chat quotas via `CHAT_TOKEN_DEFAULT_QUOTA` / `CHAT_TOKEN_DEMO_QUOTA`, and expose the oauth2-proxy headers using `OAUTH2_PROXY_EMAIL_HEADER`, `OAUTH2_PROXY_USER_HEADER`, and optionally `OAUTH2_PROXY_NAME_HEADER`.
-   > The repository ships an active allowlist at `config/demo_codes.json` and a template at `demo_codes.sample.json`. Each entry accepts `chat_token_quota` (chat turns before the subscription prompt appears). Every code provisions an isolated `demo` user keyed by the exact string in the file, so demo credits are spent per-code and never bleed into email-based accounts.
+   > The repository ships an active allowlist at `services/backend/config/demo_codes.json` and a template at `demo_codes.sample.json`. Each entry accepts `chat_token_quota` (chat turns before the subscription prompt appears). Every code provisions an isolated `demo` user keyed by the exact string in the file, so demo credits are spent per-code and never bleed into email-based accounts.
 3. Apply database migrations:
    ```bash
    alembic upgrade head
@@ -78,9 +78,12 @@ web client, infrastructure-as-code, and the supporting automation services descr
    ```
    The server runs on `http://127.0.0.1:8000` by default; override host/port via `API_HOST` / `API_PORT`.
 
-Agent entry points are exposed as `mindwell-summary-scheduler`, `mindwell-data-sync`, and
-`mindwell-monitoring-agent`. Run them within the same virtual environment once credentials are configured.
-Use `mindwell-monitoring-agent --dry-run` to verify telemetry access without dispatching alerts.
+Agent entry points are exposed as `mindwell-summary-scheduler`, `mindwell-data-sync`,
+`mindwell-retention-cleanup`, `mindwell-monitoring-agent`, and `mindwell-analytics-agent`.
+Run them within the same virtual environment once credentials are configured. Use
+`mindwell-monitoring-agent --dry-run` to verify telemetry access, `mindwell-retention-cleanup`
+to enforce S3 transcript/summary retention, and `mindwell-analytics-agent --window-hours 24`
+to raise JSON snapshots for the growth team.
 
 ### Frontend (Vite/React)
 1. Install dependencies:
@@ -162,6 +165,67 @@ Use `mindwell-monitoring-agent --dry-run` to verify telemetry access without dis
   `./deploy_azure_hosting.sh`. The script prints the `DATABASE_URL` (and related variables) that must be exported so
   the hosting deploy can pick up the newly created database.
 - Release workflows, semantic versioning, and store checklists are documented in `docs/release_management.md`.
+
+### Publishing Profiles (Azure App Service)
+- `publishing_profiles.json` ships as a sanitized template. The `userPWD` field holds the placeholder
+  `<<REPLACE_WITH_MINDWELL_PUBLISHING_PROFILE_PASSWORD>>` so no active credentials ever live in git history.
+- Export `MINDWELL_PUBLISHING_PROFILE_PASSWORD` with the password downloaded from the Azure Portal (or reset it to rotate credentials):
+  ```bash
+  export MINDWELL_PUBLISHING_PROFILE_PASSWORD='super-secret-value'
+  ```
+- Run the helper to materialize a real profile before invoking Azure tooling:
+  ```bash
+  ./scripts/render_publishing_profile.sh
+  # -> writes publishing_profiles.secrets.json (chmod 600, gitignored)
+  ```
+- Provide `publishing_profiles.secrets.json` to Visual Studio, `az webapp deployment`, or any other tool that expects the raw profile. Remove the generated file once the deployment is complete.
+
+### oauth2-proxy Deployment (Azure App Service)
+1. **Соберите и запушьте кастомный образ** (oauth2-proxy + Caddy):
+   ```bash
+   az acr login --name mindwelloauthacr
+   docker build -t mindwelloauthacr.azurecr.io/oauth2-proxy:v7.8.1-cors infra/docker/oauth2-proxy
+   docker push mindwelloauthacr.azurecr.io/oauth2-proxy:v7.8.1-cors
+   ```
+   Multi-stage Dockerfile запускает oauth2-proxy на `127.0.0.1:4181`, а Caddy публикует `:4180`, так что при необходимости можно добавлять/убирать заголовки, не пересобирая бинарник. Используете другой реестр — передайте `--oauth-image`.
+2. **Подготовьте секреты** в `~/.config/mindwell/oauth2-proxy.azure.env` (см. `infra/local/oauth2-proxy/.env.oauth2-proxy.example` и раздел "oauth2-proxy Deployment" в `ENVS.md`). Укажите `OAUTH2_PROXY_CLIENT_ID/SECRET`, `OAUTH2_PROXY_COOKIE_SECRET`, `OAUTH2_PROXY_UPSTREAMS`, `OAUTH2_PROXY_CORS_ALLOWED_ORIGINS`, `OAUTH2_PROXY_WHITELIST_DOMАINS`, `OAUTH2_PROXY_ALLOWED_REDIRECT_URLS` и т.д.
+3. **Разверните контейнер**:
+   ```bash
+   ./deploy_azure_hosting.sh --environment dev --resource-group rg-mindwell-dev
+   ```
+   Скрипт создаст/обновит App Service `mindwell-<env>-oauth`, укажет `WEBSITES_PORT=4180` и подтянет образ `mindwelloauthacr.azurecr.io/oauth2-proxy:v7.8.1-cors`. Для ручных изменений:
+   ```bash
+   az webapp config container set \
+     --name mindwell-dev-oauth \
+     --resource-group rg-mindwell-dev \
+     --docker-custom-image-name mindwelloauthacr.azurecr.io/oauth2-proxy:v7.8.1-cors \
+     --docker-registry-server-url https://mindwelloauthacr.azurecr.io \
+     --docker-registry-server-user mindwelloauthacr \
+     --docker-registry-server-password '<admin-password>'
+   az webapp restart --name mindwell-dev-oauth --resource-group rg-mindwell-dev
+   ```
+4. **Включите CORS на App Service** и поддержку cookie:
+   ```bash
+   az webapp update \
+     --name mindwell-dev-oauth \
+     --resource-group rg-mindwell-dev \
+     --set siteConfig.cors.allowedOrigins='["https://thankful-island-0cf627d00.3.azurestaticapps.net"]' \
+           siteConfig.cors.supportCredentials=true
+   ```
+   При смене SPA обновляйте `allowedOrigins`, иначе preflight снова упадёт.
+5. **Проверьте preflight и основные запросы**:
+   ```bash
+   curl -i -X OPTIONS \
+     -H "Origin: https://thankful-island-0cf627d00.3.azurestaticapps.net" \
+     -H "Access-Control-Request-Method: POST" \
+     -H "Access-Control-Request-Headers: content-type" \
+     https://mindwell-dev-oauth.azurewebsites.net/api/auth/demo
+   curl -i \
+     -H "Origin: https://thankful-island-0cf627d00.3.azurestaticapps.net" \
+     "https://mindwell-dev-oauth.azurewebsites.net/oauth2/start?rd=https://thankful-island-0cf627d00.3.azurestaticapps.net/api/auth/demo"
+   ```
+   Оба ответа должны содержать `Access-Control-Allow-Origin` и `Access-Control-Allow-Credentials: true`.
+6. **Локальное соответствие**: `infra/local/oauth2-proxy/docker-compose.yml` собирает тот же образ (`docker compose up --build -d`), так что фронтенд можно настраивать на `http://localhost:4180`. Дополнительные проверки — в `CORS_ACTION_ITEMS.md`.
 
 ## Observability & Operations
 - Application Insights + Azure Monitor dashboards track latency, error rates, and custom metrics.
