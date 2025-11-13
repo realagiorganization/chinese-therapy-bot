@@ -39,33 +39,13 @@ function isPendingOAuth(): boolean {
   }
 }
 
-function hasProxySessionCookie(): boolean {
-  if (typeof document === "undefined") {
-    return false;
-  }
-  try {
-    return document.cookie
-      .split(";")
-      .some((entry) => entry.trim().startsWith("_oauth2_proxy="));
-  } catch {
-    return false;
-  }
-}
-
 function triggerOAuthRedirect(url: string): void {
-  if (typeof document !== "undefined" && document.body) {
-    const form = document.createElement("form");
-    form.method = "GET";
-    form.action = url;
-    form.style.position = "absolute";
-    form.style.left = "-9999px";
-    form.style.top = "-9999px";
-    document.body.appendChild(form);
-    form.submit();
+  if (typeof window !== "undefined" && window.location) {
+    window.location.assign(url);
     return;
   }
-  if (typeof window !== "undefined") {
-    window.location.href = url;
+  if (typeof document !== "undefined" && document.location) {
+    document.location.href = url;
   }
 }
 
@@ -86,7 +66,7 @@ export function LoginPanel() {
   useEffect(() => {
     let cancelled = false;
     const pending = isPendingOAuth();
-    if (!pending || !hasProxySessionCookie()) {
+    if (!pending) {
       if (pending) {
         setPendingOAuth(false);
       }
