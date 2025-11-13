@@ -168,8 +168,7 @@ export function LoginPanel() {
         setPendingOAuth(false);
         return;
       }
-      const base = window.location.origin;
-      const redirectTarget = `${base}${window.location.pathname}`;
+      const redirectTarget = window.location.href;
       const search = new URLSearchParams();
       search.set("rd", redirectTarget);
       search.set("prompt", "select_account");
