@@ -1,3 +1,0 @@
-CMD-LOG-LINE-BEGIN 39465 | 2025-11-13 13:11:59,706 | INFO | az_command_data_logger | command args: group show --name {}
-CMD-LOG-LINE-BEGIN 39465 | 2025-11-13 13:12:04,642 | ERROR | az_command_data_logger | <urllib3.connection.HTTPSConnection object at 0x7a72241a25d0>: Failed to resolve 'management.azure.com' ([Errno -2] Name or service not known)
-CMD-LOG-LINE-BEGIN 39465 | 2025-11-13 13:12:04,643 | INFO | az_command_data_logger | exit code: 1

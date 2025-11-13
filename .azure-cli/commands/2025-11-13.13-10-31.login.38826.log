@@ -1,2 +1,0 @@
-CMD-LOG-LINE-BEGIN 38826 | 2025-11-13 13:10:31,726 | INFO | az_command_data_logger | command args: login --use-device-code
-CMD-LOG-LINE-BEGIN 38826 | 2025-11-13 13:10:56,609 | INFO | az_command_data_logger | exit code: 0
