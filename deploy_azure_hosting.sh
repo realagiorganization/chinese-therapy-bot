@@ -57,10 +57,10 @@ Usage: ./deploy_azure_hosting.sh [options]
 Required Azure prerequisites:
   - Azure CLI (az) logged in (az login) and subscription set or provided via --subscription.
   - Sufficient permissions to create resource groups, Static Web Apps, and App Services.
-  - Все необходимые переменные окружения (кроме oauth2-proxy) должны быть экспортированы в окружение
-    (например, через ~/.bashrc). Скрипт автоматически собирает список ключей из
-    services/backend/app/core/config.py. Дополнительно можно указать переменную
-    BACKEND_APP_SETTINGS для явного добавления ключей.
+  - All required environment variables (except the oauth2-proxy ones) must already be exported
+    (for example via ~/.bashrc). The script automatically collects keys from
+    services/backend/app/core/config.py. You can also set
+    BACKEND_APP_SETTINGS to include additional keys explicitly.
 
 Options:
   -e, --environment <name>         Environment suffix used in generated resource names. Default: dev.
@@ -80,24 +80,22 @@ Backend:
       --backend-plan-name <name>   App Service plan for backend. Default: asp-<prefix>-<env>-api[<suffix>].
       --backend-plan-sku <sku>     App Service plan SKU. Default: B1.
       --backend-python <stack>     Azure runtime stack (e.g. PYTHON|3.11). Default: PYTHON|3.11.
-      --backend-run-from-package   Принудительно включает WEBSITE_RUN_FROM_PACKAGE=1 и собирает
-                                   зависимости локально. По умолчанию скрипт автоматически
-                                   переключится на этот режим, если Oryx build завершится с
-                                   ошибкой. Зависимости упаковываются с использованием локального
-                                   Python или Docker-образа mcr.microsoft.com/oryx/python:<версия>.
-      --backend-startup-command    Custom startup command passed to App Service. По умолчанию
-                                   используется `bash -lc "<команда без set -euo>"`, которая просто
-                                   переходит в ${APP_PATH:-/home/site/wwwroot} и запускает
-                                   azure_startup.sh (готовит PYTHONPATH и стартует gunicorn).
-                                   Всё содержимое хранится в одной строке, чтобы Oryx корректно
-                                   передал startup-команду.
+      --backend-run-from-package   Forces WEBSITE_RUN_FROM_PACKAGE=1 and bundles dependencies locally.
+                                   By default the script switches to this mode automatically when
+                                   an Oryx build fails. Dependencies are packaged with the local
+                                   Python or the Docker image mcr.microsoft.com/oryx/python:<version>.
+      --backend-startup-command    Custom startup command passed to App Service. By default it uses
+                                   `bash -lc "<command without set -euo>"`, which simply cd's into
+                                   ${APP_PATH:-/home/site/wwwroot} and runs azure_startup.sh
+                                   (primes PYTHONPATH and launches gunicorn). The contents stay on a
+                                   single line so Oryx forwards the startup command correctly.
 
 oauth2-proxy:
       --oauth-app-name <name>      Azure WebApp (oauth2-proxy) name. Default: <prefix>-<env>-oauth[<suffix>].
       --oauth-plan-name <name>     App Service plan for oauth2-proxy. Default: asp-<prefix>-<env>-oauth[<suffix>].
       --oauth-plan-sku <sku>       Plan SKU. Default: B1.
       --oauth-image <image>        Container image for oauth2-proxy. Default: mindwelloauthacr.azurecr.io/oauth2-proxy:v7.8.1-cors
-                                   (соберите/запушьте образ из infra/docker/oauth2-proxy перед запуском).
+                                   (build/push the image from infra/docker/oauth2-proxy before running the script).
       --oauth-port <port>          Container listen port (sets WEBSITES_PORT). Default: 4180.
 
 General:
@@ -111,19 +109,15 @@ The script will:
   5. Print the resulting hostnames for all services.
 
 Environment conventions:
-  - Переменные для backend извлекаются из services/backend/app/core/config.py. Значения
-    берутся из текущего окружения (включая ~/.bashrc). BACKEND_APP_SETTINGS можно
-    использовать для добавления дополнительных ключей (через пробел или запятую).
-  - BACKEND_FORCE_DOCKER_PIP=1 заставит упаковку зависимостей выполняться внутри
-    контейнера mcr.microsoft.com/oryx/python:<версия>, что помогает избежать
-    несовместимости glibc между WSL/desktop и Azure App Service.
-  - BACKEND_PIP_ONLY_BINARY задаёт значение PIP_ONLY_BINARY на время pip install
-    (по умолчанию pydantic-core). Можно указать ':all:' или конкретные пакеты,
-    чтобы принудить установку wheel вместо сборки из исходников.
-  - AZURE_TARGET_GLIBC задаёт минимальную версию glibc целевой среды
-    (по умолчанию 2.31). Если локальная glibc выше, зависимости автоматически
-    собираются внутри Docker-контейнера, чтобы избежать несовместимых wheel.
-  - Параметры oauth2-proxy читаются из файла ~/.config/mindwell/oauth2-proxy.azure.json (JSON-объект вида {"KEY":"VALUE"}).
+  - Backend variables are derived from services/backend/app/core/config.py and pulled from the current
+    environment (including ~/.bashrc). BACKEND_APP_SETTINGS can list extra keys (space- or comma-separated).
+  - BACKEND_FORCE_DOCKER_PIP=1 forces dependency packaging inside the Docker image
+    mcr.microsoft.com/oryx/python:<version> to avoid glibc mismatches between WSL/desktop and Azure App Service.
+  - BACKEND_PIP_ONLY_BINARY sets PIP_ONLY_BINARY during pip install (defaults to pydantic-core). Use ':all:' or specific
+    packages to force wheel installs instead of building from source.
+  - AZURE_TARGET_GLIBC defines the minimum glibc version for the target environment (default 2.31). If the local glibc
+    is higher, dependencies are automatically built inside Docker to avoid incompatible wheels.
+  - oauth2-proxy parameters are read from ~/.config/mindwell/oauth2-proxy.azure.json (a `{"KEY":"VALUE"}` JSON object).
 EOF
 }
 
@@ -552,15 +546,15 @@ wait_for_kudu_deployment() {
   while :; do
     now="$(date +%s)"
     if (( now > deadline )); then
-      log "Kudu OneDeploy не завершился за ${timeout}s ожидания."
+      log "Kudu OneDeploy did not finish within the ${timeout}s timeout."
       return 2
     fi
     if kudu_deployment_succeeded_since "$since_epoch"; then
-      log "Kudu OneDeploy завершился успешно через $((now - start_time))s."
+      log "Kudu OneDeploy completed successfully after $((now - start_time))s."
       return 0
     fi
     if kudu_deployment_failed_since "$since_epoch"; then
-      log "Kudu OneDeploy сообщил об ошибке через $((now - start_time))s."
+      log "Kudu OneDeploy reported an error after $((now - start_time))s."
       return 1
     fi
     sleep "$interval"
@@ -622,7 +616,7 @@ should_skip_backend_env_setting() {
       if ! is_local_connection_host "$host"; then
         return 1
       fi
-      log "Skipping DATABASE_URL that points to local host '$host'. Azure контейнер не сможет подключиться к вашей локальной БД; задайте внешний адрес через BACKEND_APP_SETTINGS или az webapp config appsettings set."
+      log "Skipping DATABASE_URL that points to local host '$host'. The Azure container cannot reach your local database; provide an external address via BACKEND_APP_SETTINGS or az webapp config appsettings set."
       return 0
     fi
   fi
@@ -644,7 +638,7 @@ install_backend_dependencies() {
   rm -f "$pip_log"
   local pip_only_binary="$BACKEND_PIP_ONLY_BINARY"
   if [[ -n "$pip_only_binary" ]]; then
-    log "PIP_ONLY_BINARY='$pip_only_binary' будет применён при установке backend зависимостей."
+    log "PIP_ONLY_BINARY='$pip_only_binary' will be applied while installing backend dependencies."
   fi
   local pip_only_binary_args=()
   if [[ -n "$pip_only_binary" ]]; then
@@ -665,7 +659,7 @@ PY
   local docker_reason=""
   if [[ -n "$requested_version" && "$requested_version" != "$local_python_version" ]]; then
     use_docker=1
-    docker_reason="локальный Python ${local_python_version:-unknown} не совпадает с $requested_version"
+    docker_reason="local Python ${local_python_version:-unknown} != $requested_version"
   elif [[ "$BACKEND_FORCE_DOCKER_PIP" -eq 1 ]]; then
     use_docker=1
     docker_reason="BACKEND_FORCE_DOCKER_PIP=1"
@@ -679,14 +673,14 @@ PY
         if [[ -n "$docker_reason" ]]; then
           docker_reason+=", "
         fi
-        docker_reason+="локальная glibc $detected_glibc > целевой $AZURE_TARGET_GLIBC"
+        docker_reason+="local glibc $detected_glibc > target $AZURE_TARGET_GLIBC"
       fi
     fi
   fi
 
   if [[ "$use_docker" -eq 1 ]]; then
     if command -v docker >/dev/null 2>&1; then
-      log "Устанавливаем зависимости внутри контейнера Docker (${docker_reason})."
+      log "Installing dependencies inside the Docker container (${docker_reason})."
       if docker run --rm \
         --user "$(id -u):$(id -g)" \
         -v "${stage_dir}:/workspace" \
@@ -713,17 +707,17 @@ fi
         >"$pip_log" 2>&1; then
         used_docker=1
         if ! chmod -R u+rwX "$stage_dir/.python_packages" >/dev/null 2>&1; then
-          log "Warning: chmod не смог обновить права в .python_packages после docker install (продолжаем, т.к. файлы принадлежат $(id -un))."
+          log "Warning: chmod could not update permissions in .python_packages after the docker install (continuing because files belong to $(id -un))."
         fi
       else
-        log "Установка зависимостей в Docker завершилась с ошибкой. Последние строки журнала:"
+        log "Dependency installation inside Docker failed. Last log lines:"
         tail -n 50 "$pip_log" || true
         cp "$pip_log" "$REPO_ROOT/backend_pip_install_failed.log" >/dev/null 2>&1 || true
-        fail "pip install внутри Docker завершился неуспешно (лог сохранён в backend_pip_install_failed.log)."
+        fail "pip install inside Docker failed (logs saved to backend_pip_install_failed.log)."
       fi
     else
-      local reason="${docker_reason:-Python $requested_version несовместим с локальной средой}"
-      fail "Run-From-Package требует Docker для сборки зависимостей (${reason}). Установите Docker или запустите скрипт в среде с совместимой glibc."
+      local reason="${docker_reason:-Python $requested_version is incompatible with the local environment}"
+      fail "Run-From-Package requires Docker to build dependencies (${reason}). Install Docker or run the script where glibc matches the target."
     fi
   else
     log "Installing backend dependencies locally (python $local_python_version)..."
@@ -736,10 +730,10 @@ fi
       >"$pip_log" 2>&1; then
       :
     else
-      log "pip install на локальной машине завершился с ошибкой. Последние строки журнала:"
+      log "Local pip install failed. Last log lines:"
       tail -n 50 "$pip_log" || true
       cp "$pip_log" "$REPO_ROOT/backend_pip_install_failed.log" >/dev/null 2>&1 || true
-      fail "pip install локально завершился неуспешно (лог сохранён в backend_pip_install_failed.log)."
+      fail "pip install failed locally (logs saved to backend_pip_install_failed.log)."
     fi
   fi
 
@@ -775,7 +769,7 @@ if ! "$PYTHON_BIN" -m pip install --disable-pip-version-check --no-cache-dir --n
 fi' >/dev/null; then
       :
     else
-      fail "Не удалось зафиксировать версию cryptography (docker)."
+      fail "Failed to pin the cryptography version (docker)."
     fi
   else
     if ! PIP_ONLY_BINARY="$pip_only_binary" python3 -m pip install \
@@ -786,7 +780,7 @@ fi' >/dev/null; then
       "${pip_only_binary_args[@]}" \
       --target "$site_packages_dir" \
       "$enforce_crypto_spec" >/dev/null 2>&1; then
-      fail "Не удалось зафиксировать версию cryptography (local pip)."
+      fail "Failed to pin the cryptography version (local pip)."
     fi
   fi
 
@@ -801,7 +795,7 @@ for module in modules:
     try:
         importlib.import_module(module)
     except Exception as exc:  # pragma: no cover
-        sys.stderr.write(f"Не удалось импортировать модуль {module} внутри упакованного окружения: {exc}\n")
+        sys.stderr.write(f"Failed to import module {module} inside the packaged environment: {exc}\n")
         raise
 PY
 
@@ -834,7 +828,7 @@ PYTHONPATH="/workspace:/workspace/.python_packages/lib/site-packages" "$PYTHON_B
   rm -f "$validation_script"
 
   if [[ "$validation_ok" -ne 1 ]]; then
-    fail "Не удалось проверить установленные модули внутри упакованного окружения."
+    fail "Failed to validate modules inside the packaged environment."
   fi
 }
 
@@ -948,7 +942,7 @@ ensure_command zip
 ensure_command curl
 ensure_command rsync
 
-[[ -f "$OAUTH_ENV_FILE" ]] || fail "oauth2-proxy env file '$OAUTH_ENV_FILE' not found. Создайте его согласно инструкциям."
+[[ -f "$OAUTH_ENV_FILE" ]] || fail "oauth2-proxy env file '$OAUTH_ENV_FILE' not found. Create it as described in the docs."
 
 if [[ -n "$SUBSCRIPTION" ]]; then
   az account set --subscription "$SUBSCRIPTION" >/dev/null
@@ -1036,10 +1030,10 @@ existing_run_from_mode="$(az webapp config appsettings list \
 trimmed_existing="${existing_run_from_mode//[[:space:]]/}"
 if [[ -n "$trimmed_existing" ]]; then
   if [[ "$BACKEND_RUN_FROM_PACKAGE" -eq 1 ]]; then
-    log "Azure уже содержит WEBSITE_RUN_FROM_PACKAGE/ZIP. Сохраняем Run-From-Package (запрошено явно)."
+    log "Azure already has WEBSITE_RUN_FROM_PACKAGE/ZIP set. Keeping Run-From-Package (requested explicitly)."
     BACKEND_RUN_FROM_PACKAGE_EFFECTIVE=1
   else
-    log "Azure уже содержит WEBSITE_RUN_FROM_PACKAGE/ZIP, но флаг --backend-run-from-package не задан. Сбрасываем эти настройки, чтобы позволить Oryx собрать зависимости (для сохранения режима передайте --backend-run-from-package)."
+    log "Azure already has WEBSITE_RUN_FROM_PACKAGE/ZIP, but --backend-run-from-package is not set. Clearing the values so Oryx can build dependencies (pass --backend-run-from-package to keep the mode)."
     BACKEND_RUN_FROM_PACKAGE_EFFECTIVE=0
   fi
 else
@@ -1056,7 +1050,7 @@ az webapp config set \
 log "Removing deprecated backend app settings if present..."
 deprecated_backend_settings=("PYTHONPATH")
 if [[ "$BACKEND_RUN_FROM_PACKAGE_EFFECTIVE" -eq 0 ]]; then
-  # Сбрасываем флаги Run-From-Package/Zip, иначе Azure пропускает Oryx build
+  # Clear Run-From-Package/Zip flags or Azure will skip the Oryx build
   deprecated_backend_settings+=("WEBSITE_RUN_FROM_PACKAGE" "WEBSITE_RUN_FROM_ZIP")
 fi
 
@@ -1131,7 +1125,7 @@ if all(not d.startswith("cryptography") for d in deps):
     deps.append("cryptography>=41,<42")
 
 if not deps:
-    raise SystemExit("Не удалось определить зависимости из pyproject.toml")
+    raise SystemExit("Failed to infer dependencies from pyproject.toml")
 
 output_path.write_text("\n".join(deps) + "\n", encoding="utf-8")
 PY
@@ -1202,7 +1196,7 @@ if [[ ${#combined_backend_env_keys[@]} -gt 0 ]]; then
     if [[ $manual_requested -eq 1 ]]; then
       fail "Environment variable '$key' (referenced in $BACKEND_ENV_LIST_VAR) is not set."
     else
-      # автособранные ключи пропускаем, если переменные отсутствуют
+      # Skip auto-collected keys when the environment variable is missing
       continue
     fi
   done
@@ -1212,19 +1206,19 @@ else
 fi
 
 if [[ "$BACKEND_RUN_FROM_PACKAGE_EFFECTIVE" -eq 1 ]]; then
-  log "Run-From-Package включён: зависимости будут запакованы локально."
+  log "Run-From-Package enabled: dependencies will be bundled locally."
 else
-  log "Run-From-Package отключён: зависимости будут устанавливаться Oryx во время ZipDeploy."
+  log "Run-From-Package disabled: dependencies will be installed by Oryx during ZipDeploy."
 fi
 
 if [[ "$SKIP_KUDU_CLEANUP" -eq 1 ]]; then
-  log "Пропускаем очистку .python_packages/antenv в Azure (SKIP_KUDU_CLEANUP=1). Убедитесь, что каталоги удалены вручную."
+  log "Skipping .python_packages/antenv cleanup in Azure (SKIP_KUDU_CLEANUP=1). Make sure the directories are removed manually."
 else
-  log "Очищаем остатки Python окружения в Azure (через Kudu)..."
+  log "Cleaning up stale Python artifacts in Azure (via Kudu)..."
   if cleanup_remote_python_artifacts; then
-    log "Удалены предыдущие каталоги .python_packages/antenv/output.tar.gz на сервере."
+    log "Removed prior .python_packages/antenv/output.tar.gz directories on the server."
   else
-    fail "Не удалось очистить удалённые зависимости через Kudu (rm -rf .python_packages/antenv/output.tar.gz). Повторите попытку после ручной очистки через Kudu/SSH или установите SKIP_KUDU_CLEANUP=1, если очистка уже проведена."
+    fail "Failed to delete remote dependencies via Kudu (rm -rf .python_packages/antenv/output.tar.gz). Retry after cleaning up through Kudu/SSH or set SKIP_KUDU_CLEANUP=1 if it’s already done."
   fi
 fi
 
@@ -1268,11 +1262,11 @@ while :; do
     --settings "${current_backend_settings[@]}" \
     >/dev/null
 
-  log "Ожидаем применения настроек Azure (10s)..."
+  log "Waiting 10s for Azure settings to propagate..."
   sleep 10
 
   if [[ "$current_backend_mode" -eq 1 ]]; then
-    log "Загружаем архив через Kudu zipdeploy (без Oryx)..."
+    log "Uploading archive via Kudu zipdeploy (without Oryx)..."
     deploy_start_epoch="$(date +%s)"
     if kudu_zipdeploy "$BACKEND_PACKAGE_SRC"; then
       if wait_for_kudu_deployment "$deploy_start_epoch"; then
@@ -1281,15 +1275,15 @@ while :; do
       fi
       wait_status=$?
       if [[ "$wait_status" -eq 1 ]]; then
-        log "Kudu zipdeploy сообщил об ошибке."
+        log "Kudu zipdeploy reported an error."
       else
-        log "Не дождались завершения Kudu zipdeploy за разумное время."
+        log "Timed out waiting for Kudu zipdeploy to finish."
       fi
     else
-      log "Не удалось вызвать Kudu zipdeploy."
+      log "Failed to invoke Kudu zipdeploy."
     fi
   else
-    log "Используем az webapp deploy для вызова Oryx build."
+    log "Using az webapp deploy to trigger an Oryx build."
     deploy_start_epoch="$(date +%s)"
     deploy_exit=0
     if az webapp deploy \
@@ -1304,21 +1298,21 @@ while :; do
       :
     else
       deploy_exit=$?
-      log "az webapp deploy завершился с кодом $deploy_exit. Проверяем статус Kudu OneDeploy..."
+      log "az webapp deploy exited with code $deploy_exit. Checking Kudu OneDeploy status..."
     fi
     if wait_for_kudu_deployment "$deploy_start_epoch"; then
       break
     fi
     wait_status=$?
     if [[ "$wait_status" -eq 1 ]]; then
-      log "Kudu OneDeploy вернул ошибку, az webapp deploy будет повторён (или переключимся на Run-From-Package)."
+      log "Kudu OneDeploy reported a failure; az webapp deploy will be retried (or we will switch to Run-From-Package)."
     else
-      log "Не дождались завершения Kudu OneDeploy за разумное время, az webapp deploy будет повторён."
+      log "Timed out waiting for Kudu OneDeploy, az webapp deploy will be rerun."
     fi
   fi
 
   if [[ "$current_backend_mode" -eq 0 ]]; then
-    log "Oryx deploy завершился с ошибкой, переключаемся на Run-From-Package и повторяем..."
+    log "Oryx deploy failed; switching to Run-From-Package and retrying..."
     current_backend_mode=1
     BACKEND_RUN_FROM_PACKAGE_EFFECTIVE=1
     backend_deps_installed=0
@@ -1326,7 +1320,7 @@ while :; do
     continue
   fi
 
-  fail "Backend deployment failed даже в Run-From-Package режиме. Проверьте логи Kudu/ZipDeploy."
+  fail "Backend deployment failed even in Run-From-Package mode. Check the Kudu/ZipDeploy logs."
 done
 
 log "Backend package deployed successfully."

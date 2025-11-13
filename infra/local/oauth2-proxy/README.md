@@ -1,28 +1,26 @@
-# Локальный oauth2-proxy
+# Local oauth2-proxy
 
-Этот docker-compose манифест собирает тот же кастомный образ (oauth2-proxy + Caddy), который
-используется на Azure (`infra/docker/oauth2-proxy/`). Так локальные тесты повторяют production-настройки
-(`skip_auth_preflight=true`, прокси на `127.0.0.1:4181`, и т.д.).
+This docker-compose manifest builds the same custom image (oauth2-proxy + Caddy) used in Azure (`infra/docker/oauth2-proxy/`). Local tests therefore mirror the production settings (`skip_auth_preflight=true`, proxy bound to `127.0.0.1:4181`, etc.).
 
-## Шаги
+## Steps
 
-1. Подготовьте файл окружения вне репозитория:
+1. Prepare an environment file outside the repository:
    ```bash
    cd infra/local/oauth2-proxy
    mkdir -p ~/.config/mindwell
    cp .env.oauth2-proxy.example ~/.config/mindwell/oauth2-proxy.env
    ```
-   Файл `~/.config/mindwell/oauth2-proxy.env` не попадает в git и хранится только локально.
-2. Заполните `~/.config/mindwell/oauth2-proxy.env` значениями вашей OIDC-конфигурации:
-   - `OAUTH2_PROXY_CLIENT_ID` / `OAUTH2_PROXY_CLIENT_SECRET` — параметры приложения в провайдере (Azure AD, Google Workspace и т.д.).
-   - `OAUTH2_PROXY_COOKIE_SECRET` — 32-байтная строка в hex (`openssl rand -hex 32`).
-   - `OAUTH2_PROXY_OIDC_ISSUER_URL` и `OAUTH2_PROXY_REDIRECT_URL` должны совпадать с настройками приложения.
-   - `OAUTH2_PROXY_UPSTREAMS` по умолчанию указывает на `http://host.docker.internal:8000`, что соответствует локально запущенному FastAPI.
-   - Для локального `http://localhost` обязательно задайте `OAUTH2_PROXY_COOKIE_SECURE=false`, уберите `OAUTH2_PROXY_COOKIE_DOMAIN` и включите `OAUTH2_PROXY_SKIP_AUTH_PREFLIGHT=true`, чтобы CORS preflight (`OPTIONS`) проходил без авторизации.
-3. Соберите и запустите контейнер:
+   The file `~/.config/mindwell/oauth2-proxy.env` stays out of git and lives only on your machine.
+2. Populate `~/.config/mindwell/oauth2-proxy.env` with your OIDC configuration:
+   - `OAUTH2_PROXY_CLIENT_ID` / `OAUTH2_PROXY_CLIENT_SECRET` — application credentials from your provider (Azure AD, Google Workspace, etc.).
+   - `OAUTH2_PROXY_COOKIE_SECRET` — 32-byte hex string (`openssl rand -hex 32`).
+   - `OAUTH2_PROXY_OIDC_ISSUER_URL` and `OAUTH2_PROXY_REDIRECT_URL` must match the provider settings.
+   - `OAUTH2_PROXY_UPSTREAMS` defaults to `http://host.docker.internal:8000`, which targets the locally running FastAPI backend.
+   - When serving from `http://localhost`, set `OAUTH2_PROXY_COOKIE_SECURE=false`, omit `OAUTH2_PROXY_COOKIE_DOMAIN`, and enable `OAUTH2_PROXY_SKIP_AUTH_PREFLIGHT=true` so CORS preflight (`OPTIONS`) requests bypass auth.
+3. Build and start the container:
    ```bash
    docker compose up --build -d
    ```
-4. Установите для фронтенда `VITE_API_BASE_URL=http://localhost:4180`, чтобы запросы шли через oauth2-proxy. Очистите куки `_oauth2_proxy` при повторных тестах.
+4. Configure the frontend with `VITE_API_BASE_URL=http://localhost:4180` so `/api/*` requests flow through oauth2-proxy. Clear the `_oauth2_proxy` cookie between tests.
 
-Контейнер публикует `http://localhost:4180`. При развороте на Linux убедитесь, что Docker поддерживает `host.docker.internal`. Если нет — замените значение `OAUTH2_PROXY_UPSTREAMS` на `http://127.0.0.1:8000` и добавьте флаг `network_mode: "host"` в `docker-compose.yml`.
+The container exposes `http://localhost:4180`. On Linux ensure Docker supports `host.docker.internal`; otherwise set `OAUTH2_PROXY_UPSTREAMS=http://127.0.0.1:8000` and add `network_mode: "host"` to `docker-compose.yml`.

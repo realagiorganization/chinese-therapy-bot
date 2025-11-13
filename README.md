@@ -86,32 +86,32 @@ to enforce S3 transcript/summary retention, and `mindwell-analytics-agent --wind
 to raise JSON snapshots for the growth team.
 
 ### Inspecting registered accounts and chat quotas
-Есть два способа попасть в Azure Postgres и посмотреть таблицу `users`:
+There are two ways to reach Azure Postgres and inspect the `users` table:
 
-#### Вариант A — Azure Cloud Shell (если разрешён доступ “Allow Azure Services”)
-1. Запустите [shell.azure.com](https://shell.azure.com) (Bash) и вытащите `DATABASE_URL`:
+#### Option A — Azure Cloud Shell (when “Allow Azure Services” is enabled)
+1. Launch [shell.azure.com](https://shell.azure.com) (Bash) and fetch `DATABASE_URL`:
    ```bash
    az webapp config appsettings list \
      --resource-group rg-mindwell-dev \
      --name mindwell-dev-api \
      --query "[?name=='DATABASE_URL'].value" -o tsv
    ```
-2. Уберите `+asyncpg` и подключитесь из Cloud Shell:
+2. Drop the `+asyncpg` suffix and connect from Cloud Shell:
    ```bash
    psql "postgres://USER:PASSWORD@pgflex-mindwell-dev.postgres.database.azure.com:5432/mindwell?sslmode=require"
    ```
 
-#### Вариант B — внутри VNet (если сервер закрыт Private Endpoint’ом)
-1. Поднимите VM / Azure Bastion / Container Instance в той же подсети, что `pgflex-mindwell-dev`.
-2. Установите `psql` (`sudo apt install postgresql-client`) и используйте тот же URI:
+#### Option B — from inside the VNet (when the server is locked behind a Private Endpoint)
+1. Spin up a VM / Azure Bastion / Container Instance in the same subnet as `pgflex-mindwell-dev`.
+2. Install `psql` (`sudo apt install postgresql-client`) and use the same URI:
    ```bash
    psql "postgres://USER:PASSWORD@pgflex-mindwell-dev.postgres.database.azure.com:5432/mindwell?sslmode=require"
    ```
-   Благодаря приватной сети подключение не блокируется firewall’ом.
+   Private networking keeps the firewall from blocking the connection.
 
-#### Полезные SQL-запросы
+#### Helpful SQL queries
 ```sql
--- последние 50 зарегистрированных аккаунтов
+-- last 50 registered accounts
 SELECT id, email, account_type,
        chat_token_quota, chat_tokens_remaining,
        created_at
@@ -119,25 +119,25 @@ SELECT id, email, account_type,
  ORDER BY created_at DESC
  LIMIT 50;
 
--- демо-пользователи, у кого закончились токены
+-- demo users whose quotas hit zero
 SELECT email, demo_code,
        chat_token_quota, chat_tokens_remaining
   FROM users
  WHERE account_type = 'demo'
    AND chat_tokens_remaining <= 0;
 
--- подсчёт активных email-аккаунтов
+-- email accounts currently active
 SELECT COUNT(*) AS email_accounts
   FROM users
  WHERE account_type = 'email';
 
--- восстановить квоту конкретному пользователю
+-- restore the quota for a specific user
 UPDATE users
    SET chat_token_quota = 50,
        chat_tokens_remaining = 50
  WHERE email = 'demo-user@example.com';
 ```
-После работы закройте сессию и очистите историю shell’а, чтобы пароль Postgres не остался в логах.
+After running queries, close the session and clear your shell history so the Postgres password doesn’t end up in logs.
 
 ### Frontend (Vite/React)
 1. Install dependencies:
@@ -147,17 +147,17 @@ UPDATE users
    ```
 2. Create a `.env.local` (or export) with at minimum:
    ```bash
-   # Для email-логина укажите порт локального oauth2-proxy
+   # Point email login at the local oauth2-proxy port
    VITE_API_BASE_URL=http://localhost:4180
    ```
    The web client appends `/api` paths internally; point this base URL at the oauth2-proxy-protected MindWell backend.
-   Without oauth2-proxy you can temporarily leave `http://localhost:8000`, но в этом случае доступен только вход по демо-кодам.
+   Without oauth2-proxy you can temporarily leave `http://localhost:8000`, but only the demo-code login flow will work.
 3. Start the dev server with hot module reload:
    ```bash
    npm run dev
    ```
    The server proxies unauthenticated requests to the backend; protected routes still require valid tokens.
-   Streaming chat now downgrades to a non-streamed response when the SSE feed drops (the UI listens for `chat_stream_failure` and transparently replays the turn), preventing the “Поток прервался” banner from appearing on transient network hiccups.
+   Streaming chat now downgrades to a non-streamed response when the SSE feed drops (the UI listens for `chat_stream_failure` and transparently replays the turn), preventing the “Stream interrupted” banner from appearing on transient network hiccups.
 4. Before opening a PR run:
    ```bash
    npm run lint
@@ -180,7 +180,7 @@ UPDATE users
    echo "EXPO_PUBLIC_SPEECH_REGION=eastasia" >> .env.local
    ```
    Additional keys (speech API credentials, push notification secrets) are documented in `ENVS.md`.
-   Если oauth2-proxy не запущен, можно указать `http://localhost:8000`, однако мобильное приложение тоже будет ограничено демо-авторизацией.
+   If oauth2-proxy isn’t running, you can temporarily point to `http://localhost:8000`, but the mobile app will also be confined to demo-only auth.
 3. Launch the development server:
    ```bash
    npm run start                # Metro bundler
@@ -235,19 +235,19 @@ UPDATE users
 - Provide `publishing_profiles.secrets.json` to Visual Studio, `az webapp deployment`, or any other tool that expects the raw profile. Remove the generated file once the deployment is complete.
 
 ### oauth2-proxy Deployment (Azure App Service)
-1. **Соберите и запушьте кастомный образ** (oauth2-proxy + Caddy):
+1. **Build and push the custom image** (oauth2-proxy + Caddy):
    ```bash
    az acr login --name mindwelloauthacr
    docker build -t mindwelloauthacr.azurecr.io/oauth2-proxy:v7.8.1-cors infra/docker/oauth2-proxy
    docker push mindwelloauthacr.azurecr.io/oauth2-proxy:v7.8.1-cors
    ```
-   Multi-stage Dockerfile запускает oauth2-proxy на `127.0.0.1:4181`, а Caddy публикует `:4180`, так что при необходимости можно добавлять/убирать заголовки, не пересобирая бинарник. Используете другой реестр — передайте `--oauth-image`.
-2. **Подготовьте секреты** в `~/.config/mindwell/oauth2-proxy.azure.json` — это JSON-объект вида `{"KEY":"VALUE"}` с теми же ключами, что и в `infra/local/oauth2-proxy/.env.oauth2-proxy.example` (см. также раздел "oauth2-proxy Deployment" в `ENVS.md`). Укажите `OAUTH2_PROXY_CLIENT_ID/SECRET`, `OAUTH2_PROXY_COOKIE_SECRET`, `OAUTH2_PROXY_UPSTREAMS`, `OAUTH2_PROXY_CORS_ALLOWED_ORIGINS`, `OAUTH2_PROXY_WHITELIST_DOMАINS`, `OAUTH2_PROXY_ALLOWED_REDIRECT_URLS` и т.д.
-3. **Разверните контейнер**:
+   The multi-stage Dockerfile runs oauth2-proxy on `127.0.0.1:4181` with Caddy publishing `:4180`, so headers can be added/removed without rebuilding the binary. Use `--oauth-image` if you rely on a different registry.
+2. **Prepare the secrets** at `~/.config/mindwell/oauth2-proxy.azure.json`—a JSON object such as `{"KEY":"VALUE"}` with the same keys as `infra/local/oauth2-proxy/.env.oauth2-proxy.example` (see “oauth2-proxy Deployment” in `ENVS.md`). Supply `OAUTH2_PROXY_CLIENT_ID/SECRET`, `OAUTH2_PROXY_COOKIE_SECRET`, `OAUTH2_PROXY_UPSTREAMS`, `OAUTH2_PROXY_CORS_ALLOWED_ORIGINS`, `OAUTH2_PROXY_WHITELIST_DOMAINS`, `OAUTH2_PROXY_ALLOWED_REDIRECT_URLS`, etc.
+3. **Deploy the container**:
    ```bash
    ./deploy_azure_hosting.sh --environment dev --resource-group rg-mindwell-dev
    ```
-   Скрипт создаст/обновит App Service `mindwell-<env>-oauth`, укажет `WEBSITES_PORT=4180` и подтянет образ `mindwelloauthacr.azurecr.io/oauth2-proxy:v7.8.1-cors`. Для ручных изменений:
+   The script creates/updates `mindwell-<env>-oauth`, sets `WEBSITES_PORT=4180`, and pulls `mindwelloauthacr.azurecr.io/oauth2-proxy:v7.8.1-cors`. For manual tweaks:
    ```bash
    az webapp config container set \
      --name mindwell-dev-oauth \
@@ -258,7 +258,7 @@ UPDATE users
      --docker-registry-server-password '<admin-password>'
    az webapp restart --name mindwell-dev-oauth --resource-group rg-mindwell-dev
    ```
-4. **Включите CORS на App Service** и поддержку cookie:
+4. **Enable CORS and cookies in App Service**:
    ```bash
    az webapp update \
      --name mindwell-dev-oauth \
@@ -266,8 +266,8 @@ UPDATE users
      --set siteConfig.cors.allowedOrigins='["https://thankful-island-0cf627d00.3.azurestaticapps.net"]' \
            siteConfig.cors.supportCredentials=true
    ```
-   При смене SPA обновляйте `allowedOrigins`, иначе preflight снова упадёт.
-5. **Проверьте preflight и основные запросы**:
+   Update `allowedOrigins` whenever the SPA hostname changes; otherwise preflight will fail again.
+5. **Verify preflight plus primary requests**:
    ```bash
    curl -i -X OPTIONS \
      -H "Origin: https://thankful-island-0cf627d00.3.azurestaticapps.net" \
@@ -278,8 +278,8 @@ UPDATE users
      -H "Origin: https://thankful-island-0cf627d00.3.azurestaticapps.net" \
      "https://mindwell-dev-oauth.azurewebsites.net/oauth2/start?rd=https://thankful-island-0cf627d00.3.azurestaticapps.net/api/auth/demo"
    ```
-   Оба ответа должны содержать `Access-Control-Allow-Origin` и `Access-Control-Allow-Credentials: true`.
-6. **Локальное соответствие**: `infra/local/oauth2-proxy/docker-compose.yml` собирает тот же образ (`docker compose up --build -d`), так что фронтенд можно настраивать на `http://localhost:4180`. Дополнительные проверки — в `CORS_ACTION_ITEMS.md`.
+   Both responses must include `Access-Control-Allow-Origin` and `Access-Control-Allow-Credentials: true`.
+6. **Local parity**: `infra/local/oauth2-proxy/docker-compose.yml` builds the same image (`docker compose up --build -d`), so the frontend can target `http://localhost:4180`. Additional checks live in `CORS_ACTION_ITEMS.md`.
 
 ## Observability & Operations
 - Application Insights + Azure Monitor dashboards track latency, error rates, and custom metrics.

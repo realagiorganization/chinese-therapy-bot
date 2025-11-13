@@ -1,12 +1,12 @@
 # Postgres Admin Password Rotation
 
-Этот ранбук описывает, как синхронизировать новый пароль администратора Azure PostgreSQL Flexible Server (`mindwelladmin`) между всеми сторажами секретов и приложениями MindWell. Выполняйте шаги подряд для каждой среды (`dev`, `staging`, `prod`).
+This runbook covers how to synchronize a new Azure PostgreSQL Flexible Server admin password (`mindwelladmin`) across every secret store and MindWell app. Execute the steps sequentially for each environment (`dev`, `staging`, `prod`).
 
-## Предусловия
+## Prerequisites
 
-- Получите новый пароль (например, через `openssl rand -base64 24`) и сохраните его в 1Password в записи `MindWell <env> Postgres Admin` **до** начала работ.
-- Убедитесь, что у вас есть права на `az postgres flexible-server update`, `az keyvault secret set`, `aws secretsmanager put-secret-value`, изменение GitHub Actions secrets и Azure App Service `mindwell-<env>-api`.
-- Экспортируйте переменные окружения:
+- Generate the new password (for example via `openssl rand -base64 24`) and store it in 1Password under `MindWell <env> Postgres Admin` **before** rotating anywhere else.
+- Verify you have permissions for `az postgres flexible-server update`, `az keyvault secret set`, `aws secretsmanager put-secret-value`, updating GitHub Actions secrets, and managing the `mindwell-<env>-api` Azure App Service.
+- Export the following environment variables:
 
 ```bash
 export ENVIRONMENT=dev
@@ -17,7 +17,7 @@ export KEY_VAULT="kv-mindwell-${ENVIRONMENT}"
 export BACKEND_APP="mindwell-${ENVIRONMENT}-api"
 ```
 
-## 1. Обновите пароль сервера
+## 1. Update the server password
 
 ```bash
 az postgres flexible-server update \
@@ -26,9 +26,9 @@ az postgres flexible-server update \
   --admin-password "$PASSWORD"
 ```
 
-Дождитесь статуса `Succeeded` (`az postgres flexible-server show --name ... --query state`).
+Wait for status `Succeeded` (`az postgres flexible-server show --name ... --query state`).
 
-## 2. Синхронизируйте Key Vault
+## 2. Sync Key Vault
 
 ```bash
 az keyvault secret set \
@@ -42,7 +42,7 @@ az keyvault secret set \
   --value "postgresql+asyncpg://mindwelladmin:${PASSWORD}@${POSTGRES_SERVER}.postgres.database.azure.com:5432/mindwell_app?sslmode=require"
 ```
 
-## 3. Обновите App Service
+## 3. Update the App Service
 
 ```bash
 az webapp config appsettings set \
@@ -51,14 +51,14 @@ az webapp config appsettings set \
   --settings DATABASE_URL="postgresql+asyncpg://mindwelladmin:${PASSWORD}@${POSTGRES_SERVER}.postgres.database.azure.com:5432/mindwell_app?sslmode=require"
 ```
 
-Перезапустите приложение (`az webapp restart`). Проверьте `/api/healthz` и Alembic логи.
+Restart the app (`az webapp restart`). Check `/api/healthz` and the Alembic logs.
 
-## 4. Обновите GitHub Secrets
+## 4. Update GitHub Secrets
 
-- `DEV_DATABASE_URL`, `DEV_POSTGRES_ADMIN_PASSWORD` (и аналоги для других сред) через **Settings → Secrets and variables → Actions**.
-- Для self-hosted агентов обновите `~/.config/mindwell/dev.env` (секция `DATABASE_URL`).
+- Refresh `DEV_DATABASE_URL`, `DEV_POSTGRES_ADMIN_PASSWORD` (and the equivalents for other environments) via **Settings → Secrets and variables → Actions**.
+- For self-hosted runners update `~/.config/mindwell/dev.env` (the `DATABASE_URL` section).
 
-## 5. AWS Secrets Manager (если используется)
+## 5. AWS Secrets Manager (if used)
 
 ```bash
 aws secretsmanager put-secret-value \
@@ -66,14 +66,14 @@ aws secretsmanager put-secret-value \
   --secret-string "$PASSWORD"
 ```
 
-## 6. Валидация
+## 6. Validation
 
 1. `source services/backend/.venv/bin/activate && cd services/backend && ALEMBIC_CONFIG=alembic.ini DATABASE_URL="postgresql+asyncpg://mindwelladmin:${PASSWORD}@..." alembic upgrade head`
 2. `curl https://mindwell-${ENVIRONMENT}-api.azurewebsites.net/api/healthz`
-3. `az webapp log tail --name "$BACKEND_APP"` — убедитесь, что Alembic применился без ошибок `invalid password`.
+3. `az webapp log tail --name "$BACKEND_APP"` — verify Alembic applies cleanly with no `invalid password` errors.
 
-## 7. Аудит и документация
+## 7. Audit and documentation
 
-- Обновите security changelog с датой/тикетом/оператором.
-- Сообщите on-call каналу, что пароль ротации завершён.
-- Закрепите ссылку на новую версию секрета (`Secret Id` из Key Vault) в тикете.
+- Update the security changelog with the date/ticket/operator.
+- Let the on-call channel know the rotation is complete.
+- Attach the new secret version link (`Secret Id` from Key Vault) to the tracking ticket.

@@ -1,12 +1,12 @@
 # Automation & Agent Notes
 
 ## Codex CLI Agent
-- Всегда отвечает пользователю на русском языке.
-- Используется для выполнения локальных задач разработки без выхода в интернет.
+- Always responds to the user in Russian.
+- Used for local development tasks without leaving the offline environment.
 
 ## Web Client
-- Базовая версия интерфейса, от которой наследуются остальные клиенты.
-- Голосовой ввод продолжается до повторного нажатия пользователем кнопки голосового ввода.
+- Baseline interface that all other clients inherit from.
+- Voice capture remains active until the user presses the voice input button again.
 
 ## CI Runner Agent
 - Runs GitHub Actions workloads on EC2-managed runners covering backend, web, and mobile build/test pipelines.

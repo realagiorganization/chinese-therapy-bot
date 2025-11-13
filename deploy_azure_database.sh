@@ -420,9 +420,9 @@ json.dump(data, sys.stdout, indent=2)
 PY
   echo
 else
-  cat <<EOF
+cat <<EOF
 ============================================================
-Обновите переменные окружения перед запуском deploy_azure_hosting.sh
+Update these environment variables before running deploy_azure_hosting.sh
 ============================================================
 DATABASE_URL=${DATABASE_URL}
 DB_HOST=${SERVER_FQDN}
@@ -436,4 +436,4 @@ POSTGRES_SERVER=${POSTGRES_SERVER_NAME}
 EOF
 fi
 
-log "Done. Скопируйте значения в ваше окружение и повторите deploy_azure_hosting.sh."
+log "Done. Copy the values into your environment and rerun deploy_azure_hosting.sh."

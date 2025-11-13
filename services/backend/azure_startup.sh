@@ -5,11 +5,11 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 APP_ROOT="$SCRIPT_DIR"
 ANTENV_DIR="$APP_ROOT/antenv"
 
-# If Azure разворачивает Run-From-Package, реальный код может исполняться из
-# временного /home/site/wwwroot, где каталоги .python_packages/antenv отсутствуют.
-# В этом случае нужно распаковать локальный output.tar.gz (упакованный при
-# деплое) либо, в крайнем случае, весь архив из /home/data/SitePackages и
-# перезапустить скрипт уже из полной копии, чтобы gunicorn увидел все зависимости.
+# If Azure deploys Run-From-Package, the live code may execute from a temporary
+# /home/site/wwwroot where .python_packages/antenv directories are missing.
+# In that case unpack the local output.tar.gz (packaged during deployment) or,
+# as a fallback, the full archive from /home/data/SitePackages and restart the
+# script from that complete copy so gunicorn sees every dependency.
 PACKAGE_NAME_FILE="/home/data/SitePackages/packagename.txt"
 RUN_FROM_PACKAGE_ROOT="$APP_ROOT/.python_packages/lib/site-packages"
 FALLBACK_TAR="$APP_ROOT/output.tar.gz"
@@ -24,10 +24,10 @@ ensure_packaged_environment() {
     local tmp_app_dir
     tmp_app_dir="$(mktemp -d /tmp/mindwell-app-XXXXXX)"
     if tar -xzf "$FALLBACK_TAR" -C "$tmp_app_dir"; then
-      echo "azure_startup: зависимости распакованы из output.tar.gz в ${tmp_app_dir}" >&2
+      echo "azure_startup: unpacked dependencies from output.tar.gz into ${tmp_app_dir}" >&2
       exec "$tmp_app_dir/azure_startup.sh" "$@"
     else
-      echo "azure_startup: не удалось распаковать ${FALLBACK_TAR}" >&2
+      echo "azure_startup: failed to extract ${FALLBACK_TAR}" >&2
       rm -rf "$tmp_app_dir"
     fi
   fi
@@ -39,10 +39,10 @@ ensure_packaged_environment() {
     if [[ -n "$package_basename" && -f "$package_zip" ]]; then
       tmp_app_dir="$(mktemp -d /tmp/mindwell-app-XXXXXX)"
       if unzip -q "$package_zip" -d "$tmp_app_dir"; then
-        echo "azure_startup: .python_packages отсутствует в ${APP_ROOT}, перезапускаем из ${tmp_app_dir}" >&2
+        echo "azure_startup: .python_packages missing under ${APP_ROOT}, restarting from ${tmp_app_dir}" >&2
         exec "$tmp_app_dir/azure_startup.sh" "$@"
       else
-        echo "azure_startup: не удалось распаковать ${package_zip}" >&2
+        echo "azure_startup: failed to extract ${package_zip}" >&2
         rm -rf "$tmp_app_dir"
       fi
     fi
@@ -107,7 +107,7 @@ if (( GUNICORN_TIMEOUT < DATABASE_MIGRATION_TIMEOUT || GUNICORN_TIMEOUT < MIN_GU
   if (( local_timeout_buffer < MIN_GUNICORN_TIMEOUT )); then
     local_timeout_buffer=$MIN_GUNICORN_TIMEOUT
   fi
-  echo "azure_startup: увеличиваем GUNICORN_TIMEOUT с ${GUNICORN_TIMEOUT}s до ${local_timeout_buffer}s (DATABASE_MIGRATION_TIMEOUT=${DATABASE_MIGRATION_TIMEOUT}s)" >&2
+  echo "azure_startup: bumping GUNICORN_TIMEOUT from ${GUNICORN_TIMEOUT}s to ${local_timeout_buffer}s (DATABASE_MIGRATION_TIMEOUT=${DATABASE_MIGRATION_TIMEOUT}s)" >&2
   GUNICORN_TIMEOUT="$local_timeout_buffer"
 fi
 
