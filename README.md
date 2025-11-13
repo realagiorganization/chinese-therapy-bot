@@ -59,7 +59,7 @@ web client, infrastructure-as-code, and the supporting automation services descr
    ```
 2. Configure environment variables (e.g. export locally or use a `.env` file).
    > Provide `DEMO_CODE_FILE` for the allowlisted demo codes, configure chat quotas via `CHAT_TOKEN_DEFAULT_QUOTA` / `CHAT_TOKEN_DEMO_QUOTA`, and expose the oauth2-proxy headers using `OAUTH2_PROXY_EMAIL_HEADER`, `OAUTH2_PROXY_USER_HEADER`, and optionally `OAUTH2_PROXY_NAME_HEADER`.
-   > The repository ships an active allowlist at `config/demo_codes.json` and a template at `demo_codes.sample.json`. Each entry accepts `chat_token_quota` (chat turns before the subscription prompt appears). Every code provisions an isolated `demo` user keyed by the exact string in the file, so demo credits are spent per-code and never bleed into email-based accounts.
+   > The repository ships an active allowlist at `services/backend/config/demo_codes.json` and a template at `demo_codes.sample.json`. Each entry accepts `chat_token_quota` (chat turns before the subscription prompt appears). Every code provisions an isolated `demo` user keyed by the exact string in the file, so demo credits are spent per-code and never bleed into email-based accounts.
 3. Apply database migrations:
    ```bash
    alembic upgrade head
@@ -78,9 +78,66 @@ web client, infrastructure-as-code, and the supporting automation services descr
    ```
    The server runs on `http://127.0.0.1:8000` by default; override host/port via `API_HOST` / `API_PORT`.
 
-Agent entry points are exposed as `mindwell-summary-scheduler`, `mindwell-data-sync`, and
-`mindwell-monitoring-agent`. Run them within the same virtual environment once credentials are configured.
-Use `mindwell-monitoring-agent --dry-run` to verify telemetry access without dispatching alerts.
+Agent entry points are exposed as `mindwell-summary-scheduler`, `mindwell-data-sync`,
+`mindwell-retention-cleanup`, `mindwell-monitoring-agent`, and `mindwell-analytics-agent`.
+Run them within the same virtual environment once credentials are configured. Use
+`mindwell-monitoring-agent --dry-run` to verify telemetry access, `mindwell-retention-cleanup`
+to enforce S3 transcript/summary retention, and `mindwell-analytics-agent --window-hours 24`
+to raise JSON snapshots for the growth team.
+
+### Inspecting registered accounts and chat quotas
+There are two ways to reach Azure Postgres and inspect the `users` table:
+
+#### Option A — Azure Cloud Shell (when “Allow Azure Services” is enabled)
+1. Launch [shell.azure.com](https://shell.azure.com) (Bash) and fetch `DATABASE_URL`:
+   ```bash
+   az webapp config appsettings list \
+     --resource-group rg-mindwell-dev \
+     --name mindwell-dev-api \
+     --query "[?name=='DATABASE_URL'].value" -o tsv
+   ```
+2. Drop the `+asyncpg` suffix and connect from Cloud Shell:
+   ```bash
+   psql "postgres://USER:PASSWORD@pgflex-mindwell-dev.postgres.database.azure.com:5432/mindwell?sslmode=require"
+   ```
+
+#### Option B — from inside the VNet (when the server is locked behind a Private Endpoint)
+1. Spin up a VM / Azure Bastion / Container Instance in the same subnet as `pgflex-mindwell-dev`.
+2. Install `psql` (`sudo apt install postgresql-client`) and use the same URI:
+   ```bash
+   psql "postgres://USER:PASSWORD@pgflex-mindwell-dev.postgres.database.azure.com:5432/mindwell?sslmode=require"
+   ```
+   Private networking keeps the firewall from blocking the connection.
+
+#### Helpful SQL queries
+```sql
+-- last 50 registered accounts
+SELECT id, email, account_type,
+       chat_token_quota, chat_tokens_remaining,
+       created_at
+  FROM users
+ ORDER BY created_at DESC
+ LIMIT 50;
+
+-- demo users whose quotas hit zero
+SELECT email, demo_code,
+       chat_token_quota, chat_tokens_remaining
+  FROM users
+ WHERE account_type = 'demo'
+   AND chat_tokens_remaining <= 0;
+
+-- email accounts currently active
+SELECT COUNT(*) AS email_accounts
+  FROM users
+ WHERE account_type = 'email';
+
+-- restore the quota for a specific user
+UPDATE users
+   SET chat_token_quota = 50,
+       chat_tokens_remaining = 50
+ WHERE email = 'demo-user@example.com';
+```
+After running queries, close the session and clear your shell history so the Postgres password doesn’t end up in logs.
 
 ### Frontend (Vite/React)
 1. Install dependencies:
@@ -90,17 +147,17 @@ Use `mindwell-monitoring-agent --dry-run` to verify telemetry access without dis
    ```
 2. Create a `.env.local` (or export) with at minimum:
    ```bash
-   # Для email-логина укажите порт локального oauth2-proxy
+   # Point email login at the local oauth2-proxy port
    VITE_API_BASE_URL=http://localhost:4180
    ```
    The web client appends `/api` paths internally; point this base URL at the oauth2-proxy-protected MindWell backend.
-   Without oauth2-proxy you can temporarily leave `http://localhost:8000`, но в этом случае доступен только вход по демо-кодам.
+   Without oauth2-proxy you can temporarily leave `http://localhost:8000`, but only the demo-code login flow will work.
 3. Start the dev server with hot module reload:
    ```bash
    npm run dev
    ```
    The server proxies unauthenticated requests to the backend; protected routes still require valid tokens.
-   Streaming chat now downgrades to a non-streamed response when the SSE feed drops (the UI listens for `chat_stream_failure` and transparently replays the turn), preventing the “Поток прервался” banner from appearing on transient network hiccups.
+   Streaming chat now downgrades to a non-streamed response when the SSE feed drops (the UI listens for `chat_stream_failure` and transparently replays the turn), preventing the “Stream interrupted” banner from appearing on transient network hiccups.
 4. Before opening a PR run:
    ```bash
    npm run lint
@@ -123,7 +180,7 @@ Use `mindwell-monitoring-agent --dry-run` to verify telemetry access without dis
    echo "EXPO_PUBLIC_SPEECH_REGION=eastasia" >> .env.local
    ```
    Additional keys (speech API credentials, push notification secrets) are documented in `ENVS.md`.
-   Если oauth2-proxy не запущен, можно указать `http://localhost:8000`, однако мобильное приложение тоже будет ограничено демо-авторизацией.
+   If oauth2-proxy isn’t running, you can temporarily point to `http://localhost:8000`, but the mobile app will also be confined to demo-only auth.
 3. Launch the development server:
    ```bash
    npm run start                # Metro bundler
@@ -158,7 +215,71 @@ Use `mindwell-monitoring-agent --dry-run` to verify telemetry access without dis
 - Kubernetes manifests/overlays live under `infra/kubernetes/`.
 - CI/CD runs on GitHub Actions (self-hosted EC2 runners) executing lint, tests, and deployment stages.
 - Azure is the preferred runtime due to available credits; AWS is primarily used for S3 storage and Bedrock fallback.
+- Use `./deploy_azure_database.sh` to provision an Azure PostgreSQL Flexible Server before invoking
+  `./deploy_azure_hosting.sh`. The script prints the `DATABASE_URL` (and related variables) that must be exported so
+  the hosting deploy can pick up the newly created database.
 - Release workflows, semantic versioning, and store checklists are documented in `docs/release_management.md`.
+
+### Publishing Profiles (Azure App Service)
+- `publishing_profiles.json` ships as a sanitized template. The `userPWD` field holds the placeholder
+  `<<REPLACE_WITH_MINDWELL_PUBLISHING_PROFILE_PASSWORD>>` so no active credentials ever live in git history.
+- Export `MINDWELL_PUBLISHING_PROFILE_PASSWORD` with the password downloaded from the Azure Portal (or reset it to rotate credentials):
+  ```bash
+  export MINDWELL_PUBLISHING_PROFILE_PASSWORD='super-secret-value'
+  ```
+- Run the helper to materialize a real profile before invoking Azure tooling:
+  ```bash
+  ./scripts/render_publishing_profile.sh
+  # -> writes publishing_profiles.secrets.json (chmod 600, gitignored)
+  ```
+- Provide `publishing_profiles.secrets.json` to Visual Studio, `az webapp deployment`, or any other tool that expects the raw profile. Remove the generated file once the deployment is complete.
+
+### oauth2-proxy Deployment (Azure App Service)
+1. **Build and push the custom image** (oauth2-proxy + Caddy):
+   ```bash
+   az acr login --name mindwelloauthacr
+   docker build -t mindwelloauthacr.azurecr.io/oauth2-proxy:v7.8.1-cors infra/docker/oauth2-proxy
+   docker push mindwelloauthacr.azurecr.io/oauth2-proxy:v7.8.1-cors
+   ```
+   The multi-stage Dockerfile runs oauth2-proxy on `127.0.0.1:4181` with Caddy publishing `:4180`, so headers can be added/removed without rebuilding the binary. Use `--oauth-image` if you rely on a different registry.
+2. **Prepare the secrets** at `~/.config/mindwell/oauth2-proxy.azure.json`—a JSON object such as `{"KEY":"VALUE"}` with the same keys as `infra/local/oauth2-proxy/.env.oauth2-proxy.example` (see “oauth2-proxy Deployment” in `ENVS.md`). Supply `OAUTH2_PROXY_CLIENT_ID/SECRET`, `OAUTH2_PROXY_COOKIE_SECRET`, `OAUTH2_PROXY_UPSTREAMS`, `OAUTH2_PROXY_CORS_ALLOWED_ORIGINS`, `OAUTH2_PROXY_WHITELIST_DOMAINS`, `OAUTH2_PROXY_ALLOWED_REDIRECT_URLS`, etc.
+3. **Deploy the container**:
+   ```bash
+   ./deploy_azure_hosting.sh --environment dev --resource-group rg-mindwell-dev
+   ```
+   The script creates/updates `mindwell-<env>-oauth`, sets `WEBSITES_PORT=4180`, and pulls `mindwelloauthacr.azurecr.io/oauth2-proxy:v7.8.1-cors`. For manual tweaks:
+   ```bash
+   az webapp config container set \
+     --name mindwell-dev-oauth \
+     --resource-group rg-mindwell-dev \
+     --docker-custom-image-name mindwelloauthacr.azurecr.io/oauth2-proxy:v7.8.1-cors \
+     --docker-registry-server-url https://mindwelloauthacr.azurecr.io \
+     --docker-registry-server-user mindwelloauthacr \
+     --docker-registry-server-password '<admin-password>'
+   az webapp restart --name mindwell-dev-oauth --resource-group rg-mindwell-dev
+   ```
+4. **Enable CORS and cookies in App Service**:
+   ```bash
+   az webapp update \
+     --name mindwell-dev-oauth \
+     --resource-group rg-mindwell-dev \
+     --set siteConfig.cors.allowedOrigins='["https://thankful-island-0cf627d00.3.azurestaticapps.net"]' \
+           siteConfig.cors.supportCredentials=true
+   ```
+   Update `allowedOrigins` whenever the SPA hostname changes; otherwise preflight will fail again.
+5. **Verify preflight plus primary requests**:
+   ```bash
+   curl -i -X OPTIONS \
+     -H "Origin: https://thankful-island-0cf627d00.3.azurestaticapps.net" \
+     -H "Access-Control-Request-Method: POST" \
+     -H "Access-Control-Request-Headers: content-type" \
+     https://mindwell-dev-oauth.azurewebsites.net/api/auth/demo
+   curl -i \
+     -H "Origin: https://thankful-island-0cf627d00.3.azurestaticapps.net" \
+     "https://mindwell-dev-oauth.azurewebsites.net/oauth2/start?rd=https://thankful-island-0cf627d00.3.azurestaticapps.net/api/auth/demo"
+   ```
+   Both responses must include `Access-Control-Allow-Origin` and `Access-Control-Allow-Credentials: true`.
+6. **Local parity**: `infra/local/oauth2-proxy/docker-compose.yml` builds the same image (`docker compose up --build -d`), so the frontend can target `http://localhost:4180`. Additional checks live in `CORS_ACTION_ITEMS.md`.
 
 ## Observability & Operations
 - Application Insights + Azure Monitor dashboards track latency, error rates, and custom metrics.

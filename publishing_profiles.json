@@ -1,0 +1,46 @@
+[
+  {
+    "SQLServerDBConnectionString": "",
+    "controlPanelLink": "https://portal.azure.com",
+    "databases": null,
+    "destinationAppUrl": "http://mindwell-dev-api.azurewebsites.net",
+    "hostingProviderForumLink": "",
+    "msdeploySite": "mindwell-dev-api",
+    "mySQLDBConnectionString": "",
+    "profileName": "mindwell-dev-api - Web Deploy",
+    "publishMethod": "MSDeploy",
+    "publishUrl": "mindwell-dev-api.scm.azurewebsites.net:443",
+    "userName": "$mindwell-dev-api",
+    "userPWD": "<<REPLACE_WITH_MINDWELL_PUBLISHING_PROFILE_PASSWORD>>",
+    "webSystem": "WebSites"
+  },
+  {
+    "SQLServerDBConnectionString": "",
+    "controlPanelLink": "https://portal.azure.com",
+    "databases": null,
+    "destinationAppUrl": "http://mindwell-dev-api.azurewebsites.net",
+    "ftpPassiveMode": "True",
+    "hostingProviderForumLink": "",
+    "mySQLDBConnectionString": "",
+    "profileName": "mindwell-dev-api - FTP",
+    "publishMethod": "FTP",
+    "publishUrl": "ftp://waws-prod-hk1-081.ftp.azurewebsites.windows.net/site/wwwroot",
+    "userName": "mindwell-dev-api\\$mindwell-dev-api",
+    "userPWD": "<<REPLACE_WITH_MINDWELL_PUBLISHING_PROFILE_PASSWORD>>",
+    "webSystem": "WebSites"
+  },
+  {
+    "SQLServerDBConnectionString": "",
+    "controlPanelLink": "https://portal.azure.com",
+    "databases": null,
+    "destinationAppUrl": "http://mindwell-dev-api.azurewebsites.net",
+    "hostingProviderForumLink": "",
+    "mySQLDBConnectionString": "",
+    "profileName": "mindwell-dev-api - Zip Deploy",
+    "publishMethod": "ZipDeploy",
+    "publishUrl": "mindwell-dev-api.scm.azurewebsites.net:443",
+    "userName": "$mindwell-dev-api",
+    "userPWD": "<<REPLACE_WITH_MINDWELL_PUBLISHING_PROFILE_PASSWORD>>",
+    "webSystem": "WebSites"
+  }
+]

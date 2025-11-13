@@ -5,6 +5,7 @@ from pathlib import Path
 
 from alembic import command
 from alembic.config import Config
+from pydantic import SecretStr
 
 from app.core.config import get_settings
 
@@ -19,12 +20,17 @@ def _make_alembic_config() -> Config:
         raise RuntimeError(f"Alembic configuration not found at {alembic_ini}")
 
     settings = get_settings()
-    if not settings.database_url:
+    database_url: str | SecretStr | None = settings.database_url
+    if isinstance(database_url, SecretStr):
+        database_url = database_url.get_secret_value()
+    if not database_url:
         raise RuntimeError("DATABASE_URL must be configured to run migrations.")
 
     config = Config(str(alembic_ini))
     config.set_main_option("script_location", str(script_location))
-    config.set_main_option("sqlalchemy.url", settings.database_url)
+
+    safe_url = database_url.replace("%", "%%")
+    config.set_main_option("sqlalchemy.url", safe_url)
     return config
 
 

@@ -13,6 +13,7 @@ Requires-Dist: asyncpg<1.0,>=0.29
 Requires-Dist: aioboto3<13.0,>=12.4
 Requires-Dist: httpx<1.0,>=0.27
 Requires-Dist: pyjwt[crypto]<3.0,>=2.8
+Requires-Dist: cryptography<42,>=41
 Requires-Dist: openai<2.0,>=1.12
 Requires-Dist: python-multipart<0.1,>=0.0.6
 Requires-Dist: alembic<2.0,>=1.13
@@ -70,8 +71,11 @@ This command applies the latest migrations, including the bootstrap revision tha
 Application settings are defined in `app/core/config.py` using `pydantic-settings`. Populate a `.env` file or environment variables for the following fields as they become available:
 
 - `APP_ENV`
+- `LOG_LEVEL`
 - `OPENAI_API_KEY`
 - `DATABASE_URL`
+- `RUN_MIGRATIONS_ON_STARTUP`
+- `DATABASE_MIGRATION_TIMEOUT`
 - `AWS_REGION`
 - `S3_SUMMARIES_BUCKET`
 - `S3_BUCKET_THERAPISTS`

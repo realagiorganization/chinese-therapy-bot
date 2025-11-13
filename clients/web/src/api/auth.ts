@@ -1,4 +1,4 @@
-import { getApiBaseUrl } from "./client";
+import { getApiBaseUrl, getAuthProxyUrl } from "./client";
 import { asNumber, asRecord, asString } from "./parsing";
 
 export class AuthError extends Error {
@@ -52,7 +52,7 @@ export async function exchangeOAuthSession(options: {
   userAgent?: string;
   ipAddress?: string;
 } = {}): Promise<TokenPair> {
-  const endpoint = `${getApiBaseUrl()}/api/auth/session`;
+  const endpoint = `${getAuthProxyUrl("/api/auth/session")}`;
   const response = await fetch(endpoint, {
     method: "POST",
     credentials: "include",

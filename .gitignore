@@ -1,2 +1,13 @@
 services/backend/.venv
 services/backend/mindwell_backend.egg-info
+backend_logs*
+LogFiles
+.venv
+backend_*
+output_remote.tar.gz
+tmp/
+oauth_logs*
+oauth2-proxy.azure.env
+oauth2-proxy.azure.json
+publishing_profiles.secrets.json
+.azure-cli/

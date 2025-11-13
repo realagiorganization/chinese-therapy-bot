@@ -6,6 +6,7 @@ asyncpg<1.0,>=0.29
 aioboto3<13.0,>=12.4
 httpx<1.0,>=0.27
 pyjwt[crypto]<3.0,>=2.8
+cryptography<42,>=41
 openai<2.0,>=1.12
 python-multipart<0.1,>=0.0.6
 alembic<2.0,>=1.13
