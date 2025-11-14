@@ -18,6 +18,7 @@ NAME_SUFFIX=""
 
 FRONTEND_APP_NAME=""
 FRONTEND_API_URL=""
+FRONTEND_AUTH_URL=""
 FRONTEND_SWA_SKU="Free"
 SWA_DEPLOY_PACKAGE="${SWA_DEPLOY_PACKAGE:-@azure/static-web-apps-cli@1.1.7}"
 SWA_DEPLOY_ENVIRONMENT="${SWA_DEPLOY_ENVIRONMENT:-production}"
@@ -73,6 +74,7 @@ Options:
 Frontend:
       --frontend-app-name <name>   Static Web App name. Default: <prefix>-<env>-web[<suffix>].
       --frontend-api-url <url>     API base URL injected as VITE_API_BASE_URL. Defaults to backend host.
+      --frontend-auth-url <url>    Auth proxy base URL injected as VITE_AUTH_PROXY_BASE_URL. Defaults to oauth app host.
       --frontend-sku <sku>         Static Web App SKU (Free, Standard, Dedicated). Default: Free.
 
 Backend:
@@ -860,6 +862,7 @@ while [[ $# -gt 0 ]]; do
 
     --frontend-app-name) FRONTEND_APP_NAME="$2"; shift 2 ;;
     --frontend-api-url) FRONTEND_API_URL="$2"; shift 2 ;;
+    --frontend-auth-url) FRONTEND_AUTH_URL="$2"; shift 2 ;;
     --frontend-sku) FRONTEND_SWA_SKU="$2"; shift 2 ;;
 
     --backend-app-name) BACKEND_APP_NAME="$2"; shift 2 ;;
@@ -1390,10 +1393,21 @@ if [[ -z "$FRONTEND_API_URL" ]]; then
   fi
 fi
 
-log "Building frontend with VITE_API_BASE_URL='$FRONTEND_API_URL'..."
+if [[ -z "$FRONTEND_AUTH_URL" ]]; then
+  if [[ -n "${VITE_AUTH_PROXY_BASE_URL:-}" ]]; then
+    FRONTEND_AUTH_URL="$VITE_AUTH_PROXY_BASE_URL"
+  else
+    FRONTEND_AUTH_URL="$OAUTH_HOSTNAME"
+  fi
+fi
+
+log "Building frontend with VITE_API_BASE_URL='$FRONTEND_API_URL' (auth proxy='$FRONTEND_AUTH_URL')..."
 build_env=()
 if [[ -n "$FRONTEND_API_URL" ]]; then
   build_env+=("VITE_API_BASE_URL=$FRONTEND_API_URL")
+fi
+if [[ -n "$FRONTEND_AUTH_URL" ]]; then
+  build_env+=("VITE_AUTH_PROXY_BASE_URL=$FRONTEND_AUTH_URL")
 fi
 if [[ ${#build_env[@]} -gt 0 ]]; then
   (cd "$FRONTEND_DIR" && env "${build_env[@]}" npm run build >/dev/null)
