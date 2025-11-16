@@ -1,0 +1,44 @@
+🗂️
+UX Design Updates（Chinese & English）11.16.2025
+1. 按钮样式修改
+中文： 有一些按钮现在是“凹陷效果”，但我更喜欢不用凹陷，而是用更简洁的白色/黑色或中性色线条来做外框。我已经在图上圈出了需要修改的地方。
+English: Some buttons currently use an inset/pressed-in design. I prefer a cleaner, non-inset look — for example, outlined with white, black, or another neutral color. I’ve marked the areas in the design where I’d like these changes.
+2. 键盘弹出时的界面
+中文： 我想看一下键盘弹出后的页面效果。键盘弹出来时，底部四个侧边栏要消失，但左上角需要保留一个返回箭头。
+English: I’d like to see the layout when the keyboard opens. When the keyboard is up, the bottom four-tab navigation bar should disappear, but there should still be a back arrow in the top-left corner.
+3. 色系调整
+中文： 我看到现在的色系偏粉蓝。可否降低一点饱和度，并试试看：
+● 黄绿搭配
+● 粉绿搭配
+● 蓝绿搭配 另外磨砂玻璃感可以再稍微强一点点。
+English: The current palette leans pink-blue. Could we lower the saturation slightly and explore:
+● yellow–green
+● pink–green
+● blue–green combinations? Also, I’d like the frosted-glass effect to be slightly stronger.
+4. 咨询师推荐区块
+中文： 在咨询师列表界面，可否在搜索框下方加一个新区域： “根据我和你的 AI 对话，我们推荐以下三名咨询师。” 然后解释推荐原因（A 因为 XX，B 因为 XX），再展示全部咨询师卡片。
+English: On the therapist list page, could we add a section below the search bar: “Based on your conversations with the AI, we recommend the following three therapists.” Then briefly list the reasons for each therapist (A because XX, B because XX), followed by the full list of therapist cards.
+5. 渐变背景效果
+中文： 我很喜欢示例图的颜色渐变：屏幕最底部有颜色，然后渐渐消失，到中间变成中性色（beige 或 off-white）。可以做成这种效果吗？
+English: I really like the color gradient in the sample — where the color starts at the bottom of the screen and gradually fades into a neutral tone like beige or off-white toward the middle. Could we implement that?
+6. 设置按钮位置 brainstorm
+中文： 左上角的设置按钮感觉稍微占空间。可否 brainstorm 一下其他可能的摆放位置？
+English: The settings button in the top-left corner feels a bit space-heavy. Could we brainstorm some alternative placements?
+7. 字体风格
+中文： 字体方面，可否提供一些更学术化/严肃的选项？类似 Georgia 或 Times New Roman 这种方向。
+English: For typography, could you provide some options that feel more academic or serious — in the direction of Georgia or Times New Roman?
+8. 语音模式箭头位置
+中文： 语音模式的箭头能否放到左边？谢谢！
+English: Could we place the voice-mode arrow on the left side? Thank you!
+9. 不要 “Hello Nathan, how are you feeling today” 这种句子
+中文： 我希望把 “How are you feeling today” 改成更简洁、学术化，不要花俏问候语。例如： “请你自由地告诉我你现在经历的事情或出现的想法。不需要限定为情绪，也可以是任意一个浮现的念头。”
+并在下面加一句精神动力学的一句话教育型 quote。
+English: For the “How are you feeling today” section, I’d prefer something cleaner and more academic — not a flowery greeting like “Hello Nathan, how are you feeling today.” Something like: “Please feel free to tell me whatever you’re currently experiencing or thinking. It doesn’t need to be about your feelings — it can be any thought that comes to mind.”
+Below that, I’d like to include a one-line psychodynamic psychoeducational quote.
+10. 精神动力学一句话 Quote 例子
+中文： 以下是一些可用于 UI 的精神动力学式一句话 quote：
+English: Here are sample psychodynamic one-liners for the UI:
+● “Every thought, no matter how small, carries a piece of the inner world.”
+● “What arises in your mind often reflects what lives beneath the surface.”
+● “What feels random may be more connected than it seems.”
+● “There is insight in the spontaneous — whatever comes up is welcome here.”
