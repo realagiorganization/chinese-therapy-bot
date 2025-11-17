@@ -1,5 +1,6 @@
 import { useAuth } from "@context/AuthContext";
 import { useTheme } from "@theme/ThemeProvider";
+import { BlurView } from "expo-blur";
 import { useMemo, useState } from "react";
 import {
   KeyboardAvoidingView,
@@ -28,29 +29,32 @@ function Button({
     () =>
       StyleSheet.create({
         button: {
-          backgroundColor: theme.colors.primary,
-          opacity: disabled ? 0.5 : 1,
+          borderWidth: 1,
+          borderColor: theme.colors.textPrimary,
+          backgroundColor: "transparent",
           paddingVertical: theme.spacing.md,
           borderRadius: theme.radius.md,
           alignItems: "center",
           justifyContent: "center",
-          shadowColor: "#000",
-          shadowOpacity: 0.1,
-          shadowOffset: { width: 0, height: 2 },
-          shadowRadius: 4,
-          elevation: 2,
+        },
+        buttonDisabled: {
+          opacity: 0.4,
         },
         label: {
-          color: "#fff",
+          color: theme.colors.textPrimary,
           fontWeight: "600",
           fontSize: 16,
         },
       }),
-    [theme, disabled],
+    [theme],
   );
 
   return (
-    <Pressable onPress={onPress} disabled={disabled} style={styles.button}>
+    <Pressable
+      onPress={onPress}
+      disabled={disabled}
+      style={[styles.button, disabled && styles.buttonDisabled]}
+    >
       <Text style={styles.label}>{loading ? "…" : label}</Text>
     </Pressable>
   );
@@ -96,19 +100,16 @@ export function LoginScreen() {
       StyleSheet.create({
         container: {
           flex: 1,
-          backgroundColor: theme.colors.surfaceBackground,
+          backgroundColor: "transparent",
+          paddingHorizontal: theme.spacing.lg,
         },
         card: {
-          backgroundColor: theme.colors.surfaceCard,
-          margin: theme.spacing.lg,
+          backgroundColor: theme.colors.glassOverlay,
           padding: theme.spacing.lg,
           borderRadius: theme.radius.lg,
           gap: theme.spacing.md,
-          shadowColor: "#000",
-          shadowOpacity: 0.08,
-          shadowRadius: 12,
-          shadowOffset: { width: 0, height: 4 },
-          elevation: 3,
+          borderWidth: 1,
+          borderColor: theme.colors.glassBorder,
         },
         heading: {
           fontSize: 24,
@@ -163,9 +164,13 @@ export function LoginScreen() {
       style={styles.container}
     >
       <ScrollView
-        contentContainerStyle={{ flexGrow: 1, justifyContent: "center" }}
+        contentContainerStyle={{
+          flexGrow: 1,
+          justifyContent: "center",
+          paddingVertical: theme.spacing.xl,
+        }}
       >
-        <View style={styles.card}>
+        <BlurView intensity={125} tint="light" style={styles.card}>
           <View style={styles.sectionGap}>
             <Text style={styles.heading}>MindWell 登录</Text>
             <Text style={styles.subtitle}>
@@ -237,7 +242,7 @@ export function LoginScreen() {
           </View>
 
           {error && <Text style={styles.error}>{error}</Text>}
-        </View>
+        </BlurView>
       </ScrollView>
     </KeyboardAvoidingView>
   );

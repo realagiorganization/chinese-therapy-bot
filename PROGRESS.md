@@ -162,9 +162,9 @@
   - [ ] Replace inset/pressed button styles with clean outlined variants (white/black/neutral) everywhere in the mobile app per `develop.txt` §1, ensuring hover/disabled tokens stay accessible in both locales.
   - [ ] Define keyboard-present layout states: hide the four-tab navigation when the keyboard is up, keep a dedicated top-left back arrow, and validate on iOS/Android simulators.
   - [ ] Refresh the palette with lower saturation yellow–green, pink–green, and blue–green options, increase the frosted-glass blur, and implement a bottom-up gradient that fades into beige/off-white mid screen as described in `develop.txt` §§3 & 5.
-- [ ] Enhance the Therapist screen to include AI-personalized recommendations below the search bar.
-  - [ ] Inject the block “Based on your conversations with the AI, we recommend the following three therapists.” with short rationale strings (A/B/C) before rendering the full card grid.
-  - [ ] Ensure recommendation copy, therapist badges, and cards visually match the Messenger reference image while supporting Chinese/English text lengths.
+- [x] Enhance the Therapist screen to include AI-personalized recommendations below the search bar.
+  - [x] Inject the block “Based on your conversations with the AI, we recommend the following three therapists.” with short rationale strings (A/B/C) before rendering the full card grid. *(Interactive recommendation press targets now focus the matching card and load details per `clients/mobile/src/screens/TherapistDirectoryScreen.tsx`.)*
+  - [x] Ensure recommendation copy, therapist badges, and cards visually match the Messenger reference image while supporting Chinese/English text lengths. *(The refreshed block reuses bilingual copy and glass-styled badges with new theme tokens, also in `clients/mobile/src/screens/TherapistDirectoryScreen.tsx`.)*
 - [ ] Iterate on chrome and typography polish.
   - [ ] Brainstorm and document alternative settings button placement options so the icon no longer crowds the top-left corner.
   - [ ] Swap headline and body fonts to academic/serious families (e.g., Georgia/Times New Roman inspired) and update style tokens accordingly.

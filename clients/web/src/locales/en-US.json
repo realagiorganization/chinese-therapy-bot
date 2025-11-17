@@ -123,6 +123,14 @@
       "empty_state": "No therapists match those filters. Try broadening your selection.",
       "source_api": "Data source: live directory",
       "source_fallback": "Data source: offline sample"
+    },
+    "recommendations_block": {
+      "title": "Based on your AI conversations, we recommend these therapists.",
+      "subtitle": "Each match is grounded in the reflective themes you recently explored.",
+      "empty": "Keep reflecting with MindWell to unlock therapist matches tailored to your transcripts.",
+      "reason_fallback": "Experienced in {{focus}} and adjacent themes.",
+      "reason_generic": "Seasoned in integrative mental health work.",
+      "action": "Open profile"
     }
   },
   "locale": {
@@ -133,15 +141,15 @@
   },
   "chat": {
     "title": "Therapy Companion",
-    "subtitle": "Share what’s on your mind—MindWell replies in Mandarin with actionable care.",
+    "subtitle": "Please document what you are presently experiencing or thinking—observations are more helpful than greetings.",
     "reset": "Start new session",
     "cancel_stream": "Stop response",
-    "empty_state": "Say hello or speak about today’s emotions to begin the session.",
+    "empty_state": "Open with a precise observation about what is unfolding internally right now.",
     "generating": "MindWell is reflecting…",
     "streaming": "Responding…",
     "error_prefix": "We hit a snag:",
     "dismiss": "Dismiss",
-    "input_placeholder": "Describe how you’re feeling. Press Enter to send, Shift+Enter for a new line.",
+    "input_placeholder": "Describe the experience or thought arising now. Enter sends, Shift+Enter adds a new line.",
     "send": "Send",
     "sending": "Sending…",
     "start_voice": "Voice input",
@@ -190,7 +198,10 @@
       "generic": "We lost the connection. Please try again.",
       "stream_failure": "The stream was interrupted. Try again in a moment.",
       "tokens_exhausted": "You've reached the trial limit. Upgrade to keep chatting."
-    }
+    },
+    "prompt_heading": "Begin with any present thought or observation",
+    "prompt_description": "Please feel free to tell me whatever you are currently experiencing or thinking. It does not need to be a feeling; any spontaneous thought is welcome.",
+    "quote_label": "Psychodynamic note:"
   },
   "subscription": {
     "title": "Your demo credits are finished",

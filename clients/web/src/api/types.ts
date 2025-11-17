@@ -8,11 +8,11 @@ export type TherapistSummary = {
   currency?: string;
   recommended: boolean;
   availability: string[];
+  recommendationReason?: string;
 };
 
 export type TherapistDetail = TherapistSummary & {
   biography: string;
-  recommendationReason?: string;
 };
 
 export type TherapistFilters = {

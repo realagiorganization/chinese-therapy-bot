@@ -97,6 +97,24 @@ export function TherapistDirectory() {
     [filtered]
   );
 
+  const recommendedMatches = useMemo(() => {
+    return filtered.filter((therapist) => therapist.recommended).slice(0, 3);
+  }, [filtered]);
+
+  const buildRecommendationReason = useCallback(
+    (therapist: TherapistSummary) => {
+      if (therapist.recommendationReason) {
+        return therapist.recommendationReason;
+      }
+      const specialties = therapist.specialties.slice(0, 2).join(" / ");
+      if (specialties) {
+        return t("therapists.recommendations_block.reason_fallback", { focus: specialties });
+      }
+      return t("therapists.recommendations_block.reason_generic");
+    },
+    [t]
+  );
+
   return (
     <section style={{ display: "grid", gap: "var(--mw-spacing-md)" }}>
       <Card padding="lg" elevated style={{ display: "grid", gap: "var(--mw-spacing-md)" }}>
@@ -288,6 +306,52 @@ export function TherapistDirectory() {
           <Typography variant="body" style={{ color: "var(--text-secondary)" }}>
             {t("therapists.filters.loading")}
           </Typography>
+        )}
+      </Card>
+
+      <Card padding="lg" style={{ display: "grid", gap: "var(--mw-spacing-sm)" }}>
+        <div style={{ display: "grid", gap: "2px" }}>
+          <Typography variant="subtitle">{t("therapists.recommendations_block.title")}</Typography>
+          <Typography variant="caption" style={{ color: "var(--text-secondary)" }}>
+            {t("therapists.recommendations_block.subtitle")}
+          </Typography>
+        </div>
+
+        {recommendedMatches.length === 0 ? (
+          <Typography variant="body" style={{ color: "var(--text-secondary)" }}>
+            {t("therapists.recommendations_block.empty")}
+          </Typography>
+        ) : (
+          <div
+            style={{
+              display: "grid",
+              gap: "var(--mw-spacing-xs)"
+            }}
+          >
+            {recommendedMatches.map((therapist) => (
+              <div
+                key={therapist.id}
+                style={{
+                  display: "grid",
+                  gap: "4px",
+                  border: "1px solid rgba(44,45,41,0.25)",
+                  borderRadius: "var(--mw-radius-md)",
+                  padding: "var(--mw-spacing-sm)",
+                  background: "rgba(255,255,255,0.85)"
+                }}
+              >
+                <Typography variant="body" style={{ fontWeight: 600 }}>
+                  {formatTherapistDisplayName(therapist.id, therapist.name, t)} · {therapist.title}
+                </Typography>
+                <Typography variant="caption" style={{ color: "var(--text-secondary)" }}>
+                  {buildRecommendationReason(therapist)}
+                </Typography>
+                <Button type="button" variant="ghost" size="sm" onClick={() => handleSelect(therapist)}>
+                  {t("therapists.recommendations_block.action")}
+                </Button>
+              </div>
+            ))}
+          </div>
         )}
       </Card>
 

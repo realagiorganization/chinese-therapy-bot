@@ -1,6 +1,7 @@
 import { useAuth } from "@context/AuthContext";
+import { BlurView } from "expo-blur";
 import * as Localization from "expo-localization";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   FlatList,
@@ -14,6 +15,7 @@ import {
 
 import { useTherapistDirectory } from "../hooks/useTherapistDirectory";
 import { loadChatState } from "../services/chatCache";
+import { normalizeTherapistRecommendations } from "../services/recommendations";
 import { loadTherapistDetail } from "../services/therapists";
 import { useTheme } from "../theme/ThemeProvider";
 import type {
@@ -162,6 +164,7 @@ export function TherapistDirectoryScreen() {
   const isZh = locale.startsWith("zh");
   const theme = useTheme();
   const { userId } = useAuth();
+  const flatListRef = useRef<FlatList<TherapistSummary>>(null);
   const {
     therapists,
     filtered: filteredByFilters,
@@ -200,7 +203,10 @@ export function TherapistDirectoryScreen() {
         if (cancelled) {
           return;
         }
-        setCachedRecommendations(payload?.recommendations?.slice(0, 3) ?? []);
+        const normalized = normalizeTherapistRecommendations(
+          payload?.recommendations?.slice(0, 3),
+        );
+        setCachedRecommendations(normalized);
       })
       .catch(() => {
         if (!cancelled) {
@@ -239,6 +245,18 @@ export function TherapistDirectoryScreen() {
   const recommendationLead = isZh
     ? "根据你与 AI 的对话，我们推荐以下三位顾问。"
     : "Based on your conversations with the AI, we recommend the following three therapists.";
+  const recommendationSwatches = useMemo(
+    () => [
+      `${theme.colors.accentYellowGreen}66`,
+      `${theme.colors.accentPinkGreen}66`,
+      `${theme.colors.accentBlueGreen}66`,
+    ],
+    [
+      theme.colors.accentYellowGreen,
+      theme.colors.accentPinkGreen,
+      theme.colors.accentBlueGreen,
+    ],
+  );
 
   useEffect(() => {
     if (!selectedId) {
@@ -324,15 +342,21 @@ export function TherapistDirectoryScreen() {
           backgroundColor: "rgba(255,255,255,0.15)",
           padding: theme.spacing.sm,
         },
+        recommendationItemPressed: {
+          opacity: 0.9,
+          transform: [{ scale: 0.99 }],
+        },
         recommendationLabel: {
           width: 28,
           height: 28,
           borderRadius: 14,
+          borderWidth: 1,
+          borderColor: theme.colors.textPrimary,
           textAlign: "center",
           lineHeight: 28,
           fontWeight: "700",
-          color: theme.colors.primary,
-          backgroundColor: "rgba(74,144,121,0.2)",
+          color: theme.colors.textPrimary,
+          backgroundColor: theme.colors.glassOverlay,
         },
         recommendationName: {
           fontSize: 14,
@@ -341,6 +365,20 @@ export function TherapistDirectoryScreen() {
         },
         recommendationReason: {
           fontSize: 12,
+          color: theme.colors.textSecondary,
+        },
+        recommendationKeywordsRow: {
+          flexDirection: "row",
+          flexWrap: "wrap",
+          gap: theme.spacing.xs * 0.75,
+        },
+        recommendationKeyword: {
+          borderRadius: theme.radius.pill,
+          borderWidth: 1,
+          borderColor: theme.colors.borderSubtle,
+          paddingHorizontal: theme.spacing.sm,
+          paddingVertical: theme.spacing.xs * 0.6,
+          fontSize: 11,
           color: theme.colors.textSecondary,
         },
         recommendationMeta: {
@@ -459,6 +497,40 @@ export function TherapistDirectoryScreen() {
     setSelectedId(null);
     setDetailState({ status: "idle", detail: null, error: null });
   }, [resetFilters]);
+  const focusTherapistById = useCallback(
+    (therapistId: string) => {
+      const summary =
+        filtered.find((therapist) => therapist.id === therapistId) ??
+        therapists.find((therapist) => therapist.id === therapistId);
+      if (!summary) {
+        return;
+      }
+      handleSelect(summary);
+      const targetIndex = filtered.findIndex(
+        (therapist) => therapist.id === therapistId,
+      );
+      if (targetIndex < 0) {
+        return;
+      }
+      try {
+        flatListRef.current?.scrollToIndex({
+          index: targetIndex,
+          animated: true,
+          viewPosition: 0.05,
+        });
+      } catch (error) {
+        console.warn(
+          "[TherapistDirectory] Failed to scroll to recommendation",
+          error,
+        );
+        flatListRef.current?.scrollToOffset({
+          offset: 0,
+          animated: true,
+        });
+      }
+    },
+    [filtered, therapists, handleSelect],
+  );
 
   const renderTherapist = useCallback(
     ({ item }: { item: TherapistSummary }) => (
@@ -480,7 +552,7 @@ export function TherapistDirectoryScreen() {
         </Text>
       </View>
 
-      <View style={styles.searchCard}>
+      <BlurView intensity={115} tint="light" style={styles.searchCard}>
         <TextInput
           style={styles.searchInput}
           placeholder={searchPlaceholder}
@@ -491,10 +563,14 @@ export function TherapistDirectoryScreen() {
           autoCorrect={false}
           clearButtonMode="while-editing"
         />
-      </View>
+      </BlurView>
 
       {cachedRecommendations.length > 0 && (
-        <View style={styles.recommendationCard}>
+        <BlurView
+          intensity={120}
+          tint="light"
+          style={styles.recommendationCard}
+        >
           <Text style={styles.recommendationTitle}>{recommendationTitle}</Text>
           <Text style={styles.recommendationSubtitle}>
             {recommendationLead}
@@ -503,26 +579,58 @@ export function TherapistDirectoryScreen() {
             {recommendationSubtitle}
           </Text>
           <View style={styles.recommendationList}>
-            {cachedRecommendations.map((recommendation, index) => (
-              <View key={recommendation.id} style={styles.recommendationItem}>
-                <Text style={styles.recommendationLabel}>
-                  {String.fromCharCode(65 + index)}
-                </Text>
-                <View style={{ flex: 1, gap: 4 }}>
-                  <Text style={styles.recommendationName}>
-                    {recommendation.name}
-                  </Text>
-                  <Text style={styles.recommendationReason}>
-                    {recommendation.summary}
-                  </Text>
-                </View>
-              </View>
-            ))}
+            {cachedRecommendations.map((recommendation, index) => {
+              const label = String.fromCharCode(65 + index);
+              const backgroundColor =
+                recommendationSwatches[index % recommendationSwatches.length];
+              const fallbackReason = isZh
+                ? "与当前主题匹配。"
+                : "Aligned with what you raised recently.";
+              return (
+                <Pressable
+                  key={recommendation.id}
+                  style={({ pressed }) => [
+                    styles.recommendationItem,
+                    { backgroundColor },
+                    pressed && styles.recommendationItemPressed,
+                  ]}
+                  android_ripple={{
+                    color: "rgba(0,0,0,0.08)",
+                    foreground: true,
+                  }}
+                  onPress={() => focusTherapistById(recommendation.id)}
+                >
+                  <Text style={styles.recommendationLabel}>{label}</Text>
+                  <View style={{ flex: 1, gap: 4 }}>
+                    <Text style={styles.recommendationName}>
+                      {`${label}. ${recommendation.name}`}
+                    </Text>
+                    <Text style={styles.recommendationReason}>
+                      {recommendation.reason?.trim().length
+                        ? recommendation.reason
+                        : fallbackReason}
+                    </Text>
+                    {recommendation.matchedKeywords.length > 0 && (
+                      <View style={styles.recommendationKeywordsRow}>
+                        {recommendation.matchedKeywords.map((keyword) => (
+                          <Text
+                            key={`${recommendation.id}-${keyword}`}
+                            style={styles.recommendationKeyword}
+                          >
+                            {keyword}
+                          </Text>
+                        ))}
+                      </View>
+                    )}
+                  </View>
+                </Pressable>
+              );
+            })}
           </View>
-        </View>
+        </BlurView>
       )}
 
-      <View style={styles.filtersCard}>
+      <BlurView intensity={115} tint="light" style={styles.filtersCard}>
         <View
           style={{
             flexDirection: "row",
@@ -667,7 +775,7 @@ export function TherapistDirectoryScreen() {
             }
           />
         </View>
-      </View>
+      </BlurView>
 
       {isLoading ? (
         <View style={{ flex: 1, justifyContent: "center" }}>
@@ -675,6 +783,7 @@ export function TherapistDirectoryScreen() {
         </View>
       ) : (
         <FlatList
+          ref={flatListRef}
           data={filtered}
           keyExtractor={(item) => item.id}
           renderItem={renderTherapist}
@@ -689,7 +798,7 @@ export function TherapistDirectoryScreen() {
         />
       )}
 
-      <View style={styles.detailCard}>
+      <BlurView intensity={120} tint="light" style={styles.detailCard}>
         {detailState.status === "idle" && (
           <Text style={styles.subtitle}>选择顾问即可查看详细介绍。</Text>
         )}
@@ -746,7 +855,7 @@ export function TherapistDirectoryScreen() {
             {error.message}
           </Text>
         )}
-      </View>
+      </BlurView>
     </View>
   );
 }

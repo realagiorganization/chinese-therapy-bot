@@ -7,6 +7,7 @@ import { useVoiceInput } from "@hooks/useVoiceInput";
 import { useVoicePlayback } from "@hooks/useVoicePlayback";
 import { sendMessage } from "@services/chat";
 import { loadChatState, persistChatState } from "@services/chatCache";
+import { normalizeTherapistRecommendations } from "@services/recommendations";
 import { useTheme } from "@theme/ThemeProvider";
 import { BlurView } from "expo-blur";
 import * as Haptics from "expo-haptics";
@@ -31,32 +32,63 @@ import type { TherapistRecommendation } from "../types/therapists";
 type MessageWithId = ChatMessage & { id: string };
 
 const PROMPT_COPY = {
-  zh: "请自由地描述此刻正在经历的事情、感受到的刺激，或任何刚刚浮现的念头。",
-  en: "Please feel free to describe what you are experiencing right now—any observation or thought is welcome.",
-};
+  zh: "请你自由地告诉我你现在经历的事情或出现的想法。不需要限定为情绪，也可以是任意一个浮现的念头。",
+  en: "Please feel free to tell me whatever you are currently experiencing or thinking. It does not have to be a feeling—any spontaneous thought is welcome.",
+  ru: "Свободно опишите, что именно вы переживаете или думаете сейчас. Это не обязательно про эмоции — любое возникшее наблюдение подойдёт.",
+} as const;
 
 const PSYCHODYNAMIC_QUOTES = [
   {
     id: "inner-world",
     zh: "每一个念头都承载着内在世界的一部分。",
     en: "Every thought, no matter how small, carries a piece of the inner world.",
+    ru: "Каждая мысль, какой бы малой она ни была, несёт частицу внутреннего мира.",
   },
   {
     id: "beneath-surface",
     zh: "浮现于脑海的内容，往往映射着更深处的自我。",
     en: "What arises in your mind often reflects what lives beneath the surface.",
+    ru: "То, что всплывает в сознании, часто отражает то, что живёт в глубине.",
   },
   {
     id: "connected",
     zh: "看似随机的念头可能比想象中更紧密相连。",
     en: "What feels random may be more connected than it seems.",
+    ru: "То, что кажется случайным, может быть связаны гораздо теснее, чем видится.",
   },
   {
     id: "spontaneous",
     zh: "自发的表述蕴含洞见——此刻出现的一切都被欢迎。",
     en: "There is insight in the spontaneous — whatever comes up is welcome here.",
+    ru: "В спонтанном отклике есть понимание — здесь приветствуется всё, что всплывает.",
   },
 ] as const;
+
+const QUOTE_ATTRIBUTION = {
+  zh: "—— 精神动力学提示",
+  en: "— Psychodynamic reflection",
+  ru: "— Психодинамическое наблюдение",
+} as const;
+
+type PromptLocale = keyof typeof PROMPT_COPY;
+
+function resolvePromptLocale(locale: string | null | undefined): PromptLocale {
+  const fallback: PromptLocale = "zh";
+  if (!locale) {
+    return fallback;
+  }
+  const normalized = locale.toLowerCase();
+  if (normalized.startsWith("ru")) {
+    return "ru";
+  }
+  if (normalized.startsWith("en")) {
+    return "en";
+  }
+  if (normalized.startsWith("zh")) {
+    return "zh";
+  }
+  return fallback;
+}
 
 type ChatScreenProps = {
   onNavigateBack?: () => void;
@@ -115,10 +147,265 @@ function Bubble({ message }: { message: MessageWithId }) {
 
 function RecommendationCard({
   recommendation,
+  locale,
 }: {
   recommendation: TherapistRecommendation;
+  locale: string;
 }) {
   const theme = useTheme();
+  const normalized = locale.toLowerCase();
+  const isZh = normalized.startsWith("zh");
+  const isRu = normalized.startsWith("ru");
+  const styles = useMemo(
+    () =>
+      StyleSheet.create({
+        card: {
+          borderRadius: theme.radius.lg,
+          borderWidth: 1,
+          borderColor: theme.colors.glassBorder,
+          backgroundColor: theme.colors.glassOverlay,
+          padding: theme.spacing.md,
+          gap: theme.spacing.sm,
+        },
+        header: {
+          flexDirection: "row",
+          alignItems: "center",
+          justifyContent: "space-between",
+        },
+        nameBlock: {
+          flex: 1,
+          marginRight: theme.spacing.sm,
+          gap: 2,
+        },
+        name: {
+          fontSize: 18,
+          fontWeight: "700",
+          color: theme.colors.textPrimary,
+        },
+        title: {
+          fontSize: 13,
+          color: theme.colors.textSecondary,
+        },
+        scoreBadge: {
+          borderRadius: theme.radius.md,
+          borderWidth: 1,
+          borderColor: theme.colors.borderSubtle,
+          paddingHorizontal: theme.spacing.sm,
+          paddingVertical: theme.spacing.xs * 0.9,
+          alignItems: "center",
+          minWidth: 68,
+        },
+        scoreValue: {
+          fontWeight: "700",
+          color: theme.colors.textPrimary,
+        },
+        scoreLabel: {
+          fontSize: 11,
+          color: theme.colors.textSecondary,
+        },
+        reason: {
+          fontSize: 14,
+          lineHeight: 20,
+          color: theme.colors.textPrimary,
+        },
+        keywordRow: {
+          flexDirection: "row",
+          flexWrap: "wrap",
+          gap: theme.spacing.xs,
+        },
+        keywordBadge: {
+          borderRadius: theme.radius.pill,
+          borderWidth: 1,
+          borderColor: theme.colors.borderSubtle,
+          paddingHorizontal: theme.spacing.sm,
+          paddingVertical: theme.spacing.xs * 0.8,
+          fontSize: 11,
+          color: theme.colors.textSecondary,
+        },
+        metaRow: {
+          flexDirection: "row",
+          justifyContent: "space-between",
+          gap: theme.spacing.sm,
+        },
+        metaLabel: {
+          fontSize: 12,
+          color: theme.colors.textSecondary,
+          minWidth: 56,
+        },
+        metaValue: {
+          flex: 1,
+          fontSize: 13,
+          color: theme.colors.textPrimary,
+        },
+      }),
+    [theme],
+  );
+
+  const scorePercent = `${Math.round(recommendation.score * 100)}%`;
+  const specialtiesLabel =
+    recommendation.specialties.length > 0
+      ? recommendation.specialties.join(" · ")
+      : isZh
+        ? "未提供擅长领域"
+        : isRu
+          ? "Нет данных"
+          : "Not provided";
+  const languagesLabel =
+    recommendation.languages.length > 0
+      ? recommendation.languages.join(" / ")
+      : isZh
+        ? "未提供语言"
+        : isRu
+          ? "Не указано"
+          : "Not provided";
+  const priceLabel = `${recommendation.price} ${recommendation.currency}`;
+  const matchLabel = isZh
+    ? "匹配度"
+    : isRu
+      ? "Совпадение"
+      : "Match";
+
+  return (
+    <View style={styles.card}>
+      <View style={styles.header}>
+        <View style={styles.nameBlock}>
+          <Text style={styles.name}>{recommendation.name}</Text>
+          {recommendation.title ? (
+            <Text style={styles.title}>{recommendation.title}</Text>
+          ) : null}
+        </View>
+        <View style={styles.scoreBadge}>
+          <Text style={styles.scoreValue}>{scorePercent}</Text>
+          <Text style={styles.scoreLabel}>{matchLabel}</Text>
+        </View>
+      </View>
+      {recommendation.reason && (
+        <Text style={styles.reason}>{recommendation.reason}</Text>
+      )}
+      {recommendation.matchedKeywords.length > 0 && (
+        <View style={styles.keywordRow}>
+          {recommendation.matchedKeywords.map((keyword) => (
+            <Text key={keyword} style={styles.keywordBadge}>
+              {keyword}
+            </Text>
+          ))}
+        </View>
+      )}
+      <View style={styles.metaRow}>
+        <Text style={styles.metaLabel}>
+          {isZh ? "擅长" : isRu ? "Профиль" : "Focus"}
+        </Text>
+        <Text style={styles.metaValue}>{specialtiesLabel}</Text>
+      </View>
+      <View style={styles.metaRow}>
+        <Text style={styles.metaLabel}>
+          {isZh ? "语言" : isRu ? "Язык" : "Languages"}
+        </Text>
+        <Text style={styles.metaValue}>{languagesLabel}</Text>
+      </View>
+      <View style={styles.metaRow}>
+        <Text style={styles.metaLabel}>
+          {isZh ? "费用" : isRu ? "Стоимость" : "Fee"}
+        </Text>
+        <Text style={styles.metaValue}>{priceLabel}</Text>
+      </View>
+    </View>
+  );
+}
+
+function resolveVoiceStatusLabel(
+  isRecording: boolean,
+  isTranscribing: boolean,
+  isOffline: boolean,
+  isZh: boolean,
+): string {
+  if (isOffline) {
+    return isZh ? "离线模式暂不可用" : "Unavailable while offline";
+  }
+  if (isTranscribing) {
+    return isZh ? "语音识别中…" : "Transcribing…";
+  }
+  if (isRecording) {
+    return isZh ? "保持按住录音" : "Hold to record";
+  }
+  return isZh ? "长按说话" : "Press and hold to speak";
+}
+
+export function ChatScreen({ onNavigateBack }: ChatScreenProps) {
+  const theme = useTheme();
+  const { tokens, userId } = useAuth();
+  const cacheMarkedRef = useRef(false);
+  const screenVisibleRef = useRef(false);
+  const firstResponseRef = useRef(false);
+  const listRef = useRef<FlatList<MessageWithId>>(null);
+  const insets = useSafeAreaInsets();
+  const [activeLocale, setActiveLocale] = useState("zh-CN");
+  const isZhLocale = activeLocale.toLowerCase().startsWith("zh");
+  const {
+    supported: voiceSupported,
+    isRecording: isVoiceRecording,
+    isTranscribing: isVoiceTranscribing,
+    error: voiceError,
+    start: startVoiceInput,
+    stop: stopVoiceInput,
+    cancel: cancelVoiceInput,
+    clearError: clearVoiceError,
+  } = useVoiceInput(activeLocale, tokens?.accessToken ?? null);
+  const {
+    enabled: isVoicePlaybackEnabled,
+    setEnabled: setVoicePlaybackEnabled,
+    rate: voicePlaybackRate,
+    pitch: voicePlaybackPitch,
+    setRate: setVoicePlaybackRate,
+    setPitch: setVoicePlaybackPitch,
+    loading: voiceSettingsLoading,
+  } = useVoiceSettings();
+  const {
+    speak: speakVoiceResponse,
+    stop: stopVoicePlayback,
+    speaking: isVoicePlaybackActive,
+  } = useVoicePlayback();
+  const [messages, setMessages] = useState<MessageWithId[]>([]);
+  const [sessionId, setSessionId] = useState<string | undefined>();
+  const [inputValue, setInputValue] = useState("");
+  const [isSending, setSending] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [recommendations, setRecommendations] = useState<
+    TherapistRecommendation[]
+  >([]);
+  const [memoryHighlights, setMemoryHighlights] = useState<
+    { summary: string; keywords: string[] }[]
+  >([]);
+  const [isRestoring, setRestoring] = useState<boolean>(true);
+  const networkStatus = useNetworkStatus(12000);
+  const [voiceSettingsVisible, setVoiceSettingsVisible] = useState(false);
+  const voicePlaybackStateLabel = voiceSettingsLoading
+    ? isZhLocale
+      ? "加载中"
+      : "Loading"
+    : isVoicePlaybackEnabled
+      ? isZhLocale
+        ? "已开启"
+        : "Enabled"
+      : isZhLocale
+        ? "已关闭"
+        : "Disabled";
+  const isOffline =
+    !networkStatus.isConnected || !networkStatus.isInternetReachable;
+  const composerPadding = useMemo(
+    () => Math.max(insets.bottom, theme.spacing.sm),
+    [insets.bottom, theme.spacing.sm],
+  );
+  const keyboardVerticalOffset =
+    Platform.OS === "ios" ? insets.top + theme.spacing.lg : 0;
+  const androidRipple = useMemo(
+    () =>
+      Platform.OS === "android"
+        ? { color: "rgba(255,255,255,0.2)", foreground: true }
+        : undefined,
+    [],
+  );
+
   const styles = useMemo(
     () =>
       StyleSheet.create({
@@ -454,6 +741,7 @@ function RecommendationCard({
       }),
     [theme],
   );
+
   const scrollToLatestMessage = useCallback((animated: boolean) => {
     requestAnimationFrame(() => {
       listRef.current?.scrollToEnd({ animated });
@@ -501,7 +789,9 @@ function RecommendationCard({
       if (cached) {
         setMessages(cached.messages as MessageWithId[]);
         setSessionId(cached.sessionId);
-        setRecommendations(cached.recommendations);
+        setRecommendations(
+          normalizeTherapistRecommendations(cached.recommendations),
+        );
         setMemoryHighlights(cached.memoryHighlights);
         scrollToLatestMessage(false);
         if (cached.locale) {
@@ -697,7 +987,9 @@ function RecommendationCard({
         text: assistantMessage.content,
         locale: playbackLocale,
       });
-      setRecommendations(response.recommendations);
+      setRecommendations(
+        normalizeTherapistRecommendations(response.recommendations),
+      );
       setMemoryHighlights(response.memoryHighlights);
       if (response.resolvedLocale) {
         setActiveLocale(response.resolvedLocale);
@@ -726,13 +1018,43 @@ function RecommendationCard({
   ]);
 
   const sendDisabled = isSending || isOffline || inputValue.trim().length === 0;
+  const { promptText, quoteText, quoteAttribution } = useMemo(() => {
+    const localeKey = resolvePromptLocale(activeLocale);
+    const prompt = PROMPT_COPY[localeKey];
+    const quoteOptions = PSYCHODYNAMIC_QUOTES.map(
+      (entry) => entry[localeKey] ?? entry.en,
+    );
+    const quoteIndex =
+      quoteOptions.length > 0
+        ? Math.floor(Math.random() * quoteOptions.length)
+        : 0;
+    return {
+      promptText: prompt,
+      quoteText: quoteOptions[quoteIndex] ?? quoteOptions[0] ?? "",
+      quoteAttribution:
+        QUOTE_ATTRIBUTION[localeKey] ?? QUOTE_ATTRIBUTION.en,
+    };
+  }, [activeLocale]);
   const recommendationIntro = isZhLocale
     ? "根据你和 AI 的对话，我们推荐下列治疗师，并附上简短理由。"
     : "Based on your conversations with the AI, we recommend these therapists and short rationales.";
+  const composerPlaceholder = isZhLocale
+    ? "请把此刻浮现的念头或观察输入在这里。"
+    : "Share whatever thought or observation is present.";
+  const modalTitle = isZhLocale ? "语音播报设置" : "Voice playback settings";
+  const modalEnableLabel = isZhLocale
+    ? "启用语音播报"
+    : "Enable playback";
+  const modalRateLabel = isZhLocale ? "语速" : "Rate";
+  const modalPitchLabel = isZhLocale ? "音调" : "Pitch";
+  const modalHintLabel = isZhLocale
+    ? "每条 AI 回复都会以当前语速和音调播报。"
+    : "Each reply will play using the selected rate and pitch.";
+  const modalDoneLabel = isZhLocale ? "完成" : "Done";
   const renderListHeader = useCallback(() => {
     return (
       <View style={styles.listHeader}>
-        <BlurView intensity={80} tint="light" style={styles.promptCard}>
+        <BlurView intensity={115} tint="light" style={styles.promptCard}>
           <Text style={styles.promptLabel}>
             {isZhLocale ? "开放式引导" : "Open prompt"}
           </Text>
@@ -752,9 +1074,13 @@ function RecommendationCard({
                 style={styles.recommendationWrapper}
               >
                 <Text style={styles.recommendationLead}>
-                  {String.fromCharCode(65 + index)}. {recommendation.summary}
+                  {String.fromCharCode(65 + index)}.{" "}
+                  {recommendation.reason || (isZhLocale ? "匹配主题" : "Contextual match")}
                 </Text>
-                <RecommendationCard recommendation={recommendation} />
+                <RecommendationCard
+                  recommendation={recommendation}
+                  locale={activeLocale}
+                />
               </View>
             ))}
           </View>
@@ -794,7 +1120,7 @@ function RecommendationCard({
       behavior={Platform.OS === "ios" ? "padding" : "height"}
       keyboardVerticalOffset={keyboardVerticalOffset}
     >
-      <BlurView intensity={85} tint="light" style={styles.header}>
+      <BlurView intensity={110} tint="light" style={styles.header}>
         <View style={styles.headerLeft}>
           {onNavigateBack && (
             <Pressable
@@ -878,7 +1204,7 @@ function RecommendationCard({
 
       <View style={styles.composerShell}>
         <BlurView
-          intensity={90}
+          intensity={120}
           tint="light"
           style={[styles.composer, { paddingBottom: composerPadding }]}
         >

@@ -10,8 +10,8 @@ import { SettingsScreen } from "@screens/SettingsScreen";
 import { TherapistDirectoryScreen } from "@screens/TherapistDirectoryScreen";
 import { ThemeProvider, useTheme } from "@theme/ThemeProvider";
 import { BlurView } from "expo-blur";
-import { LinearGradient } from "expo-linear-gradient";
 import * as Haptics from "expo-haptics";
+import { LinearGradient } from "expo-linear-gradient";
 import { StatusBar as ExpoStatusBar } from "expo-status-bar";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
@@ -37,26 +37,33 @@ const serifFontFamily = Platform.select({
   default: "Georgia",
 });
 
+type TextWithDefaults = typeof Text & { defaultProps?: Text["props"] };
+type TextInputWithDefaults = typeof TextInput & {
+  defaultProps?: TextInput["props"];
+};
+
 function ensureSerifTypography() {
   if (!serifFontFamily) {
     return;
   }
 
-  if (!Text.defaultProps) {
-    Text.defaultProps = {};
-  }
-  Text.defaultProps.style = StyleSheet.flatten([
-    Text.defaultProps.style,
-    { fontFamily: serifFontFamily },
-  ]);
+  const TextComponent = Text as TextWithDefaults;
+  TextComponent.defaultProps = {
+    ...(TextComponent.defaultProps ?? {}),
+    style: StyleSheet.flatten([
+      TextComponent.defaultProps?.style,
+      { fontFamily: serifFontFamily },
+    ]),
+  };
 
-  if (!TextInput.defaultProps) {
-    TextInput.defaultProps = {};
-  }
-  TextInput.defaultProps.style = StyleSheet.flatten([
-    TextInput.defaultProps.style,
-    { fontFamily: serifFontFamily },
-  ]);
+  const InputComponent = TextInput as TextInputWithDefaults;
+  InputComponent.defaultProps = {
+    ...(InputComponent.defaultProps ?? {}),
+    style: StyleSheet.flatten([
+      InputComponent.defaultProps?.style,
+      { fontFamily: serifFontFamily },
+    ]),
+  };
 }
 
 ensureSerifTypography();
@@ -67,8 +74,7 @@ function AuthenticatedShell() {
   const theme = useTheme();
   const insets = useSafeAreaInsets();
   const [activeTab, setActiveTab] = useState<MobileTab>("chat");
-  const [lastNonChatTab, setLastNonChatTab] =
-    useState<MobileTab>("journey");
+  const [lastNonChatTab, setLastNonChatTab] = useState<MobileTab>("journey");
   const [keyboardVisible, setKeyboardVisible] = useState(false);
 
   useEffect(() => {
@@ -168,13 +174,12 @@ function AuthenticatedShell() {
   }, [lastNonChatTab]);
 
   const tabItems = useMemo(
-    () =>
-      [
-        { key: "chat" as const, label: "对话" },
-        { key: "journey" as const, label: "旅程" },
-        { key: "therapists" as const, label: "顾问" },
-        { key: "settings" as const, label: "设置" },
-      ],
+    () => [
+      { key: "chat" as const, label: "对话" },
+      { key: "journey" as const, label: "旅程" },
+      { key: "therapists" as const, label: "顾问" },
+      { key: "settings" as const, label: "设置" },
+    ],
     [],
   );
 
@@ -188,7 +193,7 @@ function AuthenticatedShell() {
       </View>
       {!keyboardVisible && (
         <View style={styles.tabWrapper}>
-          <BlurView intensity={85} tint="light" style={styles.tabBar}>
+          <BlurView intensity={110} tint="light" style={styles.tabBar}>
             {tabItems.map((tab, index) => {
               const isActive = activeTab === tab.key;
               return (
@@ -203,10 +208,7 @@ function AuthenticatedShell() {
                   ]}
                 >
                   <Text
-                    style={[
-                      styles.tabLabel,
-                      isActive && styles.tabLabelActive,
-                    ]}
+                    style={[styles.tabLabel, isActive && styles.tabLabelActive]}
                   >
                     {tab.label}
                   </Text>
@@ -265,18 +267,33 @@ function AppShell() {
   );
 
   const gradientColors = useMemo(
-    () =>
-      [
-        theme.colors.gradientTop,
-        theme.colors.gradientMid,
-        theme.colors.gradientBottom,
-      ],
-    [theme.colors.gradientBottom, theme.colors.gradientMid, theme.colors.gradientTop],
+    () => [
+      theme.colors.gradientBottom,
+      theme.colors.gradientMid,
+      theme.colors.gradientTop,
+    ],
+    [
+      theme.colors.gradientTop,
+      theme.colors.gradientMid,
+      theme.colors.gradientBottom,
+    ],
+  );
+  const gradientProps = useMemo(
+    () => ({
+      start: { x: 0.5, y: 1 },
+      end: { x: 0.5, y: 0 },
+      locations: [0, 0.45, 0.92],
+    }),
+    [],
   );
 
   if (status === "loading") {
     return (
-      <LinearGradient colors={gradientColors} style={styles.gradient}>
+      <LinearGradient
+        {...gradientProps}
+        colors={gradientColors}
+        style={styles.gradient}
+      >
         <SafeAreaView style={[styles.container, styles.loadingState]}>
           <ActivityIndicator size="large" color={theme.colors.primary} />
         </SafeAreaView>
@@ -285,7 +302,11 @@ function AppShell() {
   }
 
   return (
-    <LinearGradient colors={gradientColors} style={styles.gradient}>
+    <LinearGradient
+      {...gradientProps}
+      colors={gradientColors}
+      style={styles.gradient}
+    >
       <SafeAreaView style={styles.container}>
         <ConnectivityBanner placement="top" />
         {status === "authenticated" ? <AuthenticatedShell /> : <LoginScreen />}

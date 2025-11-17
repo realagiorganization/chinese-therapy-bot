@@ -48,6 +48,35 @@ type SpeechRecognitionWindow = Window &
     webkitSpeechRecognition?: SpeechRecognitionConstructorLike;
   };
 
+const PSYCHODYNAMIC_QUOTES: Record<"en" | "zh" | "ru", string[]> = {
+  en: [
+    "Every thought, no matter how small, carries a piece of the inner world.",
+    "What arises in your mind often reflects what lives beneath the surface.",
+    "What feels random may be more connected than it seems.",
+    "There is insight in the spontaneous—whatever comes up is welcome here."
+  ],
+  zh: [
+    "每一个念头，无论多么细小，都是内在世界的一部分。",
+    "浮现于心的念头往往映照着更深层的脉动。",
+    "看似偶然的内容，往往彼此相连。",
+    "自发的表达蕴含线索，任何浮现的内容都欢迎在此停留。"
+  ],
+  ru: [
+    "Каждая мысль, какой бы малой она ни была, несёт частицу внутреннего мира.",
+    "То, что поднимается в сознании, часто отражает то, что живёт в глубине.",
+    "То, что кажется случайным, может быть теснее связано, чем выглядит.",
+    "В спонтанном есть понимание — здесь приветствуется всё, что всплывает."
+  ]
+};
+
+function pickPsychodynamicQuote(locale: string): string {
+  const normalized = (locale || "en").toLowerCase();
+  const key = normalized.startsWith("zh") ? "zh" : normalized.startsWith("ru") ? "ru" : "en";
+  const pool = PSYCHODYNAMIC_QUOTES[key] ?? PSYCHODYNAMIC_QUOTES.en;
+  const index = Math.floor(Math.random() * pool.length);
+  return pool[index] ?? PSYCHODYNAMIC_QUOTES.en[0];
+}
+
 function normalizeChatContent(raw: string): string {
   if (!raw) {
     return "";
@@ -436,6 +465,7 @@ export function ChatPanel({ className }: ChatPanelProps) {
     }
     return error ?? serverVoiceError;
   }, [error, serverVoiceError]);
+  const promptQuote = useMemo(() => pickPsychodynamicQuote(sessionLocale), [sessionLocale]);
 
   const subscriptionPlans = useMemo(
     () => [
@@ -728,6 +758,30 @@ export function ChatPanel({ className }: ChatPanelProps) {
             </Button>
           )}
         </div>
+      </div>
+
+      <div
+        style={{
+          display: "grid",
+          gap: "6px",
+          background: "rgba(255,255,255,0.82)",
+          borderRadius: "var(--mw-radius-md)",
+          border: "1px solid rgba(44,45,41,0.2)",
+          padding: "var(--mw-spacing-md)"
+        }}
+      >
+        <Typography variant="body" style={{ fontWeight: 600 }}>
+          {t("chat.prompt_heading")}
+        </Typography>
+        <Typography variant="body" style={{ color: "var(--text-secondary)", lineHeight: 1.5 }}>
+          {t("chat.prompt_description")}
+        </Typography>
+        <Typography
+          variant="caption"
+          style={{ color: "var(--mw-color-primary)", fontStyle: "italic", lineHeight: 1.4 }}
+        >
+          {t("chat.quote_label")} “{promptQuote}”
+        </Typography>
       </div>
 
       <div

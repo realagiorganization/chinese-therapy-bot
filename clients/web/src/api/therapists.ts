@@ -63,11 +63,12 @@ function getFallbackTherapistDetails(locale: string): TherapistDetail[] {
 }
 
 function getFallbackTherapists(locale: string): TherapistSummary[] {
-  return getFallbackTherapistDetails(locale).map(({ biography, recommendationReason, ...summary }) => summary);
+  return getFallbackTherapistDetails(locale).map(({ biography, ...summary }) => summary);
 }
 
 function mapSummary(item: unknown): TherapistSummary {
   const data = asRecord(item) ?? {};
+  const rawReason = asString(data.recommendation_reason ?? data.recommendationReason);
   return {
     id: asString(data.therapist_id ?? data.id),
     name: asString(data.name),
@@ -77,7 +78,8 @@ function mapSummary(item: unknown): TherapistSummary {
     price: asNumber(data.price_per_session ?? data.price),
     currency: asString(data.currency, "CNY") || "CNY",
     recommended: asBoolean(data.is_recommended ?? data.recommended),
-    availability: asStringArray(data.availability)
+    availability: asStringArray(data.availability),
+    recommendationReason: rawReason || undefined
   };
 }
 
@@ -86,11 +88,7 @@ function mapDetail(item: unknown): TherapistDetail {
   const summary = mapSummary(data);
   return {
     ...summary,
-    biography: asString(data.biography),
-    recommendationReason: (() => {
-      const reason = asString(data.recommendation_reason ?? data.recommendationReason);
-      return reason || undefined;
-    })()
+    biography: asString(data.biography)
   };
 }
 

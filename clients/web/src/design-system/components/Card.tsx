@@ -19,13 +19,20 @@ export function Card({
   children,
   ...props
 }: CardProps) {
+  const background = elevated
+    ? "var(--mw-glass-overlay, var(--mw-surface-card))"
+    : "var(--mw-surface-card)";
+  const borderColor = elevated
+    ? "var(--mw-glass-border, rgba(255,255,255,0.5))"
+    : "var(--mw-border-subtle)";
   const mergedStyle: CSSProperties = {
-    background: "var(--mw-surface-card)",
+    background,
     borderRadius: "var(--mw-radius-lg)",
-    border: elevated ? "1px solid transparent" : "1px solid var(--mw-border-subtle)",
+    border: `1px solid ${borderColor}`,
     boxShadow: elevated ? "var(--mw-shadow-md)" : "none",
     padding: paddingMap[padding],
     transition: "transform 160ms ease, box-shadow 200ms ease",
+    backdropFilter: elevated ? "blur(18px)" : undefined,
     ...style
   };
 

@@ -26,7 +26,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
     justifyContent: "center",
     gap: "8px",
     borderRadius: "var(--mw-radius-md)",
-    border: "1px solid transparent",
+    border: "1px solid rgba(44, 45, 41, 0.32)",
     cursor: props.disabled ? "not-allowed" : "pointer",
     fontFamily: "var(--mw-font-base)",
     fontWeight: "var(--mw-font-weight-semibold)",
@@ -35,24 +35,22 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
     minHeight: "42px",
     padding: sizeStyles[size],
     width: block ? "100%" : undefined,
-    transition: "transform 120ms ease, box-shadow 180ms ease, background 180ms ease",
-    boxShadow: "var(--mw-shadow-sm)",
+    transition: "box-shadow 180ms ease, background 180ms ease, color 150ms ease",
+    boxShadow: "none",
     background: "var(--mw-color-primary)",
-    color: "#FFFFFF"
+    color: "#FDFBF7"
   };
 
   if (variant === "secondary") {
-    baseStyle.background = "var(--mw-surface-card)";
-    baseStyle.color = "var(--mw-color-primary)";
-    baseStyle.border = "1px solid var(--mw-border-subtle)";
-    baseStyle.boxShadow = "none";
+    baseStyle.background = "transparent";
+    baseStyle.color = "var(--text-primary)";
+    baseStyle.border = "1px solid rgba(44, 45, 41, 0.4)";
   }
 
   if (variant === "ghost") {
     baseStyle.background = "transparent";
     baseStyle.color = "var(--mw-color-primary)";
-    baseStyle.border = "1px solid transparent";
-    baseStyle.boxShadow = "none";
+    baseStyle.border = "1px solid rgba(44, 45, 41, 0.25)";
   }
 
   return (
@@ -63,18 +61,6 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
         ...style
       }}
       {...props}
-      onMouseDown={(event) => {
-        event.currentTarget.style.transform = "scale(0.985)";
-        props.onMouseDown?.(event);
-      }}
-      onMouseUp={(event) => {
-        event.currentTarget.style.transform = "scale(1)";
-        props.onMouseUp?.(event);
-      }}
-      onMouseLeave={(event) => {
-        event.currentTarget.style.transform = "scale(1)";
-        props.onMouseLeave?.(event);
-      }}
     >
       {children}
     </button>

@@ -1,8 +1,8 @@
+import { VOICE_PITCH_PRESETS, VOICE_RATE_PRESETS } from "@constants/voice";
 import { useAuth } from "@context/AuthContext";
 import { useVoiceSettings } from "@context/VoiceSettingsContext";
-import { VOICE_PITCH_PRESETS, VOICE_RATE_PRESETS } from "@constants/voice";
-import * as Localization from "expo-localization";
 import { BlurView } from "expo-blur";
+import * as Localization from "expo-localization";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Pressable,
