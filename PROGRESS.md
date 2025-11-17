@@ -132,6 +132,7 @@
 - [ ] Run user acceptance testing with pilot users and collect feedback for iteration.
   - [x] Draft pilot UAT plan, cohort targets, and success criteria. *(See `docs/uat_plan.md`.)*
   - [ ] Recruit pilot cohort, capture structured feedback, and prioritize iteration backlog. *(`PilotFeedback` storage + `/api/feedback/pilot` endpoints now live; cohort recruitment + synthesis still pending.)*
+  - [x] Automate pilot feedback synthesis via `/api/feedback/pilot/report` + `mindwell-uat-report` CLI so Markdown/JSON digests feed directly into the backlog review. *(See `services/backend/app/services/feedback.py`, `app/api/routes/feedback.py`, CLI `mindwell-uat-report`, and docs `docs/uat_plan.md` §7.)*
 
 ## Phase 7 – Deployment & Operations
 - [x] Finalize CI/CD pipelines for backend, frontend, and mobile releases.
