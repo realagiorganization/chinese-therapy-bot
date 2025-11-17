@@ -14,7 +14,8 @@
       "@context/*": ["src/context/*"],
       "@constants/*": ["src/constants/*"],
       "@services/*": ["src/services/*"],
-      "@types/*": ["src/types/*"]
+      "@types/*": ["src/types/*"],
+      "shared/*": ["../shared/*"]
     }
   },
   "include": ["./App.tsx", "./index.ts", "./app.config.ts", "src/**/*"]

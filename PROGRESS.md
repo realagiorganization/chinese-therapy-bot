@@ -158,15 +158,15 @@
 - [ ] Maintain DEV_PLAN and PROGRESS updates as milestones are achieved.
 
 ## Phase 9 – Mobile UI Refinement & Messenger Parity
-- [ ] Align chat and therapist flows with the Messenger Creation visual target (`Messenger_creation.jpg`) so the mobile shell mirrors the showcased gradients, framing, and typography cadence.
-  - [ ] Replace inset/pressed button styles with clean outlined variants (white/black/neutral) everywhere in the mobile app per `develop.txt` §1, ensuring hover/disabled tokens stay accessible in both locales.
-  - [ ] Define keyboard-present layout states: hide the four-tab navigation when the keyboard is up, keep a dedicated top-left back arrow, and validate on iOS/Android simulators.
-  - [ ] Refresh the palette with lower saturation yellow–green, pink–green, and blue–green options, increase the frosted-glass blur, and implement a bottom-up gradient that fades into beige/off-white mid screen as described in `develop.txt` §§3 & 5.
+- [x] Align chat and therapist flows with the Messenger Creation visual target (`Messenger_creation.jpg`) so the mobile shell mirrors the showcased gradients, framing, and typography cadence.
+  - [x] Replace inset/pressed button styles with clean outlined variants (white/black/neutral) everywhere in the mobile app per `develop.txt` §1, ensuring hover/disabled tokens stay accessible in both locales.
+  - [x] Define keyboard-present layout states: hide the four-tab navigation when the keyboard is up, keep a dedicated top-left back arrow, and validate on iOS/Android simulators.
+  - [x] Refresh the palette with lower saturation yellow–green, pink–green, and blue–green options, increase the frosted-glass blur, and implement a bottom-up gradient that fades into beige/off-white mid screen as described in `develop.txt` §§3 & 5.
 - [x] Enhance the Therapist screen to include AI-personalized recommendations below the search bar.
   - [x] Inject the block “Based on your conversations with the AI, we recommend the following three therapists.” with short rationale strings (A/B/C) before rendering the full card grid. *(Interactive recommendation press targets now focus the matching card and load details per `clients/mobile/src/screens/TherapistDirectoryScreen.tsx`.)*
   - [x] Ensure recommendation copy, therapist badges, and cards visually match the Messenger reference image while supporting Chinese/English text lengths. *(The refreshed block reuses bilingual copy and glass-styled badges with new theme tokens, also in `clients/mobile/src/screens/TherapistDirectoryScreen.tsx`.)*
-- [ ] Iterate on chrome and typography polish.
-  - [ ] Brainstorm and document alternative settings button placement options so the icon no longer crowds the top-left corner.
-  - [ ] Swap headline and body fonts to academic/serious families (e.g., Georgia/Times New Roman inspired) and update style tokens accordingly.
-  - [ ] Move the voice-mode arrow/icon to the left side of the input, keeping spacing consistent with the Messenger Creation mock.
-- [ ] Update chat prompt copy to the academic tone from `develop.txt` §9 and surface a psychodynamic quote (choose from §10) below it with localized text + attribution handling.
+- [x] Iterate on chrome and typography polish.
+  - [x] Brainstorm and document alternative settings button placement options so the icon no longer crowds the top-left corner.
+  - [x] Swap headline and body fonts to academic/serious families (e.g., Georgia/Times New Roman inspired) and update style tokens accordingly.
+  - [x] Move the voice-mode arrow/icon to the left side of the input, keeping spacing consistent with the Messenger Creation mock.
+- [x] Update chat prompt copy to the academic tone from `develop.txt` §9 and surface a psychodynamic quote (choose from §10) below it with localized text + attribution handling.

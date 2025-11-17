@@ -30,12 +30,24 @@ import {
   SafeAreaProvider,
   useSafeAreaInsets,
 } from "react-native-safe-area-context";
+import { lightThemeTokens } from "shared/design-tokens";
 
-const serifFontFamily = Platform.select({
-  ios: "Times New Roman",
-  android: "serif",
-  default: "Georgia",
-});
+const serifFontStack = lightThemeTokens.typography.fontFamilyBase
+  .split(",")
+  .map((token) => token.replace(/"/g, "").trim())
+  .filter(Boolean);
+
+const serifFontFamily =
+  Platform.select({
+    ios:
+      serifFontStack.find(
+        (font) => font.toLowerCase() === "times new roman",
+      ) ?? serifFontStack[0] ?? "Times New Roman",
+    android:
+      serifFontStack.find((font) => font.toLowerCase() === "serif") ??
+      "serif",
+    default: serifFontStack[0] ?? "Georgia",
+  }) ?? "Georgia";
 
 type TextWithDefaults = typeof Text & { defaultProps?: Text["props"] };
 type TextInputWithDefaults = typeof TextInput & {
@@ -127,7 +139,8 @@ function AuthenticatedShell() {
           justifyContent: "center",
           paddingVertical: theme.spacing.sm,
           borderRightWidth: StyleSheet.hairlineWidth,
-          borderColor: "rgba(255,255,255,0.35)",
+          borderColor: "rgba(255,255,255,0.4)",
+          backgroundColor: "transparent",
         },
         tabButtonLast: {
           borderRightWidth: 0,
@@ -142,7 +155,7 @@ function AuthenticatedShell() {
           fontWeight: "600",
         },
         tabButtonActive: {
-          backgroundColor: "rgba(255,255,255,0.22)",
+          borderColor: theme.colors.textPrimary,
         },
         tabDot: {
           width: 6,
@@ -193,7 +206,7 @@ function AuthenticatedShell() {
       </View>
       {!keyboardVisible && (
         <View style={styles.tabWrapper}>
-          <BlurView intensity={110} tint="light" style={styles.tabBar}>
+      <BlurView intensity={140} tint="light" style={styles.tabBar}>
             {tabItems.map((tab, index) => {
               const isActive = activeTab === tab.key;
               return (
@@ -282,7 +295,7 @@ function AppShell() {
     () => ({
       start: { x: 0.5, y: 1 },
       end: { x: 0.5, y: 0 },
-      locations: [0, 0.45, 0.92],
+      locations: [0, 0.35, 0.78],
     }),
     [],
   );

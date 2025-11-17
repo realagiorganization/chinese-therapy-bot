@@ -5,6 +5,7 @@ import { BlurView } from "expo-blur";
 import * as Localization from "expo-localization";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -34,6 +35,8 @@ const SETTING_IDEAS = [
     en: "Embed a thin outlined Settings chip above the chat composer with a notebook icon so it stays accessible without crowding the arrow.",
   },
 ] as const;
+
+const GLASS_INTENSITY = Platform.OS === "ios" ? 130 : 145;
 
 export function SettingsScreen() {
   const theme = useTheme();
@@ -146,11 +149,10 @@ export function SettingsScreen() {
           borderRadius: theme.radius.pill,
           paddingHorizontal: theme.spacing.md,
           paddingVertical: theme.spacing.xs * 0.75,
-          backgroundColor: "rgba(255,255,255,0.2)",
+          backgroundColor: "transparent",
         },
         chipActive: {
           borderColor: theme.colors.primary,
-          backgroundColor: "rgba(74,144,121,0.15)",
         },
         chipLabel: {
           fontSize: 12,
@@ -343,7 +345,7 @@ export function SettingsScreen() {
       contentContainerStyle={styles.scrollContent}
       showsVerticalScrollIndicator={false}
     >
-      <BlurView intensity={85} tint="light" style={styles.card}>
+      <BlurView intensity={GLASS_INTENSITY} tint="light" style={styles.card}>
         <Text style={styles.cardTitle}>{isZh ? "账号" : "Account"}</Text>
         <Text style={styles.cardSubtitle}>
           {accountSubtitle} {userId ? `ID：${userId}` : ""}
@@ -353,7 +355,7 @@ export function SettingsScreen() {
         </Pressable>
       </BlurView>
 
-      <BlurView intensity={85} tint="light" style={styles.card}>
+      <BlurView intensity={GLASS_INTENSITY} tint="light" style={styles.card}>
         <Text style={styles.cardTitle}>{playbackLabel}</Text>
         <Text style={styles.cardSubtitle}>{voiceSubtitle}</Text>
         <View style={styles.row}>
@@ -426,7 +428,7 @@ export function SettingsScreen() {
         )}
       </BlurView>
 
-      <BlurView intensity={85} tint="light" style={styles.card}>
+      <BlurView intensity={GLASS_INTENSITY} tint="light" style={styles.card}>
         <Text style={styles.cardTitle}>{storageTitle}</Text>
         <Text style={styles.cardSubtitle}>{storageSubtitle}</Text>
         <View style={{ gap: theme.spacing.xs }}>
@@ -464,7 +466,7 @@ export function SettingsScreen() {
         </View>
       </BlurView>
 
-      <BlurView intensity={85} tint="light" style={styles.card}>
+      <BlurView intensity={GLASS_INTENSITY} tint="light" style={styles.card}>
         <Text style={styles.cardTitle}>{ideaTitle}</Text>
         <View style={styles.ideaList}>
           {SETTING_IDEAS.map((idea) => (

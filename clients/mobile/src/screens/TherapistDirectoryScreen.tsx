@@ -5,6 +5,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   FlatList,
+  Platform,
   Pressable,
   StyleSheet,
   Switch,
@@ -36,6 +37,8 @@ type TherapistCardProps = {
   onPress: (therapist: TherapistSummary) => void;
 };
 
+const GLASS_INTENSITY = Platform.OS === "ios" ? 135 : 150;
+
 function TherapistCard({ therapist, active, onPress }: TherapistCardProps) {
   const theme = useTheme();
 
@@ -45,12 +48,12 @@ function TherapistCard({ therapist, active, onPress }: TherapistCardProps) {
         container: {
           borderRadius: theme.radius.lg,
           borderWidth: 1,
-          borderColor: active ? theme.colors.primary : theme.colors.glassBorder,
+          borderColor: active
+            ? theme.colors.textPrimary
+            : theme.colors.glassBorder,
           padding: theme.spacing.md,
           gap: theme.spacing.xs,
-          backgroundColor: active
-            ? "rgba(74,144,121,0.18)"
-            : theme.colors.glassOverlay,
+          backgroundColor: theme.colors.glassOverlay,
         },
         header: {
           flexDirection: "row",
@@ -68,7 +71,9 @@ function TherapistCard({ therapist, active, onPress }: TherapistCardProps) {
           color: theme.colors.textSecondary,
         },
         badge: {
-          backgroundColor: "rgba(74,144,121,0.15)",
+          backgroundColor: "transparent",
+          borderWidth: 1,
+          borderColor: theme.colors.primary,
           color: theme.colors.primary,
           borderRadius: theme.radius.pill,
           paddingHorizontal: theme.spacing.sm,
@@ -122,16 +127,14 @@ function FilterChip({ label, active, onPress }: FilterChipProps) {
           borderRadius: theme.radius.pill,
           borderWidth: 1,
           borderColor: active
-            ? theme.colors.primary
+            ? theme.colors.textPrimary
             : theme.colors.borderSubtle,
           paddingHorizontal: theme.spacing.md,
           paddingVertical: theme.spacing.xs * 0.75,
-          backgroundColor: active
-            ? "rgba(74,144,121,0.15)"
-            : "rgba(255,255,255,0.15)",
+          backgroundColor: "transparent",
         },
         text: {
-          color: active ? theme.colors.primary : theme.colors.textSecondary,
+          color: active ? theme.colors.textPrimary : theme.colors.textSecondary,
           fontSize: 12,
           fontWeight: active ? "600" : "500",
         },
@@ -339,12 +342,13 @@ export function TherapistDirectoryScreen() {
           alignItems: "flex-start",
           gap: theme.spacing.sm,
           borderRadius: theme.radius.md,
-          backgroundColor: "rgba(255,255,255,0.15)",
+          borderWidth: 1,
+          borderColor: theme.colors.glassBorder,
+          backgroundColor: "transparent",
           padding: theme.spacing.sm,
         },
         recommendationItemPressed: {
           opacity: 0.9,
-          transform: [{ scale: 0.99 }],
         },
         recommendationLabel: {
           width: 28,
@@ -552,7 +556,7 @@ export function TherapistDirectoryScreen() {
         </Text>
       </View>
 
-      <BlurView intensity={115} tint="light" style={styles.searchCard}>
+      <BlurView intensity={GLASS_INTENSITY} tint="light" style={styles.searchCard}>
         <TextInput
           style={styles.searchInput}
           placeholder={searchPlaceholder}
@@ -567,7 +571,7 @@ export function TherapistDirectoryScreen() {
 
       {cachedRecommendations.length > 0 && (
         <BlurView
-          intensity={120}
+          intensity={GLASS_INTENSITY + 5}
           tint="light"
           style={styles.recommendationCard}
         >
@@ -630,7 +634,7 @@ export function TherapistDirectoryScreen() {
         </BlurView>
       )}
 
-      <BlurView intensity={115} tint="light" style={styles.filtersCard}>
+      <BlurView intensity={GLASS_INTENSITY} tint="light" style={styles.filtersCard}>
         <View
           style={{
             flexDirection: "row",
@@ -798,7 +802,7 @@ export function TherapistDirectoryScreen() {
         />
       )}
 
-      <BlurView intensity={120} tint="light" style={styles.detailCard}>
+      <BlurView intensity={GLASS_INTENSITY + 5} tint="light" style={styles.detailCard}>
         {detailState.status === "idle" && (
           <Text style={styles.subtitle}>选择顾问即可查看详细介绍。</Text>
         )}

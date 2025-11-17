@@ -70,6 +70,8 @@ const QUOTE_ATTRIBUTION = {
   ru: "— Психодинамическое наблюдение",
 } as const;
 
+const GLASS_INTENSITY = Platform.OS === "ios" ? 135 : 150;
+
 type PromptLocale = keyof typeof PROMPT_COPY;
 
 function resolvePromptLocale(locale: string | null | undefined): PromptLocale {
@@ -570,8 +572,8 @@ export function ChatScreen({ onNavigateBack }: ChatScreenProps) {
           gap: theme.spacing.sm,
         },
         voiceArrowButton: {
-          width: 52,
-          height: 52,
+          width: 48,
+          height: 56,
           borderRadius: theme.radius.md,
           borderWidth: 1,
           borderColor: theme.colors.textPrimary,
@@ -586,16 +588,15 @@ export function ChatScreen({ onNavigateBack }: ChatScreenProps) {
         voiceButton: {
           borderRadius: theme.radius.md,
           borderWidth: 1,
-          borderColor: theme.colors.borderSubtle,
+          borderColor: theme.colors.textPrimary,
           paddingHorizontal: theme.spacing.sm,
           paddingVertical: theme.spacing.sm,
           width: "100%",
           alignItems: "center",
-          backgroundColor: "rgba(255,255,255,0.2)",
+          backgroundColor: "transparent",
         },
         voiceButtonActive: {
           borderColor: theme.colors.primary,
-          backgroundColor: "rgba(74,144,121,0.15)",
         },
         voiceButtonDisabled: {
           opacity: 0.4,
@@ -625,7 +626,13 @@ export function ChatScreen({ onNavigateBack }: ChatScreenProps) {
           flex: 1,
           gap: theme.spacing.sm,
         },
+        inputRow: {
+          flexDirection: "row",
+          alignItems: "center",
+          gap: theme.spacing.sm,
+        },
         input: {
+          flex: 1,
           borderWidth: 1,
           borderColor: theme.colors.borderSubtle,
           borderRadius: theme.radius.lg,
@@ -708,11 +715,10 @@ export function ChatScreen({ onNavigateBack }: ChatScreenProps) {
           borderColor: theme.colors.borderSubtle,
           paddingHorizontal: theme.spacing.md,
           paddingVertical: theme.spacing.xs,
-          backgroundColor: "rgba(255,255,255,0.15)",
+          backgroundColor: "transparent",
         },
         chipActive: {
           borderColor: theme.colors.primary,
-          backgroundColor: "rgba(74,144,121,0.15)",
         },
         chipLabel: {
           fontSize: 13,
@@ -1054,7 +1060,11 @@ export function ChatScreen({ onNavigateBack }: ChatScreenProps) {
   const renderListHeader = useCallback(() => {
     return (
       <View style={styles.listHeader}>
-        <BlurView intensity={115} tint="light" style={styles.promptCard}>
+        <BlurView
+          intensity={GLASS_INTENSITY + 5}
+          tint="light"
+          style={styles.promptCard}
+        >
           <Text style={styles.promptLabel}>
             {isZhLocale ? "开放式引导" : "Open prompt"}
           </Text>
@@ -1120,7 +1130,7 @@ export function ChatScreen({ onNavigateBack }: ChatScreenProps) {
       behavior={Platform.OS === "ios" ? "padding" : "height"}
       keyboardVerticalOffset={keyboardVerticalOffset}
     >
-      <BlurView intensity={110} tint="light" style={styles.header}>
+      <BlurView intensity={GLASS_INTENSITY} tint="light" style={styles.header}>
         <View style={styles.headerLeft}>
           {onNavigateBack && (
             <Pressable
@@ -1204,26 +1214,13 @@ export function ChatScreen({ onNavigateBack }: ChatScreenProps) {
 
       <View style={styles.composerShell}>
         <BlurView
-          intensity={120}
+          intensity={GLASS_INTENSITY + 5}
           tint="light"
           style={[styles.composer, { paddingBottom: composerPadding }]}
         >
           <View style={styles.composerRow}>
             {voiceSupported && (
               <View style={styles.voiceColumn}>
-                <Pressable
-                  android_ripple={androidRipple}
-                  accessibilityRole="button"
-                  accessibilityLabel={
-                    isZhLocale
-                      ? "打开语音播报设置"
-                      : "Open voice playback preferences"
-                  }
-                  onPress={() => setVoiceSettingsVisible(true)}
-                  style={styles.voiceArrowButton}
-                >
-                  <Text style={styles.voiceArrowIcon}>↢</Text>
-                </Pressable>
                 <Pressable
                   android_ripple={androidRipple}
                   accessibilityRole="button"
@@ -1284,15 +1281,34 @@ export function ChatScreen({ onNavigateBack }: ChatScreenProps) {
               </View>
             )}
             <View style={styles.inputColumn}>
-              <TextInput
-                placeholder={composerPlaceholder}
-                placeholderTextColor={theme.colors.textSecondary}
-                value={inputValue}
-                onChangeText={handleInputChange}
-                style={styles.input}
-                editable={!isSending && !isVoiceRecording && !isVoiceTranscribing}
-                multiline
-              />
+              <View style={styles.inputRow}>
+                {voiceSupported && (
+                  <Pressable
+                    android_ripple={androidRipple}
+                    accessibilityRole="button"
+                    accessibilityLabel={
+                      isZhLocale
+                        ? "打开语音播报设置"
+                        : "Open voice playback preferences"
+                    }
+                    onPress={() => setVoiceSettingsVisible(true)}
+                    style={styles.voiceArrowButton}
+                  >
+                    <Text style={styles.voiceArrowIcon}>↢</Text>
+                  </Pressable>
+                )}
+                <TextInput
+                  placeholder={composerPlaceholder}
+                  placeholderTextColor={theme.colors.textSecondary}
+                  value={inputValue}
+                  onChangeText={handleInputChange}
+                  style={styles.input}
+                  editable={
+                    !isSending && !isVoiceRecording && !isVoiceTranscribing
+                  }
+                  multiline
+                />
+              </View>
               <Pressable
                 android_ripple={androidRipple}
                 onPress={handleSend}
