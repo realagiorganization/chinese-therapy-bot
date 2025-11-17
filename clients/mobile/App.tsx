@@ -6,32 +6,88 @@ import { useStartupProfiler } from "@hooks/useStartupProfiler";
 import { ChatScreen } from "@screens/ChatScreen";
 import { JourneyScreen } from "@screens/JourneyScreen";
 import { LoginScreen } from "@screens/LoginScreen";
+import { SettingsScreen } from "@screens/SettingsScreen";
 import { TherapistDirectoryScreen } from "@screens/TherapistDirectoryScreen";
 import { ThemeProvider, useTheme } from "@theme/ThemeProvider";
+import { BlurView } from "expo-blur";
+import { LinearGradient } from "expo-linear-gradient";
 import * as Haptics from "expo-haptics";
 import { StatusBar as ExpoStatusBar } from "expo-status-bar";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
+  Keyboard,
   Platform,
   Pressable,
   SafeAreaView,
   StyleSheet,
   Text,
+  TextInput,
   View,
 } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
-import { SafeAreaProvider } from "react-native-safe-area-context";
+import {
+  SafeAreaProvider,
+  useSafeAreaInsets,
+} from "react-native-safe-area-context";
 
-type MobileTab = "chat" | "journey" | "therapists";
+const serifFontFamily = Platform.select({
+  ios: "Times New Roman",
+  android: "serif",
+  default: "Georgia",
+});
+
+function ensureSerifTypography() {
+  if (!serifFontFamily) {
+    return;
+  }
+
+  if (!Text.defaultProps) {
+    Text.defaultProps = {};
+  }
+  Text.defaultProps.style = StyleSheet.flatten([
+    Text.defaultProps.style,
+    { fontFamily: serifFontFamily },
+  ]);
+
+  if (!TextInput.defaultProps) {
+    TextInput.defaultProps = {};
+  }
+  TextInput.defaultProps.style = StyleSheet.flatten([
+    TextInput.defaultProps.style,
+    { fontFamily: serifFontFamily },
+  ]);
+}
+
+ensureSerifTypography();
+
+type MobileTab = "chat" | "journey" | "therapists" | "settings";
 
 function AuthenticatedShell() {
   const theme = useTheme();
+  const insets = useSafeAreaInsets();
   const [activeTab, setActiveTab] = useState<MobileTab>("chat");
+  const [lastNonChatTab, setLastNonChatTab] =
+    useState<MobileTab>("journey");
+  const [keyboardVisible, setKeyboardVisible] = useState(false);
+
+  useEffect(() => {
+    const show = Keyboard.addListener("keyboardDidShow", () =>
+      setKeyboardVisible(true),
+    );
+    const hide = Keyboard.addListener("keyboardDidHide", () =>
+      setKeyboardVisible(false),
+    );
+    return () => {
+      show.remove();
+      hide.remove();
+    };
+  }, []);
+
   const androidRipple = useMemo(
     () =>
       Platform.OS === "android"
-        ? { color: "rgba(37,99,235,0.12)", foreground: true }
+        ? { color: "rgba(255,255,255,0.2)", foreground: true }
         : undefined,
     [],
   );
@@ -41,124 +97,137 @@ function AuthenticatedShell() {
       StyleSheet.create({
         container: {
           flex: 1,
+          paddingHorizontal: theme.spacing.lg,
+          paddingBottom: keyboardVisible
+            ? theme.spacing.sm
+            : Math.max(insets.bottom, theme.spacing.lg),
+        },
+        content: {
+          flex: 1,
+          paddingTop: theme.spacing.lg,
+        },
+        tabWrapper: {
+          marginTop: theme.spacing.md,
         },
         tabBar: {
-          flexDirection: "row",
-          borderBottomWidth: 1,
-          borderColor: theme.colors.borderSubtle,
-          backgroundColor: theme.colors.surfaceCard,
+          borderRadius: theme.radius.lg,
+          borderWidth: 1,
+          borderColor: theme.colors.glassBorder,
+          overflow: "hidden",
         },
         tabButton: {
           flex: 1,
           alignItems: "center",
           justifyContent: "center",
-          paddingVertical: theme.spacing.md,
-          position: "relative",
+          paddingVertical: theme.spacing.sm,
+          borderRightWidth: StyleSheet.hairlineWidth,
+          borderColor: "rgba(255,255,255,0.35)",
+        },
+        tabButtonLast: {
+          borderRightWidth: 0,
         },
         tabLabel: {
-          fontSize: 14,
+          fontSize: 12,
+          letterSpacing: 0.6,
           color: theme.colors.textSecondary,
         },
         tabLabelActive: {
-          color: theme.colors.primary,
+          color: theme.colors.textPrimary,
           fontWeight: "600",
         },
-        tabIndicator: {
-          position: "absolute",
-          bottom: 0,
-          height: 2,
-          width: "60%",
-          borderRadius: theme.radius.pill,
-          backgroundColor: theme.colors.primary,
-        },
         tabButtonActive: {
-          backgroundColor: "rgba(59,130,246,0.08)",
+          backgroundColor: "rgba(255,255,255,0.22)",
         },
-        content: {
-          flex: 1,
+        tabDot: {
+          width: 6,
+          height: 6,
+          borderRadius: 3,
+          marginTop: 4,
         },
       }),
-    [theme],
+    [insets.bottom, keyboardVisible, theme],
   );
 
-  const handleTabChange = useCallback(
-    (tab: MobileTab) => {
-      if (activeTab === tab) {
-        return;
+  const handleTabChange = useCallback((tab: MobileTab) => {
+    setActiveTab((current) => {
+      if (current === tab) {
+        return current;
       }
-      setActiveTab(tab);
+      if (tab !== "chat") {
+        setLastNonChatTab(tab);
+      }
       if (Platform.OS === "ios" || Platform.OS === "android") {
-        Haptics.selectionAsync().catch(() => {
-          // Haptic feedback is a best-effort enhancement.
-        });
+        Haptics.selectionAsync().catch(() => undefined);
       }
-    },
-    [activeTab],
+      return tab;
+    });
+  }, []);
+
+  const handleChatBack = useCallback(() => {
+    setActiveTab(lastNonChatTab === "chat" ? "journey" : lastNonChatTab);
+  }, [lastNonChatTab]);
+
+  const tabItems = useMemo(
+    () =>
+      [
+        { key: "chat" as const, label: "对话" },
+        { key: "journey" as const, label: "旅程" },
+        { key: "therapists" as const, label: "顾问" },
+        { key: "settings" as const, label: "设置" },
+      ],
+    [],
   );
 
   return (
     <View style={styles.container}>
-      <View style={styles.tabBar}>
-        <Pressable
-          android_ripple={androidRipple}
-          onPress={() => handleTabChange("chat")}
-          style={[
-            styles.tabButton,
-            activeTab === "chat" && styles.tabButtonActive,
-          ]}
-        >
-          <Text
-            style={[
-              styles.tabLabel,
-              activeTab === "chat" && styles.tabLabelActive,
-            ]}
-          >
-            对话
-          </Text>
-          {activeTab === "chat" && <View style={styles.tabIndicator} />}
-        </Pressable>
-        <Pressable
-          android_ripple={androidRipple}
-          onPress={() => handleTabChange("journey")}
-          style={[
-            styles.tabButton,
-            activeTab === "journey" && styles.tabButtonActive,
-          ]}
-        >
-          <Text
-            style={[
-              styles.tabLabel,
-              activeTab === "journey" && styles.tabLabelActive,
-            ]}
-          >
-            旅程
-          </Text>
-          {activeTab === "journey" && <View style={styles.tabIndicator} />}
-        </Pressable>
-        <Pressable
-          android_ripple={androidRipple}
-          onPress={() => handleTabChange("therapists")}
-          style={[
-            styles.tabButton,
-            activeTab === "therapists" && styles.tabButtonActive,
-          ]}
-        >
-          <Text
-            style={[
-              styles.tabLabel,
-              activeTab === "therapists" && styles.tabLabelActive,
-            ]}
-          >
-            顾问
-          </Text>
-          {activeTab === "therapists" && <View style={styles.tabIndicator} />}
-        </Pressable>
-      </View>
       <View style={styles.content}>
-        {activeTab === "chat" && <ChatScreen />}
+        {activeTab === "chat" && <ChatScreen onNavigateBack={handleChatBack} />}
         {activeTab === "journey" && <JourneyScreen />}
         {activeTab === "therapists" && <TherapistDirectoryScreen />}
+        {activeTab === "settings" && <SettingsScreen />}
       </View>
+      {!keyboardVisible && (
+        <View style={styles.tabWrapper}>
+          <BlurView intensity={85} tint="light" style={styles.tabBar}>
+            {tabItems.map((tab, index) => {
+              const isActive = activeTab === tab.key;
+              return (
+                <Pressable
+                  key={tab.key}
+                  android_ripple={androidRipple}
+                  onPress={() => handleTabChange(tab.key)}
+                  style={[
+                    styles.tabButton,
+                    index === tabItems.length - 1 && styles.tabButtonLast,
+                    isActive && styles.tabButtonActive,
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.tabLabel,
+                      isActive && styles.tabLabelActive,
+                    ]}
+                  >
+                    {tab.label}
+                  </Text>
+                  <View
+                    style={[
+                      styles.tabDot,
+                      {
+                        backgroundColor: isActive
+                          ? theme.colors.primary
+                          : "transparent",
+                        borderWidth: isActive ? 0 : StyleSheet.hairlineWidth,
+                        borderColor: theme.colors.borderSubtle,
+                      },
+                    ]}
+                  />
+                </Pressable>
+              );
+            })}
+          </BlurView>
+        </View>
+      )}
     </View>
   );
 }
@@ -179,32 +248,49 @@ function AppShell() {
   const styles = useMemo(
     () =>
       StyleSheet.create({
+        gradient: {
+          flex: 1,
+        },
         container: {
           flex: 1,
-          backgroundColor: theme.colors.surfaceBackground,
+          backgroundColor: "transparent",
+          paddingTop: theme.spacing.md,
+        },
+        loadingState: {
+          alignItems: "center",
+          justifyContent: "center",
         },
       }),
-    [theme],
+    [theme.spacing.md],
+  );
+
+  const gradientColors = useMemo(
+    () =>
+      [
+        theme.colors.gradientTop,
+        theme.colors.gradientMid,
+        theme.colors.gradientBottom,
+      ],
+    [theme.colors.gradientBottom, theme.colors.gradientMid, theme.colors.gradientTop],
   );
 
   if (status === "loading") {
     return (
-      <SafeAreaView
-        style={[
-          styles.container,
-          { alignItems: "center", justifyContent: "center" },
-        ]}
-      >
-        <ActivityIndicator size="large" color={theme.colors.primary} />
-      </SafeAreaView>
+      <LinearGradient colors={gradientColors} style={styles.gradient}>
+        <SafeAreaView style={[styles.container, styles.loadingState]}>
+          <ActivityIndicator size="large" color={theme.colors.primary} />
+        </SafeAreaView>
+      </LinearGradient>
     );
   }
 
   return (
-    <SafeAreaView style={styles.container}>
-      <ConnectivityBanner placement="top" />
-      {status === "authenticated" ? <AuthenticatedShell /> : <LoginScreen />}
-    </SafeAreaView>
+    <LinearGradient colors={gradientColors} style={styles.gradient}>
+      <SafeAreaView style={styles.container}>
+        <ConnectivityBanner placement="top" />
+        {status === "authenticated" ? <AuthenticatedShell /> : <LoginScreen />}
+      </SafeAreaView>
+    </LinearGradient>
   );
 }
 

@@ -1,3 +1,4 @@
+import { useAuth } from "@context/AuthContext";
 import * as Localization from "expo-localization";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
@@ -12,9 +13,14 @@ import {
 } from "react-native";
 
 import { useTherapistDirectory } from "../hooks/useTherapistDirectory";
+import { loadChatState } from "../services/chatCache";
 import { loadTherapistDetail } from "../services/therapists";
 import { useTheme } from "../theme/ThemeProvider";
-import type { TherapistDetail, TherapistSummary } from "../types/therapists";
+import type {
+  TherapistDetail,
+  TherapistRecommendation,
+  TherapistSummary,
+} from "../types/therapists";
 
 type DetailState =
   | { status: "idle"; detail: null; error: null }
@@ -35,16 +41,14 @@ function TherapistCard({ therapist, active, onPress }: TherapistCardProps) {
     () =>
       StyleSheet.create({
         container: {
-          borderRadius: theme.radius.md,
+          borderRadius: theme.radius.lg,
           borderWidth: 1,
-          borderColor: active
-            ? theme.colors.primary
-            : theme.colors.borderSubtle,
+          borderColor: active ? theme.colors.primary : theme.colors.glassBorder,
           padding: theme.spacing.md,
           gap: theme.spacing.xs,
           backgroundColor: active
-            ? "rgba(59,130,246,0.08)"
-            : theme.colors.surfaceCard,
+            ? "rgba(74,144,121,0.18)"
+            : theme.colors.glassOverlay,
         },
         header: {
           flexDirection: "row",
@@ -62,7 +66,7 @@ function TherapistCard({ therapist, active, onPress }: TherapistCardProps) {
           color: theme.colors.textSecondary,
         },
         badge: {
-          backgroundColor: "rgba(59,130,246,0.12)",
+          backgroundColor: "rgba(74,144,121,0.15)",
           color: theme.colors.primary,
           borderRadius: theme.radius.pill,
           paddingHorizontal: theme.spacing.sm,
@@ -121,8 +125,8 @@ function FilterChip({ label, active, onPress }: FilterChipProps) {
           paddingHorizontal: theme.spacing.md,
           paddingVertical: theme.spacing.xs * 0.75,
           backgroundColor: active
-            ? "rgba(59,130,246,0.12)"
-            : theme.colors.surfaceMuted,
+            ? "rgba(74,144,121,0.15)"
+            : "rgba(255,255,255,0.15)",
         },
         text: {
           color: active ? theme.colors.primary : theme.colors.textSecondary,
@@ -155,10 +159,12 @@ function renderAvailabilitySlot(slot: string, locale: string): string {
 
 export function TherapistDirectoryScreen() {
   const locale = Localization.locale ?? "zh-CN";
+  const isZh = locale.startsWith("zh");
   const theme = useTheme();
+  const { userId } = useAuth();
   const {
     therapists,
-    filtered,
+    filtered: filteredByFilters,
     filters,
     setFilters,
     resetFilters,
@@ -173,12 +179,66 @@ export function TherapistDirectoryScreen() {
     error,
   } = useTherapistDirectory(locale);
 
+  const [searchQuery, setSearchQuery] = useState("");
+  const [cachedRecommendations, setCachedRecommendations] = useState<
+    TherapistRecommendation[]
+  >([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [detailState, setDetailState] = useState<DetailState>({
     status: "idle",
     detail: null,
     error: null,
   });
+  useEffect(() => {
+    if (!userId) {
+      setCachedRecommendations([]);
+      return;
+    }
+    let cancelled = false;
+    loadChatState(userId)
+      .then((payload) => {
+        if (cancelled) {
+          return;
+        }
+        setCachedRecommendations(payload?.recommendations?.slice(0, 3) ?? []);
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setCachedRecommendations([]);
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [userId]);
+  const filtered = useMemo(() => {
+    const base = filteredByFilters;
+    const term = searchQuery.trim().toLowerCase();
+    if (!term) {
+      return base;
+    }
+    return base.filter((therapist) => {
+      const haystack = [
+        therapist.name,
+        therapist.title,
+        therapist.specialties.join(" "),
+        therapist.languages.join(" "),
+      ]
+        .join(" ")
+        .toLowerCase();
+      return haystack.includes(term);
+    });
+  }, [filteredByFilters, searchQuery]);
+  const searchPlaceholder = isZh
+    ? "搜索姓名、流派或关键词"
+    : "Search by name, modality, or keyword";
+  const recommendationTitle = isZh ? "AI 推荐顾问" : "AI recommendations";
+  const recommendationSubtitle = isZh
+    ? "根据你与 AI 的对话生成，供你优先考虑。"
+    : "Rooted in your AI conversations so you can triage faster.";
+  const recommendationLead = isZh
+    ? "根据你与 AI 的对话，我们推荐以下三位顾问。"
+    : "Based on your conversations with the AI, we recommend the following three therapists.";
 
   useEffect(() => {
     if (!selectedId) {
@@ -198,7 +258,7 @@ export function TherapistDirectoryScreen() {
       StyleSheet.create({
         container: {
           flex: 1,
-          backgroundColor: theme.colors.surfaceBackground,
+          backgroundColor: "transparent",
           paddingHorizontal: theme.spacing.lg,
           paddingTop: theme.spacing.lg,
           paddingBottom: theme.spacing.xl,
@@ -219,8 +279,76 @@ export function TherapistDirectoryScreen() {
           color: theme.colors.textSecondary,
           marginTop: 4,
         },
+        searchCard: {
+          borderRadius: theme.radius.lg,
+          borderWidth: 1,
+          borderColor: theme.colors.glassBorder,
+          backgroundColor: theme.colors.glassOverlay,
+          padding: theme.spacing.md,
+        },
+        searchInput: {
+          borderWidth: 1,
+          borderColor: theme.colors.borderSubtle,
+          borderRadius: theme.radius.lg,
+          paddingHorizontal: theme.spacing.md,
+          paddingVertical: theme.spacing.xs,
+          color: theme.colors.textPrimary,
+          backgroundColor: "rgba(255,255,255,0.4)",
+        },
+        recommendationCard: {
+          borderRadius: theme.radius.lg,
+          borderWidth: 1,
+          borderColor: theme.colors.glassBorder,
+          backgroundColor: theme.colors.glassOverlay,
+          padding: theme.spacing.md,
+          gap: theme.spacing.xs,
+        },
+        recommendationTitle: {
+          fontSize: 14,
+          fontWeight: "600",
+          color: theme.colors.textPrimary,
+        },
+        recommendationSubtitle: {
+          fontSize: 12,
+          color: theme.colors.textSecondary,
+          marginBottom: theme.spacing.xs,
+        },
+        recommendationList: {
+          gap: theme.spacing.sm,
+        },
+        recommendationItem: {
+          flexDirection: "row",
+          alignItems: "flex-start",
+          gap: theme.spacing.sm,
+          borderRadius: theme.radius.md,
+          backgroundColor: "rgba(255,255,255,0.15)",
+          padding: theme.spacing.sm,
+        },
+        recommendationLabel: {
+          width: 28,
+          height: 28,
+          borderRadius: 14,
+          textAlign: "center",
+          lineHeight: 28,
+          fontWeight: "700",
+          color: theme.colors.primary,
+          backgroundColor: "rgba(74,144,121,0.2)",
+        },
+        recommendationName: {
+          fontSize: 14,
+          fontWeight: "600",
+          color: theme.colors.textPrimary,
+        },
+        recommendationReason: {
+          fontSize: 12,
+          color: theme.colors.textSecondary,
+        },
+        recommendationMeta: {
+          fontSize: 12,
+          color: theme.colors.textSecondary,
+        },
         badge: {
-          backgroundColor: "rgba(59,130,246,0.12)",
+          backgroundColor: "rgba(74,144,121,0.15)",
           color: theme.colors.primary,
           borderRadius: theme.radius.pill,
           paddingHorizontal: theme.spacing.sm,
@@ -229,12 +357,12 @@ export function TherapistDirectoryScreen() {
           fontWeight: "600",
         },
         filtersCard: {
-          borderRadius: theme.radius.md,
+          borderRadius: theme.radius.lg,
           borderWidth: 1,
-          borderColor: theme.colors.borderSubtle,
+          borderColor: theme.colors.glassBorder,
           padding: theme.spacing.md,
           gap: theme.spacing.md,
-          backgroundColor: theme.colors.surfaceCard,
+          backgroundColor: theme.colors.glassOverlay,
         },
         chipRow: {
           flexDirection: "row",
@@ -272,10 +400,10 @@ export function TherapistDirectoryScreen() {
         detailCard: {
           borderRadius: theme.radius.lg,
           borderWidth: 1,
-          borderColor: theme.colors.borderSubtle,
+          borderColor: theme.colors.glassBorder,
           padding: theme.spacing.lg,
           gap: theme.spacing.sm,
-          backgroundColor: theme.colors.surfaceCard,
+          backgroundColor: theme.colors.glassOverlay,
         },
         detailTitle: {
           fontSize: 16,
@@ -351,6 +479,48 @@ export function TherapistDirectoryScreen() {
           根据主题、语言和价格快速筛选合适的心理顾问。
         </Text>
       </View>
+
+      <View style={styles.searchCard}>
+        <TextInput
+          style={styles.searchInput}
+          placeholder={searchPlaceholder}
+          placeholderTextColor={theme.colors.textSecondary}
+          value={searchQuery}
+          onChangeText={setSearchQuery}
+          autoCapitalize="none"
+          autoCorrect={false}
+          clearButtonMode="while-editing"
+        />
+      </View>
+
+      {cachedRecommendations.length > 0 && (
+        <View style={styles.recommendationCard}>
+          <Text style={styles.recommendationTitle}>{recommendationTitle}</Text>
+          <Text style={styles.recommendationSubtitle}>
+            {recommendationLead}
+          </Text>
+          <Text style={styles.recommendationMeta}>
+            {recommendationSubtitle}
+          </Text>
+          <View style={styles.recommendationList}>
+            {cachedRecommendations.map((recommendation, index) => (
+              <View key={recommendation.id} style={styles.recommendationItem}>
+                <Text style={styles.recommendationLabel}>
+                  {String.fromCharCode(65 + index)}
+                </Text>
+                <View style={{ flex: 1, gap: 4 }}>
+                  <Text style={styles.recommendationName}>
+                    {recommendation.name}
+                  </Text>
+                  <Text style={styles.recommendationReason}>
+                    {recommendation.summary}
+                  </Text>
+                </View>
+              </View>
+            ))}
+          </View>
+        </View>
+      )}
 
       <View style={styles.filtersCard}>
         <View

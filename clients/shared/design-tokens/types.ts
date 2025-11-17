@@ -1,6 +1,14 @@
 export type ColorTokens = {
   primary: string;
   primaryAccent: string;
+  accentYellowGreen: string;
+  accentPinkGreen: string;
+  accentBlueGreen: string;
+  gradientTop: string;
+  gradientMid: string;
+  gradientBottom: string;
+  glassOverlay: string;
+  glassBorder: string;
   surfaceBackground: string;
   surfaceCard: string;
   surfaceMuted: string;

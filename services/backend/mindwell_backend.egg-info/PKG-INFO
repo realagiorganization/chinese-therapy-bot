@@ -27,19 +27,28 @@ Requires-Dist: types-requests; extra == "dev"
 
 # MindWell Backend Service
 
-This package scaffolds the core MindWell API platform using FastAPI. It aligns with Phase 3 of the development plan by defining clear module boundaries for authentication, chat orchestration, therapist data, and reporting pipelines.
+The backend is a FastAPI application that powers every surface of the MindWell
+experience: oauth2-proxy session exchange, demo-code onboarding, streaming chat,
+therapist ingestion, memory extraction, journey insights, Explore modules,
+voice transcription, analytics, and operational guardrails. The same package
+also ships the automation agents used by CI and scheduled jobs.
 
 ## Project Layout
 
 ```
 services/backend/
   app/
-    api/         # FastAPI routers grouped by vertical (auth, chat, therapists, reports)
-    core/        # Settings, logging, application factory
-    models/      # ORM models (placeholder)
-    schemas/     # Pydantic schemas shared by endpoints
-    services/    # Business logic and integrations (LLM orchestration, storage, etc.)
-    main.py      # Entrypoint wiring routers and startup hooks
+    api/         # FastAPI routers (auth, chat, therapists, reports, analytics, voice, etc.)
+    core/        # Settings, logging helpers, database/redis wiring, migrations bootstrap
+    models/      # SQLAlchemy models + Alembic metadata
+    schemas/     # Pydantic schemas shared by FastAPI responses and services
+    services/    # Business logic (LLM orchestration, therapist import, feature flags, summaries, monitoring…)
+    agents/      # CLI entry points (data sync, summaries, retention cleanup, analytics, monitoring)
+    data/        # Packaged datasets (chat templates)
+    main.py      # uvicorn entry point used by `mindwell-api`
+  scripts/       # SAR tooling (`export_user_data.py`, `delete_user_data.py`, etc.)
+  tests/         # pytest suite (unit + async integration tests)
+  loadtests/     # Locust scenarios for chat/journey regression
 ```
 
 ## Quick Start
@@ -48,73 +57,107 @@ services/backend/
 cd services/backend
 python -m venv .venv
 source .venv/bin/activate
-pip install --upgrade pip
+pip install -U pip
 pip install -e ".[dev]"
+cp ../demo_codes.sample.json config/demo_codes.json  # optional demo codes
+export DATABASE_URL="postgresql+asyncpg://user:pass@localhost:5432/mindwell"
+export DEMO_CODE_FILE="$PWD/config/demo_codes.json"
+alembic upgrade head
 mindwell-api
 ```
 
-By default the API listens on `http://0.0.0.0:8000`. The current implementation exposes stub endpoints (health, auth, chat, therapists, reports) that illustrate the modular architecture without connecting to external systems yet.
+The API listens on `http://127.0.0.1:8000` (configurable via `API_HOST` /
+`API_PORT`). When `RUN_MIGRATIONS_ON_STARTUP=1` the app executes Alembic
+migrations automatically during the FastAPI lifespan hook.
 
-## Database Migrations
+## API Surface
 
-The project uses Alembic to manage the PostgreSQL schema. Ensure `DATABASE_URL` is configured (e.g. `postgresql+asyncpg://user:pass@localhost:5432/mindwell`). Then run:
+### Authentication & Sessions
+- `app/api/routes/auth.py` exposes `POST /api/auth/session`, `/demo`, and `/token/refresh`.
+- `AuthService` issues JWT/refresh pairs for oauth2-proxy identities or demo
+  codes, enforces chat-token quotas per user/code, and rotates refresh tokens with
+  revocation tracking.
+- Demo codes are loaded through `DemoCodeRegistry` from the JSON allowlist
+  referenced by `DEMO_CODE_FILE`.
+
+### Chat Orchestrator
+- `POST /api/chat/message` streams Server-Sent Events via `ChatService` and the
+  `ChatOrchestrator` wrapper (Azure OpenAI primary, OpenAI/Bedrock fallbacks).
+- The service persists every message to Postgres plus S3
+  (`ChatTranscriptStorage`), emits analytics via `ProductAnalyticsService`, and
+  records quota usage.
+- Conversation memory snapshots (`ConversationMemoryService`) and therapist
+  recommendations (`TherapistRecommendationService` + `EmbeddingClient`) are
+  returned with each turn to keep clients in sync.
+- `/api/chat/templates` serves curated prompt templates from
+  `app/data/chat_templates.json` with locale/topic filtering.
+
+### Therapists & Recommendations
+- `TherapistService` backs `/api/therapists` list/detail and admin import
+  endpoints. Records live in Postgres with optional S3-backed imports.
+- `mindwell-data-sync` normalizes upstream JSON/CSV feeds (HTTP or local files)
+  and publishes `profile_<locale>.json` payloads to
+  `S3_BUCKET_THERAPISTS`; the backend import endpoint ingests them.
+- `TranslationService` enriches therapist localizations and powers ad-hoc
+  translations for Explore modules and memory snippets.
+
+### Journey Reports, Explore Modules & Feature Flags
+- `/api/reports/{user_id}` aggregates daily/weekly summaries plus transcript
+  slices via `ReportsService`, with analytics backfill when fresh data exists.
+- `/api/explore/modules` composes breathing, psychoeducation, and trending cards
+  gated by `FeatureFlagService` rollout percentages and personalized via recent
+  journey signals.
+- `/api/features` CRUD + evaluate endpoints expose runtime feature toggles for
+  operators and automated tests.
+
+### Voice, Translation & Summaries
+- `/api/voice/transcribe` calls `AutomaticSpeechRecognitionService`, which wraps
+  Azure Speech (`AzureSpeechTranscriber`) and rejects requests when server-side
+  ASR isn’t configured.
+- `SummaryGenerationService` synthesizes daily/weekly summaries from chat
+  transcripts using the LLM orchestrator and writes them to Postgres + the
+  `S3_SUMMARIES_BUCKET`. The `mindwell-summary-scheduler` CLI runs this pipeline
+  on demand or scheduled cadences.
+- `TranslationService` also powers `/api/translation/batch`, letting clients
+  translate UI copy without duplicating prompt logic.
+
+### Analytics, Monitoring & Data Governance
+- `/api/analytics/events` records funnel events (chat turns, therapist clicks,
+  signup milestones) and `/api/analytics/summary` exposes aggregated metrics.
+- `mindwell-analytics-agent` wraps the same service to emit JSON snapshots on a
+  cron (`--window-hours` + optional `--output` path).
+- `MonitoringService` polls Application Insights p95 latency/error rates and AWS
+  Cost Explorer spend; `mindwell-monitoring-agent` dispatches alerts via webhooks.
+- `mindwell-retention-cleanup` enforces `conversation_logs_retention_months` /
+  `daily_summary_retention_months` on the configured S3 buckets (dry-run and
+  batch deletion supported).
+- `DataSubjectService` plus the scripts under `services/backend/scripts/`
+  implement SAR lookup/export/delete, including transcript/S3 scrubbing.
+
+## Automation & CLI Entry Points
+
+| Command | Purpose |
+| --- | --- |
+| `mindwell-summary-scheduler [daily|weekly|both] [--date YYYY-MM-DD]` | Generates daily/weekly summaries for active users. |
+| `mindwell-data-sync --source <url|path>` | Normalizes therapist datasets and uploads locale payloads to S3. |
+| `mindwell-retention-cleanup --include conversations,summaries [--dry-run]` | Deletes S3 objects that breach retention windows. |
+| `mindwell-monitoring-agent [--dry-run]` | Runs latency/error/cost guardrails and optionally posts alerts. |
+| `mindwell-analytics-agent --window-hours 24 --output analytics.json` | Produces product analytics summaries for growth dashboards. |
+
+Run each command from the virtual environment configured earlier so the same
+`AppSettings` and secrets are available.
+
+## Testing & Quality
 
 ```bash
 cd services/backend
-alembic upgrade head
+pytest                        # async unit/integration tests
+ruff check app                # lint
+mypy app                      # type checks
 ```
 
-This command applies the latest migrations, including the bootstrap revision that creates users, therapy, memory, feature flag, and summary tables. The summary scheduler CLI also invokes Alembic via `init_database()` so worker jobs can safely run without manual setup.
-
-## Environment Configuration
-
-Application settings are defined in `app/core/config.py` using `pydantic-settings`. Populate a `.env` file or environment variables for the following fields as they become available:
-
-- `APP_ENV`
-- `LOG_LEVEL`
-- `OPENAI_API_KEY`
-- `DATABASE_URL`
-- `RUN_MIGRATIONS_ON_STARTUP`
-- `DATABASE_MIGRATION_TIMEOUT`
-- `AWS_REGION`
-- `S3_SUMMARIES_BUCKET`
-- `S3_BUCKET_THERAPISTS`
-
-## Next Steps
-
-- Harden oauth2-proxy integration (header pinning, signed cookies) and remove legacy OTP code paths.
-- Ensure oauth2-proxy upstream identity mapping persists email/display name metadata securely.
-- Harden summary and chat pipelines with structured logging, metrics, and retries.
-- Expand automated tests across auth/chat/summaries and wire them into CI Runner.
-
-## Therapist Directory Import
-
-- `TherapistService` supports importing normalized therapist profiles from an S3-compatible bucket via the `/api/therapists/admin/import` endpoint.
-- Configure `S3_BUCKET_THERAPISTS` and (optionally) `THERAPIST_DATA_S3_PREFIX` so the Data Sync Agent can publish localized JSON payloads that the backend ingests.
-- Use the `dry_run` flag on the import endpoint to preview changes before committing updates to the Postgres store.
-- Run the Data Sync agent via `mindwell-data-sync --source path/to/therapists.json --dry-run` to normalize upstream sources and publish `profile_<locale>.json` payloads to the configured bucket.
-
-## Summary Scheduler Agent
-
-- `SummaryGenerationService` (see `app/services/summaries.py`) aggregates recent chat transcripts, calls the LLM orchestrator for structured JSON, and stores daily/weekly summaries in Postgres plus `S3_SUMMARIES_BUCKET`.
-- Use the CLI entry point `mindwell-summary-scheduler [daily|weekly|both] --date YYYY-MM-DD` to run schedules or backfill summaries. The command bootstraps the database schema automatically before processing.
-
-## Response Evaluation & Guardrails
-
-- `ResponseEvaluator` (see `app/services/evaluation.py`) applies heuristic checks for empathy, actionable guidance, disclaimers, and high-risk language to score assistant replies.
-- `POST /api/evaluations/response` exposes the guardrail check so the Monitoring Agent or CI Runner can gate new prompt templates and regression suites.
-- The evaluation response includes normalized metric scores, detected issues with severities, and recommended remediation steps.
-
-## Subject Access & Deletion Toolkit
-
-- `services/backend/app/services/data_subject.py` centralizes export + deletion logic (chat transcripts, summaries, memories, analytics events).
-- CLI helpers under `services/backend/scripts/` orchestrate the workflows:
-  - `python services/backend/scripts/find_user.py --email user@example.com`
-  - `python services/backend/scripts/export_user_data.py <user-id> --output exports/<user-id>.json`
-  - `python services/backend/scripts/delete_user_data.py <user-id> [--dry-run]`
-- The deletion routine redacts chat content to `[redacted]`, revokes refresh tokens, anonymises analytics, and purges summaries/transcripts from S3 where configured.
-
-## Load Testing
-
-- Locust scenarios live under `loadtests/`. Install Locust (`pip install locust`) and run `locust -f loadtests/locustfile.py --host http://localhost:8000` to exercise chat turns, therapist discovery, and journey report flows.
-- Use the headless mode (`--headless -u 50 -r 10 -t 10m`) to integrate throughput checks into CI Runner or Golden Path automation.
+- Integration tests spin up an in-memory SQLite database by default; set
+  `DATABASE_URL` to point at Postgres when running end-to-end scenarios.
+- Locust scenarios (`loadtests/`) stress chat/journey flows once the API is up.
+- `scripts/export_user_data.py` / `scripts/delete_user_data.py` provide manual
+  governance workflows and double as regression fixtures in `tests/`.

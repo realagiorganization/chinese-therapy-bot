@@ -1,3 +1,4 @@
+import { VOICE_PITCH_PRESETS, VOICE_RATE_PRESETS } from "@constants/voice";
 import { useAuth } from "@context/AuthContext";
 import { useVoiceSettings } from "@context/VoiceSettingsContext";
 import { useNetworkStatus } from "@hooks/useNetworkStatus";
@@ -7,6 +8,7 @@ import { useVoicePlayback } from "@hooks/useVoicePlayback";
 import { sendMessage } from "@services/chat";
 import { loadChatState, persistChatState } from "@services/chatCache";
 import { useTheme } from "@theme/ThemeProvider";
+import { BlurView } from "expo-blur";
 import * as Haptics from "expo-haptics";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
@@ -27,6 +29,38 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import type { ChatMessage } from "../types/chat";
 import type { TherapistRecommendation } from "../types/therapists";
 type MessageWithId = ChatMessage & { id: string };
+
+const PROMPT_COPY = {
+  zh: "请自由地描述此刻正在经历的事情、感受到的刺激，或任何刚刚浮现的念头。",
+  en: "Please feel free to describe what you are experiencing right now—any observation or thought is welcome.",
+};
+
+const PSYCHODYNAMIC_QUOTES = [
+  {
+    id: "inner-world",
+    zh: "每一个念头都承载着内在世界的一部分。",
+    en: "Every thought, no matter how small, carries a piece of the inner world.",
+  },
+  {
+    id: "beneath-surface",
+    zh: "浮现于脑海的内容，往往映射着更深处的自我。",
+    en: "What arises in your mind often reflects what lives beneath the surface.",
+  },
+  {
+    id: "connected",
+    zh: "看似随机的念头可能比想象中更紧密相连。",
+    en: "What feels random may be more connected than it seems.",
+  },
+  {
+    id: "spontaneous",
+    zh: "自发的表述蕴含洞见——此刻出现的一切都被欢迎。",
+    en: "There is insight in the spontaneous — whatever comes up is welcome here.",
+  },
+] as const;
+
+type ChatScreenProps = {
+  onNavigateBack?: () => void;
+};
 
 function Bubble({ message }: { message: MessageWithId }) {
   const theme = useTheme();
@@ -89,207 +123,117 @@ function RecommendationCard({
     () =>
       StyleSheet.create({
         container: {
-          borderRadius: theme.radius.md,
-          borderWidth: 1,
-          borderColor: theme.colors.borderSubtle,
-          padding: theme.spacing.md,
-          gap: theme.spacing.xs,
-        },
-        title: {
-          fontSize: 16,
-          fontWeight: "600",
-          color: theme.colors.textPrimary,
-        },
-        subtitle: {
-          fontSize: 14,
-          color: theme.colors.textSecondary,
-        },
-        tagList: {
-          flexDirection: "row",
-          flexWrap: "wrap",
-          gap: theme.spacing.xs,
-        },
-        tag: {
-          backgroundColor: "rgba(37, 99, 235, 0.1)",
-          color: theme.colors.primary,
-          borderRadius: theme.radius.pill,
-          paddingHorizontal: theme.spacing.sm,
-          paddingVertical: theme.spacing.xs * 0.75,
-          fontSize: 12,
-        },
-      }),
-    [theme],
-  );
-
-  return (
-    <View style={styles.container}>
-      <Text style={styles.title}>{recommendation.name}</Text>
-      <Text style={styles.subtitle}>{recommendation.summary}</Text>
-      <View style={styles.tagList}>
-        {recommendation.expertise.map((area) => (
-          <Text key={area} style={styles.tag}>
-            {area}
-          </Text>
-        ))}
-      </View>
-    </View>
-  );
-}
-
-function resolveVoiceStatusLabel(
-  isRecording: boolean,
-  isTranscribing: boolean,
-  isOffline: boolean,
-): string {
-  if (isOffline) {
-    return "离线模式下暂不可用";
-  }
-  if (isTranscribing) {
-    return "语音识别中…";
-  }
-  if (isRecording) {
-    return "保持按住录音";
-  }
-  return "长按说话";
-}
-
-export function ChatScreen() {
-  const theme = useTheme();
-  const { tokens, userId, logout } = useAuth();
-  const cacheMarkedRef = useRef(false);
-  const screenVisibleRef = useRef(false);
-  const firstResponseRef = useRef(false);
-  const listRef = useRef<FlatList<MessageWithId>>(null);
-  const insets = useSafeAreaInsets();
-  const [activeLocale, setActiveLocale] = useState("zh-CN");
-  const {
-    supported: voiceSupported,
-    isRecording: isVoiceRecording,
-    isTranscribing: isVoiceTranscribing,
-    error: voiceError,
-    start: startVoiceInput,
-    stop: stopVoiceInput,
-    cancel: cancelVoiceInput,
-    clearError: clearVoiceError,
-  } = useVoiceInput(activeLocale, tokens?.accessToken ?? null);
-  const {
-    enabled: isVoicePlaybackEnabled,
-    setEnabled: setVoicePlaybackEnabled,
-    rate: voicePlaybackRate,
-    pitch: voicePlaybackPitch,
-    setRate: setVoicePlaybackRate,
-    setPitch: setVoicePlaybackPitch,
-    loading: voiceSettingsLoading,
-  } = useVoiceSettings();
-  const {
-    speak: speakVoiceResponse,
-    stop: stopVoicePlayback,
-    speaking: isVoicePlaybackActive,
-  } = useVoicePlayback();
-  const [messages, setMessages] = useState<MessageWithId[]>([]);
-  const [sessionId, setSessionId] = useState<string | undefined>();
-  const [inputValue, setInputValue] = useState("");
-  const [isSending, setSending] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [recommendations, setRecommendations] = useState<
-    TherapistRecommendation[]
-  >([]);
-  const [memoryHighlights, setMemoryHighlights] = useState<
-    { summary: string; keywords: string[] }[]
-  >([]);
-  const [isRestoring, setRestoring] = useState<boolean>(true);
-  const networkStatus = useNetworkStatus(12000);
-  const [voiceSettingsVisible, setVoiceSettingsVisible] = useState(false);
-  const ratePresets = useMemo(
-    () => [
-      { label: "慢速", value: 0.85 },
-      { label: "标准", value: 1 },
-      { label: "快速", value: 1.2 },
-    ],
-    [],
-  );
-  const pitchPresets = useMemo(
-    () => [
-      { label: "柔和", value: 0.9 },
-      { label: "标准", value: 1 },
-      { label: "明亮", value: 1.1 },
-    ],
-    [],
-  );
-  const voicePlaybackStateLabel = voiceSettingsLoading
-    ? "加载中"
-    : isVoicePlaybackEnabled
-      ? "开启"
-      : "关闭";
-  const isOffline =
-    !networkStatus.isConnected || !networkStatus.isInternetReachable;
-  const composerPadding = useMemo(
-    () => Math.max(insets.bottom, theme.spacing.sm),
-    [insets.bottom, theme.spacing.sm],
-  );
-  const keyboardVerticalOffset =
-    Platform.OS === "ios" ? insets.top + theme.spacing.lg : 0;
-  const androidRipple = useMemo(
-    () =>
-      Platform.OS === "android"
-        ? { color: "rgba(37,99,235,0.12)", foreground: true }
-        : undefined,
-    [],
-  );
-
-  const styles = useMemo(
-    () =>
-      StyleSheet.create({
-        container: {
           flex: 1,
-          backgroundColor: theme.colors.surfaceBackground,
+          backgroundColor: "transparent",
         },
         content: {
           flexGrow: 1,
-          padding: theme.spacing.md,
+          paddingHorizontal: theme.spacing.md,
         },
-        composer: {
+        header: {
+          flexDirection: "row",
+          alignItems: "center",
+          justifyContent: "space-between",
+          marginHorizontal: theme.spacing.md,
+          marginTop: theme.spacing.md,
+          paddingHorizontal: theme.spacing.md,
+          paddingVertical: theme.spacing.sm,
+          borderRadius: theme.radius.lg,
+          borderWidth: 1,
+          borderColor: theme.colors.glassBorder,
+          backgroundColor: theme.colors.glassOverlay,
+        },
+        headerLeft: {
           flexDirection: "row",
           alignItems: "center",
           gap: theme.spacing.sm,
-          paddingHorizontal: theme.spacing.md,
-          paddingVertical: theme.spacing.sm,
-          borderTopWidth: 1,
-          borderColor: theme.colors.surfaceMuted,
-          backgroundColor: theme.colors.surfaceCard,
         },
-        input: {
-          flex: 1,
+        backButton: {
+          width: 42,
+          height: 42,
+          borderRadius: theme.radius.md,
           borderWidth: 1,
-          borderColor: theme.colors.borderSubtle,
-          borderRadius: theme.radius.md,
+          borderColor: theme.colors.textPrimary,
+          alignItems: "center",
+          justifyContent: "center",
+        },
+        backIcon: {
+          fontSize: 18,
+          color: theme.colors.textPrimary,
+        },
+        headerTitle: {
+          fontSize: 20,
+          fontWeight: "700",
+          color: theme.colors.textPrimary,
+        },
+        headerMeta: {
+          fontSize: 12,
+          letterSpacing: 0.6,
+          color: theme.colors.textSecondary,
+        },
+        listHeader: {
           paddingHorizontal: theme.spacing.md,
-          paddingVertical: theme.spacing.sm,
+          paddingTop: theme.spacing.md,
+          gap: theme.spacing.md,
+        },
+        promptCard: {
+          borderRadius: theme.radius.lg,
+          borderWidth: 1,
+          borderColor: theme.colors.glassBorder,
+          backgroundColor: theme.colors.glassOverlay,
+          padding: theme.spacing.lg,
+          gap: theme.spacing.sm,
+        },
+        promptLabel: {
+          fontSize: 12,
+          letterSpacing: 0.6,
+          color: theme.colors.textSecondary,
+        },
+        promptText: {
           fontSize: 16,
+          lineHeight: 24,
+          color: theme.colors.textPrimary,
         },
-        sendButton: {
-          backgroundColor: theme.colors.primary,
-          paddingHorizontal: theme.spacing.md,
-          paddingVertical: theme.spacing.sm,
-          borderRadius: theme.radius.md,
+        quoteText: {
+          fontStyle: "italic",
+          color: theme.colors.textSecondary,
         },
-        sendLabel: {
-          color: "#fff",
-          fontWeight: "600",
+        quoteAttribution: {
+          textAlign: "right",
+          color: theme.colors.textSecondary,
+          fontSize: 13,
         },
         section: {
+          borderRadius: theme.radius.lg,
+          borderWidth: 1,
+          borderColor: theme.colors.glassBorder,
+          backgroundColor: theme.colors.glassOverlay,
+          padding: theme.spacing.md,
           gap: theme.spacing.sm,
-          marginTop: theme.spacing.md,
         },
         sectionTitle: {
-          fontSize: 18,
+          fontSize: 16,
           fontWeight: "600",
           color: theme.colors.textPrimary,
         },
+        sectionSubtitle: {
+          fontSize: 13,
+          lineHeight: 20,
+          color: theme.colors.textSecondary,
+        },
+        recommendationWrapper: {
+          gap: theme.spacing.xs,
+        },
+        recommendationLead: {
+          fontSize: 13,
+          color: theme.colors.textSecondary,
+        },
         highlight: {
           borderRadius: theme.radius.md,
-          backgroundColor: "rgba(37, 99, 235, 0.05)",
+          backgroundColor: "rgba(74,144,121,0.08)",
           padding: theme.spacing.md,
+          borderWidth: 1,
+          borderColor: "rgba(255,255,255,0.4)",
         },
         highlightTitle: {
           fontWeight: "600",
@@ -299,54 +243,6 @@ export function ChatScreen() {
         highlightKeywords: {
           fontSize: 12,
           color: theme.colors.textSecondary,
-        },
-        header: {
-          flexDirection: "row",
-          justifyContent: "space-between",
-          alignItems: "center",
-          paddingHorizontal: theme.spacing.md,
-          paddingVertical: theme.spacing.sm,
-          borderBottomWidth: 1,
-          borderColor: theme.colors.surfaceMuted,
-          backgroundColor: theme.colors.surfaceCard,
-        },
-        headerActions: {
-          flexDirection: "row",
-          alignItems: "center",
-          gap: theme.spacing.sm,
-        },
-        headerTitle: {
-          fontSize: 20,
-          fontWeight: "600",
-          color: theme.colors.textPrimary,
-        },
-        voiceSettingsButton: {
-          borderRadius: theme.radius.md,
-          borderWidth: 1,
-          borderColor: theme.colors.borderSubtle,
-          paddingHorizontal: theme.spacing.sm,
-          paddingVertical: theme.spacing.xs,
-          backgroundColor: theme.colors.surfaceMuted,
-        },
-        voiceSettingsLabel: {
-          fontSize: 12,
-          fontWeight: "600",
-          color: theme.colors.textSecondary,
-        },
-        voiceSettingsValue: {
-          fontSize: 14,
-          color: theme.colors.primary,
-        },
-        voiceSettingsValueDisabled: {
-          color: theme.colors.textSecondary,
-        },
-        logoutButton: {
-          paddingHorizontal: theme.spacing.sm,
-          paddingVertical: theme.spacing.xs,
-        },
-        logoutLabel: {
-          color: theme.colors.primary,
-          fontWeight: "500",
         },
         errorText: {
           color: theme.colors.danger,
@@ -359,22 +255,60 @@ export function ChatScreen() {
           alignItems: "center",
           padding: theme.spacing.lg,
         },
+        offlineNotice: {
+          color: theme.colors.warning,
+          textAlign: "center",
+          fontSize: 13,
+          paddingHorizontal: theme.spacing.md,
+          marginTop: theme.spacing.sm,
+        },
+        composerShell: {
+          paddingHorizontal: theme.spacing.md,
+          marginTop: theme.spacing.md,
+        },
+        composer: {
+          borderRadius: theme.radius.lg,
+          borderWidth: 1,
+          borderColor: theme.colors.glassBorder,
+          backgroundColor: theme.colors.glassOverlay,
+          padding: theme.spacing.md,
+        },
+        composerRow: {
+          flexDirection: "row",
+          gap: theme.spacing.md,
+        },
+        voiceColumn: {
+          width: 96,
+          alignItems: "center",
+          gap: theme.spacing.sm,
+        },
+        voiceArrowButton: {
+          width: 52,
+          height: 52,
+          borderRadius: theme.radius.md,
+          borderWidth: 1,
+          borderColor: theme.colors.textPrimary,
+          alignItems: "center",
+          justifyContent: "center",
+          backgroundColor: "transparent",
+        },
+        voiceArrowIcon: {
+          fontSize: 22,
+          color: theme.colors.textPrimary,
+        },
         voiceButton: {
           borderRadius: theme.radius.md,
           borderWidth: 1,
           borderColor: theme.colors.borderSubtle,
-          paddingHorizontal: theme.spacing.md,
+          paddingHorizontal: theme.spacing.sm,
           paddingVertical: theme.spacing.sm,
-          backgroundColor: theme.colors.surfaceCard,
-        },
-        voiceContainer: {
+          width: "100%",
           alignItems: "center",
-          justifyContent: "center",
-          marginRight: theme.spacing.sm,
+          backgroundColor: "rgba(255,255,255,0.2)",
         },
         voiceButtonActive: {
-          backgroundColor: theme.colors.primary,
           borderColor: theme.colors.primary,
+          backgroundColor: "rgba(74,144,121,0.15)",
         },
         voiceButtonDisabled: {
           opacity: 0.4,
@@ -384,30 +318,55 @@ export function ChatScreen() {
           fontWeight: "600",
         },
         voiceButtonLabelActive: {
-          color: "#fff",
+          color: theme.colors.primary,
+        },
+        voiceStatusRow: {
+          flexDirection: "row",
+          alignItems: "center",
+          gap: theme.spacing.xs * 0.75,
         },
         voiceStatusText: {
           color: theme.colors.textSecondary,
           fontSize: 12,
-          marginTop: theme.spacing.xs * 0.5,
+        },
+        voiceModeStatus: {
+          fontSize: 12,
+          color: theme.colors.textSecondary,
+          textAlign: "center",
+        },
+        inputColumn: {
+          flex: 1,
+          gap: theme.spacing.sm,
+        },
+        input: {
+          borderWidth: 1,
+          borderColor: theme.colors.borderSubtle,
+          borderRadius: theme.radius.lg,
+          paddingHorizontal: theme.spacing.md,
+          paddingVertical: theme.spacing.sm,
+          fontSize: 16,
+          minHeight: 56,
+          backgroundColor: "rgba(255,255,255,0.5)",
+          color: theme.colors.textPrimary,
+        },
+        sendButton: {
+          borderWidth: 1,
+          borderColor: theme.colors.textPrimary,
+          borderRadius: theme.radius.pill,
+          paddingVertical: theme.spacing.sm,
+          alignItems: "center",
+          backgroundColor: "transparent",
+        },
+        sendLabel: {
+          fontWeight: "700",
+          letterSpacing: 0.8,
+          color: theme.colors.textPrimary,
         },
         voiceErrorText: {
           color: theme.colors.danger,
           fontSize: 12,
           paddingHorizontal: theme.spacing.md,
           paddingBottom: theme.spacing.xs,
-        },
-        voiceStatusRow: {
-          flexDirection: "row",
-          alignItems: "center",
-          marginTop: theme.spacing.xs * 0.5,
-        },
-        offlineNotice: {
-          color: theme.colors.warning,
-          textAlign: "center",
-          fontSize: 13,
-          paddingHorizontal: theme.spacing.md,
-          marginTop: theme.spacing.sm,
         },
         modalOverlay: {
           flex: 1,
@@ -423,7 +382,9 @@ export function ChatScreen() {
           width: "100%",
           maxWidth: 360,
           borderRadius: theme.radius.lg,
-          backgroundColor: theme.colors.surfaceCard,
+          borderWidth: 1,
+          borderColor: theme.colors.glassBorder,
+          backgroundColor: theme.colors.glassOverlay,
           padding: theme.spacing.lg,
           gap: theme.spacing.md,
         },
@@ -460,11 +421,11 @@ export function ChatScreen() {
           borderColor: theme.colors.borderSubtle,
           paddingHorizontal: theme.spacing.md,
           paddingVertical: theme.spacing.xs,
-          backgroundColor: theme.colors.surfaceMuted,
+          backgroundColor: "rgba(255,255,255,0.15)",
         },
         chipActive: {
           borderColor: theme.colors.primary,
-          backgroundColor: "rgba(37,99,235,0.12)",
+          backgroundColor: "rgba(74,144,121,0.15)",
         },
         chipLabel: {
           fontSize: 13,
@@ -483,16 +444,16 @@ export function ChatScreen() {
           paddingHorizontal: theme.spacing.md,
           paddingVertical: theme.spacing.xs,
           borderRadius: theme.radius.md,
-          backgroundColor: theme.colors.primary,
+          borderWidth: 1,
+          borderColor: theme.colors.textPrimary,
         },
         modalCloseLabel: {
-          color: "#fff",
+          color: theme.colors.textPrimary,
           fontWeight: "600",
         },
       }),
     [theme],
   );
-
   const scrollToLatestMessage = useCallback((animated: boolean) => {
     requestAnimationFrame(() => {
       listRef.current?.scrollToEnd({ animated });
@@ -686,7 +647,11 @@ export function ChatScreen() {
       return;
     }
     if (isOffline) {
-      setError("当前处于离线状态，请联网后再发送消息。");
+      setError(
+        isZhLocale
+          ? "当前处于离线状态，请联网后再发送消息。"
+          : "You appear to be offline. Please reconnect before sending a message.",
+      );
       if (Platform.OS === "ios" || Platform.OS === "android") {
         Haptics.notificationAsync(
           Haptics.NotificationFeedbackType.Warning,
@@ -761,6 +726,66 @@ export function ChatScreen() {
   ]);
 
   const sendDisabled = isSending || isOffline || inputValue.trim().length === 0;
+  const recommendationIntro = isZhLocale
+    ? "根据你和 AI 的对话，我们推荐下列治疗师，并附上简短理由。"
+    : "Based on your conversations with the AI, we recommend these therapists and short rationales.";
+  const renderListHeader = useCallback(() => {
+    return (
+      <View style={styles.listHeader}>
+        <BlurView intensity={80} tint="light" style={styles.promptCard}>
+          <Text style={styles.promptLabel}>
+            {isZhLocale ? "开放式引导" : "Open prompt"}
+          </Text>
+          <Text style={styles.promptText}>{promptText}</Text>
+          <Text style={styles.quoteText}>{`“${quoteText}”`}</Text>
+          <Text style={styles.quoteAttribution}>{quoteAttribution}</Text>
+        </BlurView>
+        {recommendations.length > 0 && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>
+              {isZhLocale ? "AI 推荐治疗师" : "AI therapist suggestions"}
+            </Text>
+            <Text style={styles.sectionSubtitle}>{recommendationIntro}</Text>
+            {recommendations.map((recommendation, index) => (
+              <View
+                key={recommendation.id}
+                style={styles.recommendationWrapper}
+              >
+                <Text style={styles.recommendationLead}>
+                  {String.fromCharCode(65 + index)}. {recommendation.summary}
+                </Text>
+                <RecommendationCard recommendation={recommendation} />
+              </View>
+            ))}
+          </View>
+        )}
+        {memoryHighlights.length > 0 && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>
+              {isZhLocale ? "疗程亮点" : "Therapy highlights"}
+            </Text>
+            {memoryHighlights.map((memory) => (
+              <View key={memory.summary} style={styles.highlight}>
+                <Text style={styles.highlightTitle}>{memory.summary}</Text>
+                <Text style={styles.highlightKeywords}>
+                  {memory.keywords.join(" · ")}
+                </Text>
+              </View>
+            ))}
+          </View>
+        )}
+      </View>
+    );
+  }, [
+    isZhLocale,
+    styles,
+    promptText,
+    quoteText,
+    quoteAttribution,
+    recommendations,
+    memoryHighlights,
+    recommendationIntro,
+  ]);
   const voiceDisabled = isSending || isVoiceTranscribing || isOffline;
 
   return (
@@ -769,40 +794,34 @@ export function ChatScreen() {
       behavior={Platform.OS === "ios" ? "padding" : "height"}
       keyboardVerticalOffset={keyboardVerticalOffset}
     >
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>MindWell 对话</Text>
-        <View style={styles.headerActions}>
-          <Pressable
-            android_ripple={androidRipple}
-            accessibilityRole="button"
-            accessibilityLabel="打开语音播报设置"
-            onPress={() => setVoiceSettingsVisible(true)}
-            disabled={voiceSettingsLoading}
-            style={[
-              styles.voiceSettingsButton,
-              voiceSettingsLoading && { opacity: 0.6 },
-            ]}
-          >
-            <Text style={styles.voiceSettingsLabel}>语音播报</Text>
-            <Text
-              style={[
-                styles.voiceSettingsValue,
-                (!isVoicePlaybackEnabled || voiceSettingsLoading) &&
-                  styles.voiceSettingsValueDisabled,
-              ]}
+      <BlurView intensity={85} tint="light" style={styles.header}>
+        <View style={styles.headerLeft}>
+          {onNavigateBack && (
+            <Pressable
+              android_ripple={androidRipple}
+              accessibilityRole="button"
+              accessibilityLabel={
+                isZhLocale ? "返回上一屏" : "Return to previous tab"
+              }
+              style={styles.backButton}
+              onPress={() => {
+                Haptics.selectionAsync().catch(() => undefined);
+                onNavigateBack();
+              }}
             >
-              {voicePlaybackStateLabel}
-            </Text>
-          </Pressable>
-          <Pressable
-            android_ripple={androidRipple}
-            onPress={logout}
-            style={styles.logoutButton}
-          >
-            <Text style={styles.logoutLabel}>退出</Text>
-          </Pressable>
+              <Text style={styles.backIcon}>←</Text>
+            </Pressable>
+          )}
+          <Text style={styles.headerTitle}>
+            {isZhLocale ? "MindWell 对话" : "MindWell Dialogue"}
+          </Text>
         </View>
-      </View>
+        <Text style={styles.headerMeta}>
+          {isZhLocale
+            ? "心理动力 · 学术语气"
+            : "Psychodynamic · Academic tone"}
+        </Text>
+      </BlurView>
 
       {error && <Text style={styles.errorText}>{error}</Text>}
 
@@ -815,7 +834,7 @@ export function ChatScreen() {
               color: theme.colors.textSecondary,
             }}
           >
-            正在恢复会话…
+            {isZhLocale ? "正在恢复会话…" : "Restoring your session…"}
           </Text>
         </View>
       ) : (
@@ -845,114 +864,128 @@ export function ChatScreen() {
               : undefined
           }
           onContentSizeChange={() => scrollToLatestMessage(false)}
+          ListHeaderComponent={renderListHeader}
         />
       )}
-
-      <View style={{ paddingHorizontal: theme.spacing.md }}>
-        {recommendations.length > 0 && (
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>推荐治疗师</Text>
-            {recommendations.map((recommendation) => (
-              <RecommendationCard
-                key={recommendation.id}
-                recommendation={recommendation}
-              />
-            ))}
-          </View>
-        )}
-
-        {memoryHighlights.length > 0 && (
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>疗程亮点</Text>
-            {memoryHighlights.map((memory) => (
-              <View key={memory.summary} style={styles.highlight}>
-                <Text style={styles.highlightTitle}>{memory.summary}</Text>
-                <Text style={styles.highlightKeywords}>
-                  {memory.keywords.join(" · ")}
-                </Text>
-              </View>
-            ))}
-          </View>
-        )}
-      </View>
 
       {isOffline && (
         <Text style={styles.offlineNotice}>
-          当前离线，已切换到本地缓存模式。
+          {isZhLocale
+            ? "当前离线，已切换到本地缓存模式。"
+            : "Offline mode active — showing cached conversation."}
         </Text>
       )}
 
-      <View
-        style={[
-          styles.composer,
-          { paddingBottom: composerPadding, paddingTop: theme.spacing.sm },
-        ]}
-      >
-        {voiceSupported && (
-          <View style={styles.voiceContainer}>
-            <Pressable
-              android_ripple={androidRipple}
-              accessibilityRole="button"
-              accessibilityLabel="按住进行语音输入"
-              onPressIn={handleVoiceStart}
-              onPressOut={handleVoiceStop}
-              onTouchCancel={handleVoiceCancel}
-              disabled={voiceDisabled}
-              style={[
-                styles.voiceButton,
-                isVoiceRecording && styles.voiceButtonActive,
-                voiceDisabled && styles.voiceButtonDisabled,
-              ]}
-            >
-              <Text
-                style={[
-                  styles.voiceButtonLabel,
-                  isVoiceRecording && styles.voiceButtonLabelActive,
-                  isOffline && { opacity: 0.7 },
-                ]}
+      <View style={styles.composerShell}>
+        <BlurView
+          intensity={90}
+          tint="light"
+          style={[styles.composer, { paddingBottom: composerPadding }]}
+        >
+          <View style={styles.composerRow}>
+            {voiceSupported && (
+              <View style={styles.voiceColumn}>
+                <Pressable
+                  android_ripple={androidRipple}
+                  accessibilityRole="button"
+                  accessibilityLabel={
+                    isZhLocale
+                      ? "打开语音播报设置"
+                      : "Open voice playback preferences"
+                  }
+                  onPress={() => setVoiceSettingsVisible(true)}
+                  style={styles.voiceArrowButton}
+                >
+                  <Text style={styles.voiceArrowIcon}>↢</Text>
+                </Pressable>
+                <Pressable
+                  android_ripple={androidRipple}
+                  accessibilityRole="button"
+                  accessibilityLabel={
+                    isZhLocale ? "按住进行语音输入" : "Hold to record voice input"
+                  }
+                  onPressIn={handleVoiceStart}
+                  onPressOut={handleVoiceStop}
+                  onTouchCancel={handleVoiceCancel}
+                  disabled={voiceDisabled}
+                  style={[
+                    styles.voiceButton,
+                    isVoiceRecording && styles.voiceButtonActive,
+                    voiceDisabled && styles.voiceButtonDisabled,
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.voiceButtonLabel,
+                      isVoiceRecording && styles.voiceButtonLabelActive,
+                      isOffline && { opacity: 0.7 },
+                    ]}
+                  >
+                    {isOffline
+                      ? isZhLocale
+                        ? "离线不可用"
+                        : "Offline only"
+                      : isVoiceRecording
+                        ? isZhLocale
+                          ? "松开结束"
+                          : "Release to stop"
+                        : isZhLocale
+                          ? "按住语音"
+                          : "Hold to speak"}
+                  </Text>
+                </Pressable>
+                <View style={styles.voiceStatusRow}>
+                  {isVoiceTranscribing && (
+                    <ActivityIndicator
+                      size="small"
+                      color={theme.colors.primary}
+                    />
+                  )}
+                  <Text style={styles.voiceStatusText}>
+                    {resolveVoiceStatusLabel(
+                      isVoiceRecording,
+                      isVoiceTranscribing,
+                      isOffline,
+                      isZhLocale,
+                    )}
+                  </Text>
+                </View>
+                <Text style={styles.voiceModeStatus}>
+                  {isZhLocale
+                    ? `播报：${voicePlaybackStateLabel}`
+                    : `Playback: ${voicePlaybackStateLabel}`}
+                </Text>
+              </View>
+            )}
+            <View style={styles.inputColumn}>
+              <TextInput
+                placeholder={composerPlaceholder}
+                placeholderTextColor={theme.colors.textSecondary}
+                value={inputValue}
+                onChangeText={handleInputChange}
+                style={styles.input}
+                editable={!isSending && !isVoiceRecording && !isVoiceTranscribing}
+                multiline
+              />
+              <Pressable
+                android_ripple={androidRipple}
+                onPress={handleSend}
+                style={[styles.sendButton, { opacity: sendDisabled ? 0.5 : 1 }]}
+                disabled={sendDisabled}
               >
-                {isOffline
-                  ? "离线不可用"
-                  : isVoiceRecording
-                    ? "松开结束"
-                    : "按住语音"}
-              </Text>
-            </Pressable>
-            <View style={styles.voiceStatusRow}>
-              {isVoiceTranscribing && (
-                <ActivityIndicator size="small" color={theme.colors.primary} />
-              )}
-              <Text
-                style={[
-                  styles.voiceStatusText,
-                  isVoiceTranscribing && { marginLeft: theme.spacing.xs * 0.5 },
-                ]}
-              >
-                {resolveVoiceStatusLabel(
-                  isVoiceRecording,
-                  isVoiceTranscribing,
-                  isOffline,
-                )}
-              </Text>
+                <Text style={styles.sendLabel}>
+                  {isSending
+                    ? isZhLocale
+                      ? "发送中…"
+                      : "Sending…"
+                    : isZhLocale
+                      ? "发送"
+                      : "Send"}
+                </Text>
+              </Pressable>
             </View>
           </View>
-        )}
-
-        <TextInput
-          placeholder="说点什么..."
-          value={inputValue}
-          onChangeText={handleInputChange}
-          style={styles.input}
-          editable={!isSending && !isVoiceRecording && !isVoiceTranscribing}
-        />
-        <Pressable
-          android_ripple={androidRipple}
-          onPress={handleSend}
-          style={[styles.sendButton, { opacity: sendDisabled ? 0.5 : 1 }]}
-          disabled={sendDisabled}
-        >
-          <Text style={styles.sendLabel}>{isSending ? "发送中…" : "发送"}</Text>
-        </Pressable>
+        </BlurView>
       </View>
       {voiceError && (
         <Text
@@ -977,23 +1010,23 @@ export function ChatScreen() {
             android_ripple={{ color: "transparent" }}
           />
           <View style={styles.modalCard}>
-            <Text style={styles.modalTitle}>语音播报设置</Text>
+            <Text style={styles.modalTitle}>{modalTitle}</Text>
             <View style={styles.switchRow}>
-              <Text style={styles.switchLabel}>启用语音播报</Text>
+              <Text style={styles.switchLabel}>{modalEnableLabel}</Text>
               <Switch
                 value={isVoicePlaybackEnabled}
                 onValueChange={handleVoicePlaybackToggle}
               />
             </View>
             <View style={styles.modalSection}>
-              <Text style={styles.modalSectionTitle}>语速</Text>
+              <Text style={styles.modalSectionTitle}>{modalRateLabel}</Text>
               <View style={styles.chipRow}>
-                {ratePresets.map((preset) => {
+                {VOICE_RATE_PRESETS.map((preset) => {
                   const isActive =
                     Math.abs(voicePlaybackRate - preset.value) < 0.01;
                   return (
                     <Pressable
-                      key={preset.value}
+                      key={preset.id}
                       android_ripple={androidRipple}
                       onPress={() => handleSelectVoiceRate(preset.value)}
                       style={[styles.chip, isActive && styles.chipActive]}
@@ -1004,7 +1037,7 @@ export function ChatScreen() {
                           isActive && styles.chipLabelActive,
                         ]}
                       >
-                        {preset.label}
+                        {isZhLocale ? preset.labelZh : preset.labelEn}
                       </Text>
                     </Pressable>
                   );
@@ -1012,14 +1045,14 @@ export function ChatScreen() {
               </View>
             </View>
             <View style={styles.modalSection}>
-              <Text style={styles.modalSectionTitle}>音色</Text>
+              <Text style={styles.modalSectionTitle}>{modalPitchLabel}</Text>
               <View style={styles.chipRow}>
-                {pitchPresets.map((preset) => {
+                {VOICE_PITCH_PRESETS.map((preset) => {
                   const isActive =
                     Math.abs(voicePlaybackPitch - preset.value) < 0.01;
                   return (
                     <Pressable
-                      key={preset.value}
+                      key={preset.id}
                       android_ripple={androidRipple}
                       onPress={() => handleSelectVoicePitch(preset.value)}
                       style={[styles.chip, isActive && styles.chipActive]}
@@ -1030,7 +1063,7 @@ export function ChatScreen() {
                           isActive && styles.chipLabelActive,
                         ]}
                       >
-                        {preset.label}
+                        {isZhLocale ? preset.labelZh : preset.labelEn}
                       </Text>
                     </Pressable>
                   );
@@ -1038,14 +1071,14 @@ export function ChatScreen() {
               </View>
             </View>
             {isVoicePlaybackActive && (
-              <Text style={styles.modalHint}>播报中…</Text>
+              <Text style={styles.modalHint}>{modalHintLabel}</Text>
             )}
             <Pressable
               android_ripple={androidRipple}
               style={styles.modalClose}
               onPress={closeVoiceSettings}
             >
-              <Text style={styles.modalCloseLabel}>完成</Text>
+              <Text style={styles.modalCloseLabel}>{modalDoneLabel}</Text>
             </Pressable>
           </View>
         </View>
