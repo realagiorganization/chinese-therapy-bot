@@ -1,0 +1,117 @@
+[
+  {
+    "cohort": "pilot-2025w46",
+    "role": "participant",
+    "channel": "mobile-ios",
+    "scenario": "chat-session",
+    "participant_alias": "Iris",
+    "contact_email": "iris.qa@example.com",
+    "sentiment_score": 4,
+    "trust_score": 5,
+    "usability_score": 3,
+    "severity": "medium",
+    "tags": ["palette-yellow-green", "voice-mode", "quote-placement"],
+    "highlights": "Gradient theme feels calmer and the bilingual psychodynamic quote is grounding.",
+    "blockers": "Voice playback arrow occasionally overlaps the send icon when switching locales.",
+    "follow_up_needed": true,
+    "metadata": {
+      "device": "iPhone 15 Pro",
+      "os": "iOS 18.1",
+      "locale": "zh-CN",
+      "app_version": "1.9.0-alpha",
+      "session_date": "2025-11-15"
+    }
+  },
+  {
+    "cohort": "pilot-2025w46",
+    "role": "participant",
+    "channel": "mobile-android",
+    "scenario": "chat-session",
+    "participant_alias": "Jun",
+    "contact_email": "jun.field@example.com",
+    "sentiment_score": 3,
+    "trust_score": 4,
+    "usability_score": 2,
+    "severity": "high",
+    "tags": ["keyboard-handoff", "palette-blue-green"],
+    "highlights": "Back arrow remains visible when the keyboard opens which feels safe.",
+    "blockers": "On Pixel 8 keyboard dismissal occasionally leaves the nav bar hidden until the app restarts.",
+    "follow_up_needed": true,
+    "metadata": {
+      "device": "Pixel 8",
+      "os": "Android 15 beta",
+      "locale": "en-US",
+      "app_version": "1.9.0-alpha",
+      "session_date": "2025-11-15"
+    }
+  },
+  {
+    "cohort": "pilot-2025w46",
+    "role": "therapist",
+    "channel": "web",
+    "scenario": "therapist-discovery",
+    "participant_alias": "Dr. Lin",
+    "contact_email": "dr.lin@example.com",
+    "sentiment_score": 5,
+    "trust_score": 4,
+    "usability_score": 4,
+    "severity": "low",
+    "tags": ["recommendations", "copy-density"],
+    "highlights": "Personalized recommendations surface accurate rationales tied to actual pilot chats.",
+    "blockers": "English copy truncates on smaller laptops, losing half of the rationale sentence.",
+    "follow_up_needed": false,
+    "metadata": {
+      "device": "MacBook Air 13",
+      "browser": "Safari 18",
+      "locale": "en-US",
+      "app_version": "web-2025.45",
+      "session_date": "2025-11-14"
+    }
+  },
+  {
+    "cohort": "pilot-2025w46",
+    "role": "participant",
+    "channel": "mobile-ios",
+    "scenario": "journey-review",
+    "participant_alias": "Bo",
+    "contact_email": "bo.tester@example.com",
+    "sentiment_score": 4,
+    "trust_score": 4,
+    "usability_score": 4,
+    "severity": "medium",
+    "tags": ["journey-scroll", "palette-pink-green"],
+    "highlights": "Journey summaries now render with clearer serif headings.",
+    "blockers": "Scroll bounce effect hides the palette background when switching tabs.",
+    "follow_up_needed": false,
+    "metadata": {
+      "device": "iPhone 13 mini",
+      "os": "iOS 17.6",
+      "locale": "zh-TW",
+      "app_version": "1.9.0-alpha",
+      "session_date": "2025-11-13"
+    }
+  },
+  {
+    "cohort": "pilot-2025w46",
+    "role": "participant",
+    "channel": "wechat",
+    "scenario": "chat-session",
+    "participant_alias": "Mei",
+    "contact_email": "mei.coach@example.com",
+    "sentiment_score": 2,
+    "trust_score": 3,
+    "usability_score": 2,
+    "severity": "high",
+    "tags": ["wechat-bridge", "keyboard-handoff", "settings-discovery"],
+    "highlights": "Therapist badges match the Messenger reference and feel premium.",
+    "blockers": "When launching via WeChat the settings button is hidden behind the header which prevents palette toggling.",
+    "follow_up_needed": true,
+    "metadata": {
+      "device": "WeChat iOS wrapper",
+      "os": "iOS 18.0",
+      "locale": "zh-CN",
+      "app_version": "1.9.0-alpha",
+      "session_date": "2025-11-15"
+    }
+  }
+]

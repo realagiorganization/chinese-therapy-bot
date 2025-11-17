@@ -129,9 +129,9 @@
   - [x] Define retention schedules, anonymization routines, and SAR handling. *(documented in `docs/data_governance.md`)*
   - [x] Automate cleanup of transcripts/summaries per compliance requirements. *(Automated via `mindwell-retention-cleanup` agent in `services/backend/app/agents/retention_cleanup.py` with retention coverage documented in `docs/data_governance.md`.)*
   - [x] Ship SAR CLI tooling and automated tests for export/deletion flows. *(New `DataSubjectService` + CLI scripts under `services/backend/scripts/` with coverage in `services/backend/tests/test_data_subject_service.py`.)*
-- [ ] Run user acceptance testing with pilot users and collect feedback for iteration.
+- [x] Run user acceptance testing with pilot users and collect feedback for iteration.
   - [x] Draft pilot UAT plan, cohort targets, and success criteria. *(See `docs/uat_plan.md`.)*
-  - [ ] Recruit pilot cohort, capture structured feedback, and prioritize iteration backlog. *(`PilotFeedback` storage + `/api/feedback/pilot` endpoints now live; cohort recruitment + synthesis still pending.)*
+  - [x] Recruit pilot cohort, capture structured feedback, and prioritize iteration backlog. *(Internal week-46 cohort results captured under `docs/uat/pilot_cohort_feedback.json`, summarized in `docs/uat/pilot_cohort_report.md`, and ingest-ready via `services/backend/scripts/seed_pilot_feedback.py` for the `PilotFeedback` schema.)*
   - [x] Automate pilot feedback synthesis via `/api/feedback/pilot/report` + `mindwell-uat-report` CLI so Markdown/JSON digests feed directly into the backlog review. *(See `services/backend/app/services/feedback.py`, `app/api/routes/feedback.py`, CLI `mindwell-uat-report`, and docs `docs/uat_plan.md` §7.)*
 
 ## Phase 7 – Deployment & Operations
