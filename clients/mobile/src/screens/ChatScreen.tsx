@@ -70,7 +70,7 @@ const QUOTE_ATTRIBUTION = {
   ru: "— Психодинамическое наблюдение",
 } as const;
 
-const GLASS_INTENSITY = Platform.OS === "ios" ? 135 : 150;
+const GLASS_INTENSITY = Platform.OS === "ios" ? 145 : 165;
 
 type PromptLocale = keyof typeof PROMPT_COPY;
 

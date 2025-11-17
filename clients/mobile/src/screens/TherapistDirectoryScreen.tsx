@@ -37,7 +37,7 @@ type TherapistCardProps = {
   onPress: (therapist: TherapistSummary) => void;
 };
 
-const GLASS_INTENSITY = Platform.OS === "ios" ? 135 : 150;
+const GLASS_INTENSITY = Platform.OS === "ios" ? 145 : 165;
 
 function TherapistCard({ therapist, active, onPress }: TherapistCardProps) {
   const theme = useTheme();
@@ -249,16 +249,8 @@ export function TherapistDirectoryScreen() {
     ? "根据你与 AI 的对话，我们推荐以下三位顾问。"
     : "Based on your conversations with the AI, we recommend the following three therapists.";
   const recommendationSwatches = useMemo(
-    () => [
-      `${theme.colors.accentYellowGreen}66`,
-      `${theme.colors.accentPinkGreen}66`,
-      `${theme.colors.accentBlueGreen}66`,
-    ],
-    [
-      theme.colors.accentYellowGreen,
-      theme.colors.accentPinkGreen,
-      theme.colors.accentBlueGreen,
-    ],
+    () => theme.palette.recommendationSwatches,
+    [theme.palette.recommendationSwatches],
   );
 
   useEffect(() => {

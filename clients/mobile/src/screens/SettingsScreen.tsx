@@ -2,6 +2,7 @@ import { VOICE_PITCH_PRESETS, VOICE_RATE_PRESETS } from "@constants/voice";
 import { useAuth } from "@context/AuthContext";
 import { useVoiceSettings } from "@context/VoiceSettingsContext";
 import { BlurView } from "expo-blur";
+import { LinearGradient } from "expo-linear-gradient";
 import * as Localization from "expo-localization";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
@@ -17,6 +18,7 @@ import {
 import { recordAnalyticsEvent } from "../services/analytics";
 import { clearChatState } from "../services/chatCache";
 import { useTheme } from "../theme/ThemeProvider";
+import type { PaletteId } from "@theme/palettes";
 
 const SETTING_IDEAS = [
   {
@@ -36,7 +38,7 @@ const SETTING_IDEAS = [
   },
 ] as const;
 
-const GLASS_INTENSITY = Platform.OS === "ios" ? 130 : 145;
+const GLASS_INTENSITY = Platform.OS === "ios" ? 140 : 155;
 
 export function SettingsScreen() {
   const theme = useTheme();
@@ -185,6 +187,68 @@ export function SettingsScreen() {
         statusError: {
           color: theme.colors.danger,
         },
+        paletteGrid: {
+          gap: theme.spacing.md,
+        },
+        paletteOption: {
+          borderWidth: 1,
+          borderColor: theme.colors.borderSubtle,
+          borderRadius: theme.radius.lg,
+          padding: theme.spacing.md,
+          backgroundColor: "rgba(255,255,255,0.32)",
+          gap: theme.spacing.sm,
+        },
+        paletteOptionActive: {
+          borderColor: theme.colors.textPrimary,
+          backgroundColor: "rgba(255,255,255,0.5)",
+        },
+        palettePreview: {
+          height: 56,
+          borderRadius: theme.radius.md,
+          overflow: "hidden",
+        },
+        paletteMeta: {
+          gap: 2,
+        },
+        paletteLabel: {
+          fontSize: 14,
+          fontWeight: "600",
+          color: theme.colors.textPrimary,
+        },
+        paletteLabelActive: {
+          letterSpacing: 0.5,
+        },
+        paletteDescription: {
+          fontSize: 12,
+          lineHeight: 18,
+          color: theme.colors.textSecondary,
+        },
+        paletteSwatchRow: {
+          flexDirection: "row",
+          alignItems: "center",
+          gap: theme.spacing.xs,
+        },
+        paletteSwatch: {
+          width: 18,
+          height: 18,
+          borderRadius: theme.radius.md,
+          borderWidth: 1,
+          borderColor: "rgba(0,0,0,0.05)",
+        },
+        paletteBadge: {
+          marginLeft: "auto",
+          borderRadius: theme.radius.pill,
+          borderWidth: 1,
+          borderColor: theme.colors.textPrimary,
+          paddingHorizontal: theme.spacing.sm,
+          paddingVertical: theme.spacing.xs * 0.6,
+        },
+        paletteBadgeLabel: {
+          fontSize: 11,
+          fontWeight: "600",
+          letterSpacing: 0.4,
+          color: theme.colors.textPrimary,
+        },
       }),
     [theme],
   );
@@ -193,6 +257,13 @@ export function SettingsScreen() {
   const pitchLabel = isZh ? "音调" : "Vocal tone";
   const playbackLabel = isZh ? "语音播报" : "Voice playback";
   const logoutLabel = isZh ? "退出登录" : "Sign out";
+  const paletteTitle = isZh ? "界面配色" : "Interface palette";
+  const paletteSubtitle = isZh
+    ? "切换黄绿 / 粉绿 / 蓝绿渐变，与 Messenger Creation 参考保持一致。"
+    : "Toggle the yellow–green, pink–green, or blue–green gradients from the Messenger Creation reference.";
+  const paletteActiveBadge = isZh ? "当前" : "Active";
+  const { id: activePaletteId, options: paletteOptions, setPalette } =
+    theme.palette;
   const accountSubtitle = isZh
     ? "保持账号安全，并重新登录以刷新访问令牌。"
     : "Keep your account secure and re-authenticate when needed.";
@@ -292,6 +363,17 @@ export function SettingsScreen() {
     logout();
   }, [logout]);
 
+  const handlePaletteSelect = useCallback(
+    (paletteId: PaletteId) => {
+      if (paletteId === activePaletteId) {
+        return;
+      }
+      setPalette(paletteId);
+      logSettingsEvent("mobile_palette_selected", { palette_id: paletteId });
+    },
+    [activePaletteId, logSettingsEvent, setPalette],
+  );
+
   const handleVoiceEnabledChange = useCallback(
     (value: boolean) => {
       setVoiceEnabled(value);
@@ -353,6 +435,64 @@ export function SettingsScreen() {
         <Pressable style={styles.outlineButton} onPress={handleLogout}>
           <Text style={styles.outlineLabel}>{logoutLabel}</Text>
         </Pressable>
+      </BlurView>
+
+      <BlurView intensity={GLASS_INTENSITY} tint="light" style={styles.card}>
+        <Text style={styles.cardTitle}>{paletteTitle}</Text>
+        <Text style={styles.cardSubtitle}>{paletteSubtitle}</Text>
+        <View style={styles.paletteGrid}>
+          {paletteOptions.map((option) => {
+            const isActive = option.id === activePaletteId;
+            const swatches = isActive
+              ? theme.palette.recommendationSwatches
+              : option.preview;
+            return (
+              <Pressable
+                key={option.id}
+                onPress={() => handlePaletteSelect(option.id)}
+                style={[
+                  styles.paletteOption,
+                  isActive && styles.paletteOptionActive,
+                ]}
+              >
+                <LinearGradient
+                  colors={option.preview}
+                  start={{ x: 0.5, y: 1 }}
+                  end={{ x: 0.5, y: 0 }}
+                  style={styles.palettePreview}
+                />
+                <View style={styles.paletteMeta}>
+                  <Text
+                    style={[
+                      styles.paletteLabel,
+                      isActive && styles.paletteLabelActive,
+                    ]}
+                  >
+                    {isZh ? option.labelZh : option.labelEn}
+                  </Text>
+                  <Text style={styles.paletteDescription}>
+                    {isZh ? option.descriptionZh : option.descriptionEn}
+                  </Text>
+                </View>
+                <View style={styles.paletteSwatchRow}>
+                  {swatches.map((color, index) => (
+                    <View
+                      key={`${option.id}-${index}`}
+                      style={[styles.paletteSwatch, { backgroundColor: color }]}
+                    />
+                  ))}
+                  {isActive && (
+                    <View style={styles.paletteBadge}>
+                      <Text style={styles.paletteBadgeLabel}>
+                        {paletteActiveBadge}
+                      </Text>
+                    </View>
+                  )}
+                </View>
+              </Pressable>
+            );
+          })}
+        </View>
       </BlurView>
 
       <BlurView intensity={GLASS_INTENSITY} tint="light" style={styles.card}>
