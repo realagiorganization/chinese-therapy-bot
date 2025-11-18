@@ -11,3 +11,4 @@ oauth2-proxy.azure.env
 oauth2-proxy.azure.json
 publishing_profiles.secrets.json
 .azure-cli/
+artifacts/
