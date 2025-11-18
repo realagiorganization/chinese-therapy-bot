@@ -68,7 +68,45 @@ run "s3_hardening" {
   }
 
   assert {
-    condition     = tolist(aws_s3_bucket_server_side_encryption_configuration.media_assets.rule)[0].apply_server_side_encryption_by_default[0].sse_algorithm == "AES256"
+    condition     = tolist(aws_s3_bucket_server_side_encryption_configuration.media.rule)[0].apply_server_side_encryption_by_default[0].sse_algorithm == "AES256"
     error_message = "Media buckets must enforce AES-256 encryption."
+  }
+
+  assert {
+    condition = alltrue([
+      aws_s3_bucket_public_access_block.conversation_logs.block_public_acls,
+      aws_s3_bucket_public_access_block.conversation_logs.block_public_policy,
+      aws_s3_bucket_public_access_block.conversation_logs.restrict_public_buckets,
+      aws_s3_bucket_public_access_block.conversation_logs.ignore_public_acls,
+      aws_s3_bucket_public_access_block.summaries.block_public_acls,
+      aws_s3_bucket_public_access_block.summaries.block_public_policy,
+      aws_s3_bucket_public_access_block.summaries.restrict_public_buckets,
+      aws_s3_bucket_public_access_block.summaries.ignore_public_acls,
+    ])
+    error_message = "Conversation log and summary buckets must block all public ACL/policy combinations."
+  }
+
+  assert {
+    condition = alltrue([
+      aws_s3_bucket_public_access_block.media.block_public_acls == false,
+      aws_s3_bucket_public_access_block.media.block_public_policy == false,
+      aws_s3_bucket_public_access_block.media.restrict_public_buckets == false,
+      aws_s3_bucket_public_access_block.media.ignore_public_acls == false,
+    ])
+    error_message = "Media bucket intentionally keeps ACL/policy blocks disabled for CDN access; configuration drift detected."
+  }
+
+  assert {
+    condition = (
+      contains([for t in aws_s3_bucket_lifecycle_configuration.conversation_logs.rule[0].transition : t.days], 30) &&
+      contains([for t in aws_s3_bucket_lifecycle_configuration.conversation_logs.rule[0].transition : t.days], 90) &&
+      contains([for e in aws_s3_bucket_lifecycle_configuration.conversation_logs.rule[0].expiration : e.days], 365)
+    )
+    error_message = "Conversation log lifecycle rules must tier at 30/90 days and expire after 365 days."
+  }
+
+  assert {
+    condition = tolist(aws_s3_bucket_lifecycle_configuration.media.rule[0].abort_incomplete_multipart_upload)[0].days_after_initiation == 7
+    error_message = "Media lifecycle configuration must abort incomplete uploads after 7 days."
   }
 }

@@ -384,8 +384,8 @@ data "aws_iam_policy_document" "s3_access" {
       "${aws_s3_bucket.conversation_logs.arn}/*",
       aws_s3_bucket.summaries.arn,
       "${aws_s3_bucket.summaries.arn}/*",
-      aws_s3_bucket.media_assets.arn,
-      "${aws_s3_bucket.media_assets.arn}/*"
+      aws_s3_bucket.media.arn,
+      "${aws_s3_bucket.media.arn}/*"
     ]
   }
 }
@@ -420,7 +420,7 @@ resource "aws_s3_bucket" "summaries" {
   })
 }
 
-resource "aws_s3_bucket" "media_assets" {
+resource "aws_s3_bucket" "media" {
   bucket        = "${local.name_prefix}-${var.environment}-media"
   force_destroy = false
 
@@ -445,8 +445,8 @@ resource "aws_s3_bucket_versioning" "summaries" {
   }
 }
 
-resource "aws_s3_bucket_versioning" "media_assets" {
-  bucket = aws_s3_bucket.media_assets.id
+resource "aws_s3_bucket_versioning" "media" {
+  bucket = aws_s3_bucket.media.id
 
   versioning_configuration {
     status = "Enabled"
@@ -473,12 +473,111 @@ resource "aws_s3_bucket_server_side_encryption_configuration" "summaries" {
   }
 }
 
-resource "aws_s3_bucket_server_side_encryption_configuration" "media_assets" {
-  bucket = aws_s3_bucket.media_assets.id
+resource "aws_s3_bucket_server_side_encryption_configuration" "media" {
+  bucket = aws_s3_bucket.media.id
 
   rule {
     apply_server_side_encryption_by_default {
       sse_algorithm = "AES256"
+    }
+  }
+}
+
+resource "aws_s3_bucket_cors_configuration" "media" {
+  bucket = aws_s3_bucket.media.id
+
+  cors_rule {
+    allowed_methods = ["GET"]
+    allowed_origins = ["*"]
+    allowed_headers = ["*"]
+    max_age_seconds = 300
+  }
+}
+
+resource "aws_s3_bucket_lifecycle_configuration" "conversation_logs" {
+  bucket = aws_s3_bucket.conversation_logs.id
+
+  rule {
+    id     = "conversations-tiering"
+    status = "Enabled"
+
+    filter {
+      prefix = "conversations/"
+    }
+
+    transition {
+      days          = 30
+      storage_class = "STANDARD_IA"
+    }
+
+    transition {
+      days          = 90
+      storage_class = "GLACIER"
+    }
+
+    expiration {
+      days = 365
+    }
+
+    noncurrent_version_expiration {
+      noncurrent_days = 90
+    }
+  }
+}
+
+resource "aws_s3_bucket_lifecycle_configuration" "summaries" {
+  bucket = aws_s3_bucket.summaries.id
+
+  rule {
+    id     = "summaries-tiering"
+    status = "Enabled"
+
+    filter {
+      prefix = "summaries/"
+    }
+
+    transition {
+      days          = 60
+      storage_class = "STANDARD_IA"
+    }
+
+    transition {
+      days          = 180
+      storage_class = "GLACIER"
+    }
+
+    expiration {
+      days = 730
+    }
+
+    noncurrent_version_expiration {
+      noncurrent_days = 120
+    }
+  }
+}
+
+resource "aws_s3_bucket_lifecycle_configuration" "media" {
+  bucket = aws_s3_bucket.media.id
+
+  rule {
+    id     = "media-lifecycle"
+    status = "Enabled"
+
+    filter {
+      prefix = "uploads/"
+    }
+
+    transition {
+      days          = 90
+      storage_class = "STANDARD_IA"
+    }
+
+    expiration {
+      days = 365
+    }
+
+    abort_incomplete_multipart_upload {
+      days_after_initiation = 7
     }
   }
 }
@@ -499,12 +598,12 @@ resource "aws_s3_bucket_public_access_block" "summaries" {
   restrict_public_buckets = true
 }
 
-resource "aws_s3_bucket_public_access_block" "media_assets" {
-  bucket                  = aws_s3_bucket.media_assets.id
-  block_public_acls       = true
-  block_public_policy     = true
+resource "aws_s3_bucket_public_access_block" "media" {
+  bucket                  = aws_s3_bucket.media.id
+  block_public_acls       = false
+  block_public_policy     = false
   ignore_public_acls      = false
-  restrict_public_buckets = true
+  restrict_public_buckets = false
 }
 
 data "aws_iam_policy_document" "conversation_logs_secure_transport" {
@@ -577,8 +676,8 @@ data "aws_iam_policy_document" "media_secure_transport" {
 
     actions = ["s3:*"]
     resources = [
-      aws_s3_bucket.media_assets.arn,
-      "${aws_s3_bucket.media_assets.arn}/*",
+      aws_s3_bucket.media.arn,
+      "${aws_s3_bucket.media.arn}/*",
     ]
 
     condition {
@@ -590,7 +689,7 @@ data "aws_iam_policy_document" "media_secure_transport" {
 }
 
 resource "aws_s3_bucket_policy" "media_secure_transport" {
-  bucket = aws_s3_bucket.media_assets.id
+  bucket = aws_s3_bucket.media.id
   policy = data.aws_iam_policy_document.media_secure_transport.json
 }
 

@@ -40,7 +40,7 @@ output "s3_summaries_bucket" {
 
 output "s3_media_bucket" {
   description = "S3 bucket for media assets."
-  value       = aws_s3_bucket.media_assets.bucket
+  value       = aws_s3_bucket.media.bucket
 }
 
 output "ci_runner_role_arn" {
