@@ -43,6 +43,21 @@ export AWS_DEFAULT_REGION=ap-northeast-1
 # or rely on AWS_PROFILE / aws sts assume-role etc.
 ```
 
+## 2.5. Populate the environment tfvars
+
+The root module expects a `dev.auto.tfvars` (or similar) file inside
+`infra/terraform/environments/dev/`. Copy the new template
+`dev.auto.tfvars.example` into place and replace the placeholder GUIDs, CIDRs,
+and contact details with your real subscription/account values:
+
+```bash
+cp infra/terraform/environments/dev/dev.auto.tfvars.example \
+   infra/terraform/environments/dev/dev.auto.tfvars
+```
+
+Store sensitive secrets (e.g., `placeholder_openai_api_key`) in your preferred
+secret manager or `tfvars` file and avoid committing real values to the repo.
+
 ## 3. Run the provisioning helper
 
 The helper script lives at `infra/scripts/provision_dev_infra.sh` and wraps the
