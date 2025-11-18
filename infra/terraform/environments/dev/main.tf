@@ -342,7 +342,7 @@ resource "azurerm_key_vault" "core" {
 resource "azurerm_key_vault_access_policy" "aks" {
   key_vault_id = azurerm_key_vault.core.id
   tenant_id    = var.azure_tenant_id
-  object_id    = azurerm_kubernetes_cluster.core.kubelet_identity[0].object_id
+  object_id    = var.kubelet_identity_object_id_override != "" ? var.kubelet_identity_object_id_override : azurerm_kubernetes_cluster.core.kubelet_identity[0].object_id
 
   secret_permissions = ["Get"]
 }
@@ -506,6 +506,93 @@ resource "aws_s3_bucket_public_access_block" "media_assets" {
   block_public_policy     = true
   ignore_public_acls      = false
   restrict_public_buckets = true
+}
+
+data "aws_iam_policy_document" "conversation_logs_secure_transport" {
+  statement {
+    sid    = "DenyInsecureTransport"
+    effect = "Deny"
+
+    principals {
+      type        = "*"
+      identifiers = ["*"]
+    }
+
+    actions = ["s3:*"]
+    resources = [
+      aws_s3_bucket.conversation_logs.arn,
+      "${aws_s3_bucket.conversation_logs.arn}/*",
+    ]
+
+    condition {
+      test     = "Bool"
+      variable = "aws:SecureTransport"
+      values   = ["false"]
+    }
+  }
+}
+
+resource "aws_s3_bucket_policy" "conversation_logs_secure_transport" {
+  bucket = aws_s3_bucket.conversation_logs.id
+  policy = data.aws_iam_policy_document.conversation_logs_secure_transport.json
+}
+
+data "aws_iam_policy_document" "summaries_secure_transport" {
+  statement {
+    sid    = "DenyInsecureTransport"
+    effect = "Deny"
+
+    principals {
+      type        = "*"
+      identifiers = ["*"]
+    }
+
+    actions = ["s3:*"]
+    resources = [
+      aws_s3_bucket.summaries.arn,
+      "${aws_s3_bucket.summaries.arn}/*",
+    ]
+
+    condition {
+      test     = "Bool"
+      variable = "aws:SecureTransport"
+      values   = ["false"]
+    }
+  }
+}
+
+resource "aws_s3_bucket_policy" "summaries_secure_transport" {
+  bucket = aws_s3_bucket.summaries.id
+  policy = data.aws_iam_policy_document.summaries_secure_transport.json
+}
+
+data "aws_iam_policy_document" "media_secure_transport" {
+  statement {
+    sid    = "DenyInsecureTransport"
+    effect = "Deny"
+
+    principals {
+      type        = "*"
+      identifiers = ["*"]
+    }
+
+    actions = ["s3:*"]
+    resources = [
+      aws_s3_bucket.media_assets.arn,
+      "${aws_s3_bucket.media_assets.arn}/*",
+    ]
+
+    condition {
+      test     = "Bool"
+      variable = "aws:SecureTransport"
+      values   = ["false"]
+    }
+  }
+}
+
+resource "aws_s3_bucket_policy" "media_secure_transport" {
+  bucket = aws_s3_bucket.media_assets.id
+  policy = data.aws_iam_policy_document.media_secure_transport.json
 }
 
 # ---------------------------

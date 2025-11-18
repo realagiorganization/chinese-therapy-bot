@@ -224,3 +224,9 @@ variable "placeholder_openai_api_key" {
   type        = string
   sensitive   = true
 }
+
+variable "kubelet_identity_object_id_override" {
+  description = "Optional override used in tests when the kubelet managed identity is not available."
+  type        = string
+  default     = ""
+}
