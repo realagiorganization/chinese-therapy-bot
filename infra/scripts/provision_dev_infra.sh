@@ -18,6 +18,8 @@ Options:
       --skip-kubeconfig      Do not fetch kubeconfig even after apply.
       --validate-oidc        After apply + kubeconfig, run the workload identity
                              validation job defined in infra/kubernetes/samples.
+      --skip-credential-checks
+                             Do not verify Azure/AWS credentials before running Terraform.
       --help                 Show this help message.
 
 Environment requirements:
@@ -44,6 +46,7 @@ BACKEND_CONFIG_FILE=""
 PLAN_ONLY="false"
 SKIP_KUBECONFIG="false"
 VALIDATE_OIDC="false"
+SKIP_CREDENTIAL_CHECKS="false"
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -69,6 +72,10 @@ while [[ $# -gt 0 ]]; do
       ;;
     --validate-oidc)
       VALIDATE_OIDC="true"
+      shift
+      ;;
+    --skip-credential-checks)
+      SKIP_CREDENTIAL_CHECKS="true"
       shift
       ;;
     --help|-h)
@@ -131,6 +138,74 @@ if [[ "$VALIDATE_OIDC" == "true" ]]; then
   require_cmd kubectl
 fi
 require_cmd jq
+
+has_azure_cli_login() {
+  if ! command -v az >/dev/null 2>&1; then
+    return 1
+  fi
+  if az account show >/dev/null 2>&1; then
+    return 0
+  fi
+  return 1
+}
+
+check_azure_credentials() {
+  if [[ -n "${ARM_USE_MSI:-}" && "${ARM_USE_MSI}" != "false" ]]; then
+    if [[ -z "${ARM_SUBSCRIPTION_ID:-}" || -z "${ARM_TENANT_ID:-}" ]]; then
+      echo "error: ARM_USE_MSI is enabled but ARM_SUBSCRIPTION_ID or ARM_TENANT_ID is unset." >&2
+      return 1
+    fi
+    return 0
+  fi
+
+  if [[ -n "${ARM_CLIENT_ID:-}" && -n "${ARM_CLIENT_SECRET:-}" && -n "${ARM_TENANT_ID:-}" && -n "${ARM_SUBSCRIPTION_ID:-}" ]]; then
+    return 0
+  fi
+
+  if [[ -n "${ARM_OIDC_TOKEN_FILE_PATH:-}" && -n "${ARM_CLIENT_ID:-}" && -n "${ARM_TENANT_ID:-}" && -n "${ARM_SUBSCRIPTION_ID:-}" ]]; then
+    return 0
+  fi
+
+  if has_azure_cli_login; then
+    return 0
+  fi
+
+  cat >&2 <<'EOF'
+error: Azure credentials not detected.
+Provide ARM_* environment variables for a service principal, enable ARM_USE_MSI,
+or log in via the Azure CLI (az login). Use --skip-credential-checks to bypass
+this guard if you are supplying credentials through an alternate mechanism.
+EOF
+  return 1
+}
+
+check_aws_credentials() {
+  if [[ -n "${AWS_ACCESS_KEY_ID:-}" && -n "${AWS_SECRET_ACCESS_KEY:-}" ]]; then
+    return 0
+  fi
+
+  if [[ -n "${AWS_PROFILE:-}" ]]; then
+    return 0
+  fi
+
+  if [[ -n "${AWS_WEB_IDENTITY_TOKEN_FILE:-}" && -n "${AWS_ROLE_ARN:-}" ]]; then
+    return 0
+  fi
+
+  cat >&2 <<'EOF'
+error: AWS credentials not detected.
+Export AWS_ACCESS_KEY_ID/AWS_SECRET_ACCESS_KEY, configure AWS_PROFILE, or set up
+web identity variables (AWS_WEB_IDENTITY_TOKEN_FILE + AWS_ROLE_ARN).
+Use --skip-credential-checks to bypass this guard if another credential source
+is available to Terraform.
+EOF
+  return 1
+}
+
+if [[ "$SKIP_CREDENTIAL_CHECKS" != "true" ]]; then
+  check_azure_credentials
+  check_aws_credentials
+fi
 
 OUTPUT_DIR="${REPO_ROOT}/artifacts/provisioning/${ENVIRONMENT}"
 mkdir -p "$OUTPUT_DIR"

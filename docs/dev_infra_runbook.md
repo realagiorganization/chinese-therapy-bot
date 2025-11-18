@@ -55,6 +55,11 @@ full Terraform flow inside `infra/terraform/environments/<env>`.
   --backend-config infra/terraform/backend.hcl
 ```
 
+The script now performs lightweight Azure/AWS credential checks before running
+Terraform so you fail fast instead of waiting for the providers to error out.
+Pass `--skip-credential-checks` only if you are injecting credentials through an
+alternate mechanism (e.g., custom `AWS_PROFILE` resolution inside a wrapper).
+
 What the script does:
 
 1. Runs `terraform init/plan/apply` for the chosen environment.
@@ -68,6 +73,9 @@ What the script does:
 - `--plan-only` — stop after saving the plan artifact.
 - `--skip-kubeconfig` — do not call `az aks get-credentials`.
 - `--validate-oidc` — run the workload identity validation job described below.
+- `--skip-credential-checks` — bypass the new Azure/AWS credential guard (not
+  recommended unless you are absolutely sure Terraform will be able to obtain
+  credentials another way).
 
 ## 4. Optional: workload identity validation
 
