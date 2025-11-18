@@ -34,7 +34,6 @@ run "s3_hardening" {
     aks_version                = "1.29.4"
     aks_service_cidr           = "10.21.0.0/16"
     aks_dns_service_ip         = "10.21.0.10"
-    aks_docker_bridge_cidr     = "172.17.0.1/16"
     postgres_sku_name          = "GP_Standard_D4s_v3"
     key_vault_admin_object_id  = "33333333-3333-3333-3333-333333333333"
     placeholder_openai_api_key = "sk-test-placeholder"

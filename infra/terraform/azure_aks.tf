@@ -28,7 +28,6 @@ resource "azurerm_kubernetes_cluster" "main" {
     network_policy    = "calico"
     dns_service_ip    = "10.2.0.10"
     service_cidr      = "10.2.0.0/24"
-    docker_bridge_cidr = "172.17.0.1/16"
   }
 
   monitor_metrics {

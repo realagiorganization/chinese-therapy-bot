@@ -120,11 +120,6 @@ variable "aks_dns_service_ip" {
   type        = string
 }
 
-variable "aks_docker_bridge_cidr" {
-  description = "AKS docker bridge CIDR."
-  type        = string
-}
-
 variable "aks_admin_group_object_ids" {
   description = "Azure AD group object IDs with AKS admin access."
   type        = list(string)
