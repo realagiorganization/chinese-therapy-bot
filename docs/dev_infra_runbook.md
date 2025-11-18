@@ -101,3 +101,24 @@ After a successful apply, inspect the JSON file created in
 
 Provide these identifiers to the Monitoring/Data Sync agents or CI pipelines as
 needed.
+
+### Automated storage export helper
+
+When only the AWS storage + CI runner values are required, run
+`infra/scripts/export_storage_outputs.sh`. The script expects that `terraform
+apply` already ran inside `infra/terraform/environments/<env>` (so the state and
+outputs exist) and will emit two files:
+
+```bash
+./infra/scripts/export_storage_outputs.sh dev \
+  --out-dir artifacts/storage/dev
+```
+
+- `artifacts/storage/dev/storage-outputs.json`
+- `artifacts/storage/dev/storage-outputs.env`
+
+The JSON file mirrors the Terraform output keys, while the `.env` file contains
+shell‑friendly variables (`CONVERSATION_LOGS_BUCKET_ARN`, `SUMMARIES_BUCKET_ARN`,
+`MEDIA_BUCKET_ARN`, `CI_RUNNER_ROLE_ARN`) for drop‑in usage by CI workflows or
+agent bootstrap scripts. The helper fails fast if any of the expected outputs
+are missing so you know to re-run Terraform first.

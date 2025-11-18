@@ -46,6 +46,7 @@
 - [ ] Configure AWS S3 buckets for conversation logs, summaries, and media assets with appropriate IAM roles. *(Buckets + IAM role codified in `infra/terraform/aws_storage.tf`.)*
   - [x] Model cross-cloud AWS VPC, RDS, and automation agent infrastructure to host backend replicas and data sync workloads. *(See `infra/terraform/aws_network.tf`, `infra/terraform/aws_rds.tf`, `infra/terraform/aws_ec2_agents.tf`.)*
   - [ ] Execute Terraform against the target AWS account and capture bucket ARNs plus IAM outputs.
+    - [x] Added `infra/scripts/export_storage_outputs.sh` to emit JSON/ENV artifacts for the three S3 buckets and CI runner role immediately after `terraform apply`, keeping automation unblockers ready once cloud credentials are available.
   - [x] Script CI Runner Agent role assumption (federated login) and document temporary credential retrieval. *(see `infra/scripts/assume_ci_role.sh` + guide `docs/ci_runner_agent.md`)*
   - [x] Define lifecycle rules/prefix conventions for transcripts, summaries, and therapist media ingestion.
 - [x] Set up managed database (Azure Postgres or AWS RDS) with schemas for users, therapists, sessions, and reports. *(Azure Flexible Server defined with private networking in `infra/terraform/azure_postgres.tf`; Alembic migrations under `services/backend/alembic/` bootstrap the schema.)*
