@@ -1,12 +1,12 @@
 from __future__ import annotations
 
 import json
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Callable
 from contextlib import asynccontextmanager
 
 import pytest
 
-from app.agents.data_sync import DataSyncAgent, SyncResult
+from app.agents.data_sync import DataSyncAgent, SecretMirrorMapping, SyncResult
 from app.core.config import AppSettings
 
 
@@ -37,7 +37,31 @@ class CapturingS3Client:
         )
 
 
-def build_agent(calls: list[dict[str, object]]) -> DataSyncAgent:
+class StubSecretsManagerClient:
+    def __init__(self, store: dict[str, str]):
+        self._store = store
+        self.calls: list[str] = []
+
+    async def get_secret_value(self, *, SecretId: str) -> dict[str, str]:
+        self.calls.append(SecretId)
+        if SecretId not in self._store:
+            raise ValueError(f"Secret {SecretId} not found.")
+        return {"SecretString": self._store[SecretId]}
+
+
+class RecordingKeyVaultClient:
+    def __init__(self, calls: list[dict[str, str]]):
+        self.calls = calls
+
+    async def set_secret(self, name: str, value: str) -> None:
+        self.calls.append({"name": name, "value": value})
+
+
+def build_agent(
+    calls: list[dict[str, object]],
+    *,
+    secret_factory_builder: Callable[[str], AsyncIterator[tuple[object, object]]] | None = None,
+) -> DataSyncAgent:
     settings = AppSettings(
         S3_BUCKET_THERAPISTS="test-bucket",
         AWS_REGION="ap-east-1",
@@ -47,7 +71,25 @@ def build_agent(calls: list[dict[str, object]]) -> DataSyncAgent:
     async def factory() -> AsyncIterator[CapturingS3Client]:
         yield CapturingS3Client(calls)
 
-    return DataSyncAgent(settings, s3_client_factory=factory)
+    return DataSyncAgent(
+        settings,
+        s3_client_factory=factory,
+        secret_client_factory=secret_factory_builder,
+    )
+
+
+def build_secret_factory(
+    store: dict[str, str],
+    calls: list[dict[str, str]],
+) -> Callable[[str], AsyncIterator[tuple[object, object]]]:
+    def builder(_: str) -> AsyncIterator[tuple[object, object]]:
+        @asynccontextmanager
+        async def factory() -> AsyncIterator[tuple[object, object]]:
+            yield StubSecretsManagerClient(store), RecordingKeyVaultClient(calls)
+
+        return factory()
+
+    return builder
 
 
 @pytest.mark.asyncio
@@ -113,4 +155,53 @@ async def test_data_sync_agent_dry_run_skips_uploads() -> None:
     assert result.normalized == 1
     assert result.written == 0
     assert result.errors == []
+    assert calls == []
+
+
+@pytest.mark.asyncio
+async def test_mirror_secrets_updates_key_vault() -> None:
+    calls: list[dict[str, str]] = []
+    secrets = {"mindwell/dev/openai/api-key": "sk-live-123"}
+    agent = build_agent(
+        [],
+        secret_factory_builder=build_secret_factory(secrets, calls),
+    )
+
+    result = await agent.mirror_secrets(
+        [
+            SecretMirrorMapping(
+                aws_secret_id="mindwell/dev/openai/api-key",
+                key_vault_secret_name="openai-api-key",
+            )
+        ],
+        key_vault_name="kv-mindwell-dev",
+    )
+
+    assert result.mappings == 1
+    assert result.updated == 1
+    assert result.errors == []
+    assert calls == [{"name": "openai-api-key", "value": "sk-live-123"}]
+
+
+@pytest.mark.asyncio
+async def test_mirror_secrets_records_errors_when_missing_secret() -> None:
+    calls: list[dict[str, str]] = []
+    agent = build_agent(
+        [],
+        secret_factory_builder=build_secret_factory({}, calls),
+    )
+
+    result = await agent.mirror_secrets(
+        [
+            SecretMirrorMapping(
+                aws_secret_id="mindwell/dev/openai/api-key",
+                key_vault_secret_name="openai-api-key",
+            )
+        ],
+        key_vault_name="kv-mindwell-dev",
+    )
+
+    assert result.mappings == 1
+    assert result.updated == 0
+    assert len(result.errors) == 1
     assert calls == []

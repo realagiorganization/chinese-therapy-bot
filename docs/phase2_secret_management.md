@@ -30,8 +30,8 @@ This document closes the outstanding **Phase 2** checklist items around secret g
 - [x] Terraform grants `Key Vault Secrets User` to AKS managed identities (`azure_keyvault.tf`).
 - [x] Terraform outputs publish managed identity IDs required for GitHub OIDC federation (`outputs.tf`).
 - [x] Kubernetes manifests consume Key Vault secrets through the CSI driver (`infra/kubernetes/backend/`).
-- [ ] Author GitHub Actions workflows for automated LLM credential rotation.
-- [ ] Wire Data Sync agent to mirror rotated secrets from AWS to Azure.
+- [x] Author GitHub Actions workflows for automated LLM credential rotation. *(`.github/workflows/llm-key-rotation.yml` consumes a JSON payload stored in the `LLM_ROTATION_PAYLOAD` secret and runs end-to-end rotation.)*
+- [x] Wire Data Sync agent to mirror rotated secrets from AWS to Azure. *(See `services/backend/app/agents/data_sync.py` `--mode secrets` + tests `services/backend/tests/test_data_sync_agent.py`.)*
 
 ## 5. Runbook Snippets
 
@@ -55,3 +55,36 @@ kubectl get secrets mindwell-backend --namespace mindwell \
 ```
 
 If the result is empty or errors, check the role assignments created in Terraform.
+
+## 6. Automated LLM Credential Rotation
+
+1. Update the encrypted repository secret `LLM_ROTATION_PAYLOAD` with the JSON payload for the environment you plan to rotate. The structure is:
+
+```json
+{
+  "environment": "dev",
+  "key_vault_name": "kv-mindwell-dev",
+  "entries": [
+    {
+      "aws_secret_id": "mindwell/dev/openai/api-key",
+      "key_vault_secret_name": "openai-api-key",
+      "secret_string": "sk-live-XXXX"
+    },
+    {
+      "aws_secret_id": "mindwell/dev/bedrock/api-key",
+      "key_vault_secret_name": "bedrock-api-key",
+      "secret_string": "bedrock-secret"
+    }
+  ]
+}
+```
+
+2. Dispatch the **LLM Credential Rotation** workflow from GitHub → Actions, select the target environment, and monitor the logs. The workflow:
+
+   - Validates the payload and ensures it matches the dispatched environment.
+   - Uses `aws secretsmanager put-secret-value` (with `AWS_SECRET_ROTATION_ROLE_ARN`) to write the new key material.
+   - Installs the backend CLI and runs `mindwell-data-sync --mode secrets ...` so the mirrored values land in Azure Key Vault via workload identity (Azure login + OIDC).
+
+3. Verify completion in the workflow summary. Any failed secret writes are logged line-by-line for immediate remediation.
+
+> **Manual fallback:** The same mirroring can be driven locally with `mindwell-data-sync --mode secrets --secret-map mindwell/dev/openai/api-key=openai-api-key` once the AWS payloads are updated. Provide `AZURE_KEY_VAULT_NAME`/`AZURE_KEY_VAULT_URL` or pass `--key-vault-name` explicitly. For reusable mappings, set `SECRET_MIRROR_MAPPINGS='[{"aws_secret_id":"...","key_vault_secret_name":"..."}]'`.

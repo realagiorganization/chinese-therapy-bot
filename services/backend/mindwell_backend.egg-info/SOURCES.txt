@@ -8,6 +8,7 @@ app/agents/data_sync.py
 app/agents/monitoring.py
 app/agents/retention_cleanup.py
 app/agents/summary_scheduler.py
+app/agents/uat_report.py
 app/api/__init__.py
 app/api/deps.py
 app/api/router.py

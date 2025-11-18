@@ -52,6 +52,9 @@ class AppSettings(BaseSettings):
     azure_speech_key: Optional[SecretStr] = Field(default=None, alias="AZURE_SPEECH_KEY")
     azure_speech_region: Optional[str] = Field(default=None, alias="AZURE_SPEECH_REGION")
     azure_speech_endpoint: Optional[str] = Field(default=None, alias="AZURE_SPEECH_ENDPOINT")
+    azure_key_vault_name: Optional[str] = Field(default=None, alias="AZURE_KEY_VAULT_NAME")
+    azure_key_vault_url: Optional[str] = Field(default=None, alias="AZURE_KEY_VAULT_URL")
+    secret_mirror_mappings: Optional[str] = Field(default=None, alias="SECRET_MIRROR_MAPPINGS")
     database_url: Optional[str] = Field(default=None, alias="DATABASE_URL")
     run_migrations_on_startup: bool = Field(
         default=True, alias="RUN_MIGRATIONS_ON_STARTUP"

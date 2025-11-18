@@ -51,6 +51,7 @@
   - [x] Finalize Terraform outputs/permissions for AKS CSI driver + GitHub OIDC identities.
   - [x] Define secret rotation SOPs and automation hooks for LLM/API credentials.
   - [x] Integrate backend deployment manifests with secret references (Helm/manifest overlays).
+  - [x] Automate LLM key rotation workflow and AWS→Azure mirroring via `.github/workflows/llm-key-rotation.yml` + `mindwell-data-sync --mode secrets` (documented in `docs/phase2_secret_management.md`).
 - [x] Configure observability stack (logging, metrics, alerts) and cost monitoring dashboards. *(App Insights, AKS CPU + error alerts, Azure Portal dashboard, and cost budget alerts codified in `infra/terraform/observability.tf`.)*
 
 ## Phase 3 – Backend Services
