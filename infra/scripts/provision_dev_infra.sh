@@ -214,7 +214,6 @@ timestamp="$(date +%Y%m%d%H%M%S)"
 plan_path="${OUTPUT_DIR}/${ENVIRONMENT}-${timestamp}.tfplan"
 outputs_path="${OUTPUT_DIR}/${ENVIRONMENT}-terraform-outputs.json"
 kubeconfig_path="${OUTPUT_DIR}/kubeconfig-${ENVIRONMENT}.yaml"
-oidc_log_path="${OUTPUT_DIR}/oidc-validation-${timestamp}.log"
 
 pushd "$TF_DIR" >/dev/null
 
@@ -256,24 +255,22 @@ else
 fi
 
 if [[ "$VALIDATE_OIDC" == "true" && -f "$kubeconfig_path" ]]; then
-  sample_manifest="${REPO_ROOT}/infra/kubernetes/samples/workload-identity-validation.yaml"
-  if [[ ! -f "$sample_manifest" ]]; then
-    echo "warning: workload identity manifest not found at ${sample_manifest}, skipping validation."
+  validation_script="${SCRIPT_DIR}/validate_workload_identity.sh"
+  if [[ ! -x "$validation_script" ]]; then
+    echo "warning: validation script not found at ${validation_script}, skipping validation."
   else
     echo "Running workload identity validation job..."
-    KUBECONFIG="$kubeconfig_path" kubectl apply -f "$sample_manifest"
-    set +e
-    KUBECONFIG="$kubeconfig_path" kubectl wait \
-      --for=condition=complete job/mindwell-workload-identity \
-      --timeout=180s
-    wait_status=$?
-    set -e
-    KUBECONFIG="$kubeconfig_path" kubectl logs job/mindwell-workload-identity > "$oidc_log_path" || true
-    KUBECONFIG="$kubeconfig_path" kubectl delete -f "$sample_manifest" --ignore-not-found >/dev/null 2>&1 || true
-    if [[ $wait_status -ne 0 ]]; then
-      echo "warning: workload identity job did not complete successfully (see ${oidc_log_path})."
-    else
-      echo "OIDC validation completed. Logs saved to ${oidc_log_path}."
+    secret_target="${OIDC_SECRET_NAME:-postgres-admin-password}"
+    timeout_seconds="${OIDC_VALIDATION_TIMEOUT:-180}"
+    if ! "$validation_script" \
+      --kubeconfig "$kubeconfig_path" \
+      --terraform-outputs "$outputs_path" \
+      --output-dir "$OUTPUT_DIR" \
+      --secret-name "$secret_target" \
+      --environment "$ENVIRONMENT" \
+      --timeout "$timeout_seconds"
+    then
+      echo "warning: workload identity job did not complete successfully. Check logs under ${OUTPUT_DIR}." >&2
     fi
   fi
 fi

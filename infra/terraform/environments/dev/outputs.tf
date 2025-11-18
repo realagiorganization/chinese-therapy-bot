@@ -28,6 +28,21 @@ output "key_vault_uri" {
   value       = azurerm_key_vault.core.vault_uri
 }
 
+output "key_vault_name" {
+  description = "Azure Key Vault name."
+  value       = azurerm_key_vault.core.name
+}
+
+output "kubelet_identity_client_id" {
+  description = "Client ID of the AKS kubelet managed identity (used for workload identity)."
+  value       = try(azurerm_kubernetes_cluster.core.kubelet_identity[0].client_id, "")
+}
+
+output "azure_tenant_id" {
+  description = "Azure tenant ID referenced by this environment."
+  value       = var.azure_tenant_id
+}
+
 output "s3_conversation_logs_bucket" {
   description = "S3 bucket for conversation logs."
   value       = aws_s3_bucket.conversation_logs.bucket

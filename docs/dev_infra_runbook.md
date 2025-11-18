@@ -94,15 +94,32 @@ What the script does:
 
 ## 4. Optional: workload identity validation
 
-When the `--validate-oidc` flag is supplied (and `kubectl` is installed), the
-script applies the sample manifest at
-`infra/kubernetes/samples/workload-identity-validation.yaml`, waits for the job
-to finish, captures its logs under
-`artifacts/provisioning/<env>/oidc-validation-<timestamp>.log`, and then removes
-the job.
+The helper script `infra/scripts/validate_workload_identity.sh` renders the
+sample manifest, injects the kubelet identity client ID + Key Vault name, runs
+the validation job, captures the logs, and optionally cleans up the namespace.
 
-Use this output when marking the “Validate workload identity/OIDC” checkbox in
-`PROGRESS.md`.
+It accepts either explicit flags for the required identifiers or a pointer to
+the JSON file produced by `terraform output -json`:
+
+```bash
+./infra/scripts/validate_workload_identity.sh \
+  --terraform-outputs artifacts/provisioning/dev/dev-terraform-outputs.json \
+  --kubeconfig artifacts/provisioning/dev/kubeconfig-dev.yaml \
+  --environment dev \
+  --secret-name postgres-admin-password
+```
+
+The script stores the rendered manifest logs under
+`artifacts/oidc-validation/<env>-oidc-<timestamp>.log`. Because the pod prints
+the actual Key Vault secret value, handle the log file carefully or delete it
+after confirming success.
+
+Passing `--validate-oidc` to `provision_dev_infra.sh` now invokes the helper
+above automatically (with values sourced from the freshly-written Terraform
+outputs). Use this evidence when checking off the “Validate workload
+identity/OIDC” item inside `PROGRESS.md`.
+Override the default secret or timeout by exporting `OIDC_SECRET_NAME` /
+`OIDC_VALIDATION_TIMEOUT` before running the provisioning helper.
 
 ## 5. Capturing bucket/IAM outputs
 
