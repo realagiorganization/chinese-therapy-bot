@@ -58,6 +58,21 @@ cp infra/terraform/environments/dev/dev.auto.tfvars.example \
 Store sensitive secrets (e.g., `placeholder_openai_api_key`) in your preferred
 secret manager or `tfvars` file and avoid committing real values to the repo.
 
+## 2.7. Offline readiness check (no cloud credentials required)
+
+Before attempting the real plan/apply flow, run the lightweight readiness helper
+to ensure formatting, validation, and the Terraform tests (including the new
+AWS outputs/policy guardrail suite) all pass locally:
+
+```bash
+./infra/scripts/check_infra_readiness.sh --environment dev
+```
+
+Flags allow you to skip specific stages (fmt/validate/tests) when iterating, and
+the script forces `terraform init` to use a local backend so it works in air‑
+gapped environments. Keeping this check green guarantees the mocked tests catch
+bucket/ARN/policy drift early, which in turn shortens the later apply cycle.
+
 ## 3. Run the provisioning helper
 
 The helper script lives at `infra/scripts/provision_dev_infra.sh` and wraps the

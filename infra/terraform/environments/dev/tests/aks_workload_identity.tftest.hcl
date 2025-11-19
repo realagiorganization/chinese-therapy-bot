@@ -18,26 +18,26 @@ run "aks_workload_identity" {
   command = plan
 
   variables {
-    project_name               = "MindWell"
-    environment                = "dev"
-    azure_subscription_id      = "00000000-0000-0000-0000-000000000000"
-    azure_tenant_id            = "11111111-1111-1111-1111-111111111111"
-    azure_location             = "eastasia"
-    aws_region                 = "ap-northeast-1"
-    vnet_address_space         = ["10.30.0.0/16"]
-    subnet_aks_system          = "10.30.1.0/24"
-    subnet_aks_workload        = "10.30.2.0/24"
-    subnet_postgres            = "10.30.3.0/24"
-    oncall_email               = "oncall@mindwell.dev"
-    oncall_country_code        = "86"
-    oncall_phone               = "13800138000"
-    aks_version                = "1.29.4"
-    aks_service_cidr           = "10.31.0.0/16"
-    aks_dns_service_ip         = "10.31.0.10"
-    postgres_sku_name          = "GP_Standard_D4s_v3"
-    key_vault_admin_object_id  = "33333333-3333-3333-3333-333333333333"
-    key_vault_allowed_ips      = ["20.20.20.20"]
-    placeholder_openai_api_key = "sk-test-placeholder"
+    project_name                        = "MindWell"
+    environment                         = "dev"
+    azure_subscription_id               = "00000000-0000-0000-0000-000000000000"
+    azure_tenant_id                     = "11111111-1111-1111-1111-111111111111"
+    azure_location                      = "eastasia"
+    aws_region                          = "ap-northeast-1"
+    vnet_address_space                  = ["10.30.0.0/16"]
+    subnet_aks_system                   = "10.30.1.0/24"
+    subnet_aks_workload                 = "10.30.2.0/24"
+    subnet_postgres                     = "10.30.3.0/24"
+    oncall_email                        = "oncall@mindwell.dev"
+    oncall_country_code                 = "86"
+    oncall_phone                        = "13800138000"
+    aks_version                         = "1.29.4"
+    aks_service_cidr                    = "10.31.0.0/16"
+    aks_dns_service_ip                  = "10.31.0.10"
+    postgres_sku_name                   = "GP_Standard_D4s_v3"
+    key_vault_admin_object_id           = "33333333-3333-3333-3333-333333333333"
+    key_vault_allowed_ips               = ["20.20.20.20"]
+    placeholder_openai_api_key          = "sk-test-placeholder"
     kubelet_identity_object_id_override = "44444444-4444-4444-4444-444444444444"
   }
 
