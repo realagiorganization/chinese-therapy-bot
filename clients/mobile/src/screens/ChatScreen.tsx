@@ -95,6 +95,7 @@ function resolvePromptLocale(locale: string | null | undefined): PromptLocale {
 
 type ChatScreenProps = {
   onNavigateBack?: () => void;
+  onOpenSettings?: () => void;
 };
 
 function Bubble({ message }: { message: MessageWithId }) {
@@ -334,7 +335,10 @@ function resolveVoiceStatusLabel(
   return isZh ? "长按说话" : "Press and hold to speak";
 }
 
-export function ChatScreen({ onNavigateBack }: ChatScreenProps) {
+export function ChatScreen({
+  onNavigateBack,
+  onOpenSettings,
+}: ChatScreenProps) {
   const theme = useTheme();
   const switchColors = useMemo(() => getAcademicSwitchColors(theme), [theme]);
   const { tokens, userId } = useAuth();
@@ -374,6 +378,7 @@ export function ChatScreen({ onNavigateBack }: ChatScreenProps) {
   const [inputValue, setInputValue] = useState("");
   const [isSending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [overflowVisible, setOverflowVisible] = useState(false);
   const [recommendations, setRecommendations] = useState<
     TherapistRecommendation[]
   >([]);
@@ -439,6 +444,11 @@ export function ChatScreen({ onNavigateBack }: ChatScreenProps) {
           alignItems: "center",
           gap: theme.spacing.sm,
         },
+        headerRight: {
+          flexDirection: "row",
+          alignItems: "center",
+          gap: theme.spacing.sm,
+        },
         backButton: {
           width: 42,
           height: 42,
@@ -451,6 +461,20 @@ export function ChatScreen({ onNavigateBack }: ChatScreenProps) {
         backIcon: {
           fontSize: 18,
           color: theme.colors.textPrimary,
+        },
+        overflowButton: {
+          width: 42,
+          height: 42,
+          borderRadius: theme.radius.md,
+          borderWidth: 1,
+          borderColor: theme.colors.borderSubtle,
+          alignItems: "center",
+          justifyContent: "center",
+          backgroundColor: "transparent",
+        },
+        overflowIcon: {
+          fontSize: 18,
+          color: theme.colors.textSecondary,
         },
         headerTitle: {
           fontSize: 20,
@@ -746,8 +770,51 @@ export function ChatScreen({ onNavigateBack }: ChatScreenProps) {
           color: theme.colors.textPrimary,
           fontWeight: "600",
         },
+        overflowModal: {
+          flex: 1,
+          padding: theme.spacing.lg,
+          justifyContent: "flex-start",
+          alignItems: "flex-end",
+          backgroundColor: "rgba(5,12,22,0.45)",
+        },
+        overflowBackdrop: {
+          ...StyleSheet.absoluteFillObject,
+        },
+        overflowCard: {
+          width: 260,
+          borderRadius: theme.radius.lg,
+          borderWidth: 1,
+          borderColor: theme.colors.glassBorder,
+          backgroundColor: theme.colors.glassOverlay,
+          padding: theme.spacing.lg,
+          gap: theme.spacing.md,
+          marginTop: Platform.OS === "ios" ? insets.top : theme.spacing.lg,
+        },
+        overflowTitle: {
+          fontSize: 16,
+          fontWeight: "600",
+          color: theme.colors.textPrimary,
+        },
+        overflowAction: {
+          borderRadius: theme.radius.md,
+          borderWidth: 1,
+          borderColor: theme.colors.borderSubtle,
+          padding: theme.spacing.md,
+          gap: theme.spacing.xs,
+          backgroundColor: "rgba(255,255,255,0.25)",
+        },
+        overflowActionLabel: {
+          fontSize: 14,
+          fontWeight: "600",
+          color: theme.colors.textPrimary,
+        },
+        overflowActionHint: {
+          fontSize: 12,
+          color: theme.colors.textSecondary,
+          lineHeight: 18,
+        },
       }),
-    [theme],
+    [insets.top, theme],
   );
 
   const scrollToLatestMessage = useCallback((animated: boolean) => {
@@ -1046,6 +1113,11 @@ export function ChatScreen({ onNavigateBack }: ChatScreenProps) {
   const recommendationIntro = isZhLocale
     ? "根据你和 AI 的对话，我们推荐下列治疗师，并附上简短理由。"
     : "Based on your conversations with the AI, we recommend these therapists and short rationales.";
+  const overflowTitle = isZhLocale ? "更多选项" : "More options";
+  const overflowSettingsLabel = isZhLocale ? "打开设置" : "Open Settings";
+  const overflowSettingsHint = isZhLocale
+    ? "切换配色、语音播报与账户偏好。"
+    : "Adjust palette, voice playback, and account preferences.";
   const composerPlaceholder = isZhLocale
     ? "请把此刻浮现的念头或观察输入在这里。"
     : "Share whatever thought or observation is present.";
@@ -1154,11 +1226,28 @@ export function ChatScreen({ onNavigateBack }: ChatScreenProps) {
             {isZhLocale ? "MindWell 对话" : "MindWell Dialogue"}
           </Text>
         </View>
-        <Text style={styles.headerMeta}>
-          {isZhLocale
-            ? "心理动力 · 学术语气"
-            : "Psychodynamic · Academic tone"}
-        </Text>
+        <View style={styles.headerRight}>
+          <Text style={styles.headerMeta}>
+            {isZhLocale
+              ? "心理动力 · 学术语气"
+              : "Psychodynamic · Academic tone"}
+          </Text>
+          {onOpenSettings && (
+            <Pressable
+              android_ripple={androidRipple}
+              accessibilityRole="button"
+              accessibilityLabel={
+                isZhLocale
+                  ? "打开更多操作，包括设置入口"
+                  : "Open overflow actions, including Settings"
+              }
+              style={styles.overflowButton}
+              onPress={() => setOverflowVisible(true)}
+            >
+              <Text style={styles.overflowIcon}>⋯</Text>
+            </Pressable>
+          )}
+        </View>
       </BlurView>
 
       {error && <Text style={styles.errorText}>{error}</Text>}
@@ -1340,6 +1429,44 @@ export function ChatScreen({ onNavigateBack }: ChatScreenProps) {
         >
           {voiceError}
         </Text>
+      )}
+      {onOpenSettings && (
+        <Modal
+          visible={overflowVisible}
+          transparent
+          animationType="fade"
+          onRequestClose={() => setOverflowVisible(false)}
+        >
+          <View style={styles.overflowModal}>
+            <Pressable
+              style={styles.overflowBackdrop}
+              onPress={() => setOverflowVisible(false)}
+            />
+            <BlurView
+              intensity={GLASS_INTENSITY}
+              tint="light"
+              style={styles.overflowCard}
+            >
+              <Text style={styles.overflowTitle}>{overflowTitle}</Text>
+              <Pressable
+                style={styles.overflowAction}
+                android_ripple={androidRipple}
+                onPress={() => {
+                  setOverflowVisible(false);
+                  Haptics.selectionAsync().catch(() => undefined);
+                  onOpenSettings();
+                }}
+              >
+                <Text style={styles.overflowActionLabel}>
+                  {overflowSettingsLabel}
+                </Text>
+                <Text style={styles.overflowActionHint}>
+                  {overflowSettingsHint}
+                </Text>
+              </Pressable>
+            </BlurView>
+          </View>
+        </Modal>
       )}
       <Modal
         visible={voiceSettingsVisible}

@@ -176,6 +176,7 @@
   - [x] Ensure recommendation copy, therapist badges, and cards visually match the Messenger reference image while supporting Chinese/English text lengths. *(The refreshed block reuses bilingual copy and glass-styled badges with new theme tokens, also in `clients/mobile/src/screens/TherapistDirectoryScreen.tsx`.)*
 - [x] Iterate on chrome and typography polish.
   - [x] Brainstorm and document alternative settings button placement options so the icon no longer crowds the top-left corner.
+  - [x] Surface an overflow entry on the Chat screen that jumps directly to Settings so QA can reach palette toggles even when headers are clipped (`clients/mobile/src/screens/ChatScreen.tsx`, `clients/mobile/App.tsx`).
   - [x] Swap headline and body fonts to academic/serious families (e.g., Georgia/Times New Roman inspired) and update style tokens accordingly.
   - [x] Move the voice-mode arrow/icon to the left side of the input, keeping spacing consistent with the Messenger Creation mock.
 - [x] Update chat prompt copy to the academic tone from `develop.txt` §9 and surface a psychodynamic quote (choose from §10) below it with localized text + attribution handling.

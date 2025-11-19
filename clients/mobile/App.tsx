@@ -186,6 +186,10 @@ function AuthenticatedShell() {
     setActiveTab(lastNonChatTab === "chat" ? "journey" : lastNonChatTab);
   }, [lastNonChatTab]);
 
+  const handleChatOpenSettings = useCallback(() => {
+    handleTabChange("settings");
+  }, [handleTabChange]);
+
   const tabItems = useMemo(
     () => [
       { key: "chat" as const, label: "对话" },
@@ -199,14 +203,19 @@ function AuthenticatedShell() {
   return (
     <View style={styles.container}>
       <View style={styles.content}>
-        {activeTab === "chat" && <ChatScreen onNavigateBack={handleChatBack} />}
+        {activeTab === "chat" && (
+          <ChatScreen
+            onNavigateBack={handleChatBack}
+            onOpenSettings={handleChatOpenSettings}
+          />
+        )}
         {activeTab === "journey" && <JourneyScreen />}
         {activeTab === "therapists" && <TherapistDirectoryScreen />}
         {activeTab === "settings" && <SettingsScreen />}
       </View>
       {!keyboardVisible && (
         <View style={styles.tabWrapper}>
-      <BlurView intensity={140} tint="light" style={styles.tabBar}>
+          <BlurView intensity={140} tint="light" style={styles.tabBar}>
             {tabItems.map((tab, index) => {
               const isActive = activeTab === tab.key;
               return (
