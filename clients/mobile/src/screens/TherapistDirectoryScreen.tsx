@@ -1,4 +1,6 @@
 import { useAuth } from "@context/AuthContext";
+import { useTheme } from "@theme/ThemeProvider";
+import { getAcademicSwitchColors } from "@theme/switchColors";
 import { BlurView } from "expo-blur";
 import * as Localization from "expo-localization";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -18,7 +20,6 @@ import { useTherapistDirectory } from "../hooks/useTherapistDirectory";
 import { loadChatState } from "../services/chatCache";
 import { normalizeTherapistRecommendations } from "../services/recommendations";
 import { loadTherapistDetail } from "../services/therapists";
-import { useTheme } from "../theme/ThemeProvider";
 import type {
   TherapistDetail,
   TherapistRecommendation,
@@ -166,6 +167,7 @@ export function TherapistDirectoryScreen() {
   const locale = Localization.locale ?? "zh-CN";
   const isZh = locale.startsWith("zh");
   const theme = useTheme();
+  const switchColors = useMemo(() => getAcademicSwitchColors(theme), [theme]);
   const { userId } = useAuth();
   const flatListRef = useRef<FlatList<TherapistSummary>>(null);
   const {
@@ -759,15 +761,21 @@ export function TherapistDirectoryScreen() {
           <Text style={styles.filterLabel}>只看推荐顾问</Text>
           <Switch
             value={Boolean(filters.recommendedOnly)}
+            trackColor={{
+              true: switchColors.trackTrue,
+              false: switchColors.trackFalse,
+            }}
+            thumbColor={
+              filters.recommendedOnly
+                ? switchColors.thumbTrue
+                : switchColors.thumbFalse
+            }
+            ios_backgroundColor={switchColors.iosFalse}
             onValueChange={(value) =>
               setFilters((prev) => ({
                 ...prev,
                 recommendedOnly: value,
               }))
-            }
-            trackColor={{ true: "rgba(59,130,246,0.45)", false: "#ccc" }}
-            thumbColor={
-              filters.recommendedOnly ? theme.colors.primary : "#f4f3f4"
             }
           />
         </View>

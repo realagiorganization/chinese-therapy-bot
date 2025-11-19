@@ -167,7 +167,7 @@
 
 ## Phase 9 – Mobile UI Refinement & Messenger Parity
 - [x] Align chat and therapist flows with the Messenger Creation visual target (`Messenger_creation.jpg`) so the mobile shell mirrors the showcased gradients, framing, and typography cadence.
-  - [x] Replace inset/pressed button styles with clean outlined variants (white/black/neutral) everywhere in the mobile app per `develop.txt` §1, ensuring hover/disabled tokens stay accessible in both locales.
+  - [x] Replace inset/pressed button styles with clean outlined variants (white/black/neutral) everywhere in the mobile app per `develop.txt` §1, ensuring hover/disabled tokens stay accessible in both locales. *(`clients/mobile/src/theme/switchColors.ts`, `clients/mobile/src/screens/ChatScreen.tsx`, `clients/mobile/src/screens/SettingsScreen.tsx`, `clients/mobile/src/screens/TherapistDirectoryScreen.tsx` now share the Messenger-style toggle palette.)*
   - [x] Define keyboard-present layout states: hide the four-tab navigation when the keyboard is up, keep a dedicated top-left back arrow, and validate on iOS/Android simulators.
   - [x] Refresh the palette with lower saturation yellow–green, pink–green, and blue–green options, increase the frosted-glass blur, and implement a bottom-up gradient that fades into beige/off-white mid screen as described in `develop.txt` §§3 & 5.
   - [x] Ship a persistent palette selector inside Settings so QA can toggle the yellow–green / pink–green / blue–green gradients, reusing AsyncStorage and propagating swatch updates through Chat + Therapist screens.

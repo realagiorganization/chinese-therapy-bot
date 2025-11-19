@@ -9,6 +9,7 @@ import { sendMessage } from "@services/chat";
 import { loadChatState, persistChatState } from "@services/chatCache";
 import { normalizeTherapistRecommendations } from "@services/recommendations";
 import { useTheme } from "@theme/ThemeProvider";
+import { getAcademicSwitchColors } from "@theme/switchColors";
 import { BlurView } from "expo-blur";
 import * as Haptics from "expo-haptics";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -335,6 +336,7 @@ function resolveVoiceStatusLabel(
 
 export function ChatScreen({ onNavigateBack }: ChatScreenProps) {
   const theme = useTheme();
+  const switchColors = useMemo(() => getAcademicSwitchColors(theme), [theme]);
   const { tokens, userId } = useAuth();
   const cacheMarkedRef = useRef(false);
   const screenVisibleRef = useRef(false);
@@ -1358,6 +1360,16 @@ export function ChatScreen({ onNavigateBack }: ChatScreenProps) {
               <Switch
                 value={isVoicePlaybackEnabled}
                 onValueChange={handleVoicePlaybackToggle}
+                trackColor={{
+                  true: switchColors.trackTrue,
+                  false: switchColors.trackFalse,
+                }}
+                thumbColor={
+                  isVoicePlaybackEnabled
+                    ? switchColors.thumbTrue
+                    : switchColors.thumbFalse
+                }
+                ios_backgroundColor={switchColors.iosFalse}
               />
             </View>
             <View style={styles.modalSection}>

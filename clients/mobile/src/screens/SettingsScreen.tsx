@@ -1,6 +1,9 @@
 import { VOICE_PITCH_PRESETS, VOICE_RATE_PRESETS } from "@constants/voice";
 import { useAuth } from "@context/AuthContext";
 import { useVoiceSettings } from "@context/VoiceSettingsContext";
+import { useTheme } from "@theme/ThemeProvider";
+import type { PaletteId } from "@theme/palettes";
+import { getAcademicSwitchColors } from "@theme/switchColors";
 import { BlurView } from "expo-blur";
 import { LinearGradient } from "expo-linear-gradient";
 import * as Localization from "expo-localization";
@@ -17,8 +20,6 @@ import {
 
 import { recordAnalyticsEvent } from "../services/analytics";
 import { clearChatState } from "../services/chatCache";
-import { useTheme } from "../theme/ThemeProvider";
-import type { PaletteId } from "@theme/palettes";
 
 const SETTING_IDEAS = [
   {
@@ -42,6 +43,7 @@ const GLASS_INTENSITY = Platform.OS === "ios" ? 140 : 155;
 
 export function SettingsScreen() {
   const theme = useTheme();
+  const switchColors = useMemo(() => getAcademicSwitchColors(theme), [theme]);
   const { userId, logout } = useAuth();
   const {
     enabled: voiceEnabled,
@@ -502,7 +504,18 @@ export function SettingsScreen() {
           <Text style={styles.sectionLabel}>
             {isZh ? "启用语音播报" : "Enable playback"}
           </Text>
-          <Switch value={voiceEnabled} onValueChange={handleVoiceEnabledChange} />
+          <Switch
+            value={voiceEnabled}
+            onValueChange={handleVoiceEnabledChange}
+            trackColor={{
+              true: switchColors.trackTrue,
+              false: switchColors.trackFalse,
+            }}
+            thumbColor={
+              voiceEnabled ? switchColors.thumbTrue : switchColors.thumbFalse
+            }
+            ios_backgroundColor={switchColors.iosFalse}
+          />
         </View>
 
         <View>
