@@ -1,12 +1,12 @@
 import { VOICE_PITCH_PRESETS, VOICE_RATE_PRESETS } from "@constants/voice";
 import { useAuth } from "@context/AuthContext";
+import { useLocale, LOCALE_KEYS } from "@context/LocaleContext";
 import { useVoiceSettings } from "@context/VoiceSettingsContext";
 import { useTheme } from "@theme/ThemeProvider";
 import type { PaletteId } from "@theme/palettes";
 import { getAcademicSwitchColors } from "@theme/switchColors";
 import { BlurView } from "expo-blur";
 import { LinearGradient } from "expo-linear-gradient";
-import * as Localization from "expo-localization";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Platform,
@@ -20,6 +20,7 @@ import {
 
 import { recordAnalyticsEvent } from "../services/analytics";
 import { clearChatState } from "../services/chatCache";
+import { toCopyLocale, type CopyLocale } from "@utils/locale";
 
 const SETTING_IDEAS = [
   {
@@ -40,11 +41,109 @@ const SETTING_IDEAS = [
 ] as const;
 
 const GLASS_INTENSITY = Platform.OS === "ios" ? 140 : 155;
+const SUPPORTED_LOCALES = [
+  { code: "zh-CN", label: "简体中文" },
+  { code: "en-US", label: "English" },
+  { code: "zh-TW", label: "繁體中文" },
+  { code: "ru-RU", label: "Русский" },
+] as const;
+
+const SETTINGS_COPY = {
+  zh: {
+    interfaceTitle: "界面语言",
+    interfaceSubtitle: "选择用于聊天和界面的语言。",
+    logoutLabel: "退出登录",
+    accountTitle: "账号",
+    accountSubtitle: "保持账号安全，并重新登录以刷新访问令牌。",
+    paletteTitle: "界面配色",
+    paletteSubtitle:
+      "切换黄绿 / 粉绿 / 蓝绿渐变，与 Messenger Creation 参考保持一致。",
+    paletteActiveBadge: "当前",
+    playbackLabel: "语音播报",
+    playbackToggleLabel: "启用语音播报",
+    rateLabel: "语速",
+    pitchLabel: "音调",
+    voiceSubtitle: "调整语音播报参数，便于在安静或私密场景中使用。",
+    ideaTitle: "设置入口脑暴",
+    voiceResetLabel: "恢复默认播放参数",
+    voiceResetFeedbackText: "语音播放参数已恢复默认值。",
+    storageTitle: "数据与存储",
+    storageSubtitle: "当缓存偏离当下状态时，可手动清除本地数据。",
+    cacheLabel: "聊天缓存",
+    cacheDescription: "清理后将移除本地对话内容、推荐和记忆概览。",
+    clearButtonLabel: "清空缓存",
+    clearingLabel: "清理中…",
+    cacheSuccessMessage: "已清除本地对话缓存与推荐。",
+    cacheErrorMessage: "清理缓存时出现异常，请稍后再试。",
+    cacheNeedsAccountMessage: "需要有效的账号才能清理缓存。",
+  },
+  en: {
+    interfaceTitle: "Interface language",
+    interfaceSubtitle: "Choose the language used across chat and the UI.",
+    logoutLabel: "Sign out",
+    accountTitle: "Account",
+    accountSubtitle: "Keep your account secure and re-authenticate when needed.",
+    paletteTitle: "Interface palette",
+    paletteSubtitle:
+      "Toggle the yellow–green, pink–green, or blue–green gradients from the Messenger Creation reference.",
+    paletteActiveBadge: "Active",
+    playbackLabel: "Voice playback",
+    playbackToggleLabel: "Enable playback",
+    rateLabel: "Voice rate",
+    pitchLabel: "Vocal tone",
+    voiceSubtitle: "Tune voice playback to suit quieter or more private listening sessions.",
+    ideaTitle: "Settings placement brainstorming",
+    voiceResetLabel: "Reset playback defaults",
+    voiceResetFeedbackText: "Voice playback defaults restored.",
+    storageTitle: "Data & storage",
+    storageSubtitle: "Flush local caches if they drift from your current state.",
+    cacheLabel: "Chat cache",
+    cacheDescription:
+      "Clearing removes local transcripts, recommendations, and memory cards.",
+    clearButtonLabel: "Clear cache",
+    clearingLabel: "Clearing…",
+    cacheSuccessMessage: "Cleared cached chat transcripts and recommendations.",
+    cacheErrorMessage: "Unable to clear cache right now. Please retry shortly.",
+    cacheNeedsAccountMessage: "You need an active session to clear cached data.",
+  },
+  ru: {
+    interfaceTitle: "Язык интерфейса",
+    interfaceSubtitle: "Выберите язык для чата и интерфейса.",
+    logoutLabel: "Выйти",
+    accountTitle: "Аккаунт",
+    accountSubtitle: "Сохраняйте безопасность аккаунта и обновляйте токен при необходимости.",
+    paletteTitle: "Цветовая палитра",
+    paletteSubtitle:
+      "Переключайте жёлто‑зелёный, розово‑зелёный или сине‑зелёный градиенты как в Messenger Creation.",
+    paletteActiveBadge: "Активно",
+    playbackLabel: "Озвучка",
+    playbackToggleLabel: "Включить озвучку",
+    rateLabel: "Скорость",
+    pitchLabel: "Тон",
+    voiceSubtitle: "Подстройте озвучку для тихих или приватных сценариев.",
+    ideaTitle: "Идеи размещения настроек",
+    voiceResetLabel: "Сбросить параметры озвучки",
+    voiceResetFeedbackText: "Настройки озвучки восстановлены.",
+    storageTitle: "Данные и хранилище",
+    storageSubtitle: "Очищайте кеш, если состояние расходится с текущим.",
+    cacheLabel: "Кэш чата",
+    cacheDescription:
+      "Очистка удалит локальные диалоги, рекомендации и карточки памяти.",
+    clearButtonLabel: "Очистить кеш",
+    clearingLabel: "Очистка…",
+    cacheSuccessMessage: "Локальный кеш диалогов и рекомендаций очищен.",
+    cacheErrorMessage: "Не удалось очистить кеш. Попробуйте позже.",
+    cacheNeedsAccountMessage: "Нужна активная сессия, чтобы очистить кеш.",
+  },
+} as const;
+
+type SettingsCopy = (typeof SETTINGS_COPY)[CopyLocale];
 
 export function SettingsScreen() {
   const theme = useTheme();
   const switchColors = useMemo(() => getAcademicSwitchColors(theme), [theme]);
   const { userId, logout } = useAuth();
+  const { locale, setLocale } = useLocale();
   const {
     enabled: voiceEnabled,
     setEnabled: setVoiceEnabled,
@@ -54,8 +153,10 @@ export function SettingsScreen() {
     setPitch: setVoicePitch,
     reset: resetVoiceSettings,
   } = useVoiceSettings();
-  const locale = Localization.locale ?? "zh-CN";
-  const isZh = locale.startsWith("zh");
+  const resolvedLocale = locale ?? LOCALE_KEYS.default;
+  const copyLocale: CopyLocale = toCopyLocale(resolvedLocale);
+  const copy: SettingsCopy = SETTINGS_COPY[copyLocale];
+  const isZh = copyLocale === "zh";
   const [voiceFeedback, setVoiceFeedback] = useState<string | null>(null);
   const voiceFeedbackTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [isClearingCache, setIsClearingCache] = useState(false);
@@ -255,49 +356,29 @@ export function SettingsScreen() {
     [theme],
   );
 
-  const rateLabel = isZh ? "语速" : "Voice rate";
-  const pitchLabel = isZh ? "音调" : "Vocal tone";
-  const playbackLabel = isZh ? "语音播报" : "Voice playback";
-  const logoutLabel = isZh ? "退出登录" : "Sign out";
-  const paletteTitle = isZh ? "界面配色" : "Interface palette";
-  const paletteSubtitle = isZh
-    ? "切换黄绿 / 粉绿 / 蓝绿渐变，与 Messenger Creation 参考保持一致。"
-    : "Toggle the yellow–green, pink–green, or blue–green gradients from the Messenger Creation reference.";
-  const paletteActiveBadge = isZh ? "当前" : "Active";
+  const rateLabel = copy.rateLabel;
+  const pitchLabel = copy.pitchLabel;
+  const playbackLabel = copy.playbackLabel;
+  const logoutLabel = copy.logoutLabel;
+  const paletteTitle = copy.paletteTitle;
+  const paletteSubtitle = copy.paletteSubtitle;
+  const paletteActiveBadge = copy.paletteActiveBadge;
   const { id: activePaletteId, options: paletteOptions, setPalette } =
     theme.palette;
-  const accountSubtitle = isZh
-    ? "保持账号安全，并重新登录以刷新访问令牌。"
-    : "Keep your account secure and re-authenticate when needed.";
-  const voiceSubtitle = isZh
-    ? "调整语音播报参数，便于在安静或私密场景中使用。"
-    : "Tune voice playback to suit quieter or more private listening sessions.";
-  const ideaTitle = isZh ? "设置入口脑暴" : "Settings placement brainstorming";
-  const voiceResetLabel = isZh
-    ? "恢复默认播放参数"
-    : "Reset playback defaults";
-  const voiceResetFeedbackText = isZh
-    ? "语音播放参数已恢复默认值。"
-    : "Voice playback defaults restored.";
-  const storageTitle = isZh ? "数据与存储" : "Data & storage";
-  const storageSubtitle = isZh
-    ? "当缓存偏离当下状态时，可手动清除本地数据。"
-    : "Flush local caches if they drift from your current state.";
-  const cacheLabel = isZh ? "聊天缓存" : "Chat cache";
-  const cacheDescription = isZh
-    ? "清理后将移除本地对话内容、推荐和记忆概览。"
-    : "Clearing removes local transcripts, recommendations, and memory cards.";
-  const clearButtonLabel = isZh ? "清空缓存" : "Clear cache";
-  const clearingLabel = isZh ? "清理中…" : "Clearing…";
-  const cacheSuccessMessage = isZh
-    ? "已清除本地对话缓存与推荐。"
-    : "Cleared cached chat transcripts and recommendations.";
-  const cacheErrorMessage = isZh
-    ? "清理缓存时出现异常，请稍后再试。"
-    : "Unable to clear cache right now. Please retry shortly.";
-  const cacheNeedsAccountMessage = isZh
-    ? "需要有效的账号才能清理缓存。"
-    : "You need an active session to clear cached data.";
+  const accountSubtitle = copy.accountSubtitle;
+  const voiceSubtitle = copy.voiceSubtitle;
+  const ideaTitle = copy.ideaTitle;
+  const voiceResetLabel = copy.voiceResetLabel;
+  const voiceResetFeedbackText = copy.voiceResetFeedbackText;
+  const storageTitle = copy.storageTitle;
+  const storageSubtitle = copy.storageSubtitle;
+  const cacheLabel = copy.cacheLabel;
+  const cacheDescription = copy.cacheDescription;
+  const clearButtonLabel = copy.clearButtonLabel;
+  const clearingLabel = copy.clearingLabel;
+  const cacheSuccessMessage = copy.cacheSuccessMessage;
+  const cacheErrorMessage = copy.cacheErrorMessage;
+  const cacheNeedsAccountMessage = copy.cacheNeedsAccountMessage;
   const scheduleVoiceFeedbackClear = useCallback(() => {
     if (voiceFeedbackTimer.current) {
       clearTimeout(voiceFeedbackTimer.current);
@@ -430,7 +511,34 @@ export function SettingsScreen() {
       showsVerticalScrollIndicator={false}
     >
       <BlurView intensity={GLASS_INTENSITY} tint="light" style={styles.card}>
-        <Text style={styles.cardTitle}>{isZh ? "账号" : "Account"}</Text>
+        <Text style={styles.cardTitle}>
+          {copy.interfaceTitle}
+        </Text>
+        <Text style={styles.cardSubtitle}>
+          {copy.interfaceSubtitle}
+        </Text>
+        <View style={styles.chipRow}>
+          {SUPPORTED_LOCALES.map((option) => {
+            const active = resolvedLocale === option.code;
+            return (
+              <Pressable
+                key={option.code}
+                onPress={() => setLocale(option.code)}
+                style={[styles.chip, active && styles.chipActive]}
+              >
+                <Text
+                  style={[styles.chipLabel, active && styles.chipLabelActive]}
+                >
+                  {option.label}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </View>
+      </BlurView>
+
+      <BlurView intensity={GLASS_INTENSITY} tint="light" style={styles.card}>
+        <Text style={styles.cardTitle}>{copy.accountTitle}</Text>
         <Text style={styles.cardSubtitle}>
           {accountSubtitle} {userId ? `ID：${userId}` : ""}
         </Text>
@@ -502,7 +610,7 @@ export function SettingsScreen() {
         <Text style={styles.cardSubtitle}>{voiceSubtitle}</Text>
         <View style={styles.row}>
           <Text style={styles.sectionLabel}>
-            {isZh ? "启用语音播报" : "Enable playback"}
+            {copy.playbackToggleLabel}
           </Text>
           <Switch
             value={voiceEnabled}
@@ -625,7 +733,7 @@ export function SettingsScreen() {
           {SETTING_IDEAS.map((idea) => (
             <Text key={idea.id} style={styles.ideaItem}>
               <Text style={styles.ideaBullet}>• </Text>
-              {isZh ? idea.zh : idea.en}
+              {copyLocale === "zh" ? idea.zh : idea.en}
             </Text>
           ))}
         </View>

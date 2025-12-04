@@ -1,17 +1,5 @@
 import { apiRequest } from "./api/client";
 
-export type SmsChallengeRequest = {
-  phoneNumber: string;
-  countryCode: string;
-  locale?: string;
-};
-
-export type SmsChallengeResponse = {
-  challengeId: string;
-  expiresIn: number;
-  detail: string;
-};
-
 export type TokenResponse = {
   accessToken: string;
   refreshToken: string;
@@ -19,44 +7,24 @@ export type TokenResponse = {
   expiresIn: number;
 };
 
-export async function requestSmsChallenge(
-  payload: SmsChallengeRequest,
-): Promise<SmsChallengeResponse> {
-  const response = await apiRequest<{
-    challenge_id: string;
-    expires_in: number;
-    detail: string;
-  }>("/auth/sms", {
-    method: "POST",
-    body: {
-      phone_number: payload.phoneNumber,
-      country_code: payload.countryCode,
-      locale: payload.locale ?? "zh-CN",
-    },
-  });
-
-  return {
-    challengeId: response.challenge_id,
-    expiresIn: response.expires_in,
-    detail: response.detail,
-  };
-}
-
-export async function exchangeSmsCode(params: {
-  challengeId: string;
+export async function loginWithDemoCode(params: {
   code: string;
+  sessionId?: string;
+  userAgent?: string;
+  ipAddress?: string;
 }): Promise<TokenResponse> {
   const response = await apiRequest<{
     access_token: string;
     refresh_token: string;
     token_type: string;
     expires_in: number;
-  }>("/auth/token", {
+  }>("/auth/demo", {
     method: "POST",
     body: {
-      provider: "sms",
       code: params.code,
-      challenge_id: params.challengeId,
+      session_id: params.sessionId,
+      user_agent: params.userAgent,
+      ip_address: params.ipAddress,
     },
   });
 
@@ -71,18 +39,23 @@ export async function exchangeSmsCode(params: {
 export async function exchangeGoogleCode(params: {
   code: string;
   redirectUri?: string;
+  sessionId?: string;
+  userAgent?: string;
+  ipAddress?: string;
 }): Promise<TokenResponse> {
   const response = await apiRequest<{
     access_token: string;
     refresh_token: string;
     token_type: string;
     expires_in: number;
-  }>("/auth/token", {
+  }>("/auth/google", {
     method: "POST",
     body: {
-      provider: "google",
       code: params.code,
       redirect_uri: params.redirectUri,
+      session_id: params.sessionId,
+      user_agent: params.userAgent,
+      ip_address: params.ipAddress,
     },
   });
 

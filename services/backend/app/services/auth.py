@@ -13,8 +13,14 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import AppSettings
+from app.integrations.google import GoogleOAuthClient
 from app.models import RefreshToken, User
-from app.schemas.auth import DemoLoginRequest, TokenRefreshRequest, TokenResponse
+from app.schemas.auth import (
+    DemoLoginRequest,
+    GoogleLoginRequest,
+    TokenRefreshRequest,
+    TokenResponse,
+)
 from app.services.demo_codes import DemoCodeEntry, DemoCodeRegistry
 
 logger = logging.getLogger(__name__)
@@ -84,6 +90,38 @@ class AuthService:
             "Issuing tokens for demo code %s (user=%s)",
             entry.code,
             user.id,
+        )
+        return await self._issue_tokens(
+            user,
+            session_id=payload.session_id,
+            user_agent=user_agent,
+            ip_address=ip_address,
+        )
+
+    async def login_with_google_code(
+        self,
+        payload: GoogleLoginRequest,
+        *,
+        user_agent: str | None = None,
+        ip_address: str | None = None,
+    ) -> TokenResponse:
+        """Exchange a Google authorization code for API tokens."""
+        if not payload.code:
+            raise ValueError("Код авторизации Google отсутствует.")
+
+        client = GoogleOAuthClient(self._settings)
+        profile = await client.exchange_code(payload.code, payload.redirect_uri)
+
+        user = await self._upsert_oauth_user(
+            subject=profile.subject,
+            email=profile.email,
+            name=profile.name,
+        )
+
+        logger.debug(
+            "Issuing tokens for google user %s (%s)",
+            user.id,
+            profile.email,
         )
         return await self._issue_tokens(
             user,

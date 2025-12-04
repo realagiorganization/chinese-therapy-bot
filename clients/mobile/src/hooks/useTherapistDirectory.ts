@@ -44,10 +44,11 @@ export function useTherapistDirectory(
   const [error, setError] = useState<Error | null>(null);
 
   const fetchDirectory = useCallback(async () => {
-    const result = await loadTherapists(locale);
+    // Always fetch English base data to avoid translating therapist names server-side.
+    const result = await loadTherapists("en-US");
     setTherapists(result.therapists);
     setSource(result.source);
-  }, [locale]);
+  }, []);
 
   useEffect(() => {
     let cancelled = false;

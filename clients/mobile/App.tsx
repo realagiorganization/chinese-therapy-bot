@@ -1,5 +1,6 @@
 import { ConnectivityBanner } from "@components/ConnectivityBanner";
 import { AuthProvider, useAuth } from "@context/AuthContext";
+import { LocaleProvider, useLocale } from "@context/LocaleContext";
 import { VoiceSettingsProvider } from "@context/VoiceSettingsContext";
 import { usePushNotifications } from "@hooks/usePushNotifications";
 import { useStartupProfiler } from "@hooks/useStartupProfiler";
@@ -9,6 +10,7 @@ import { LoginScreen } from "@screens/LoginScreen";
 import { SettingsScreen } from "@screens/SettingsScreen";
 import { TherapistDirectoryScreen } from "@screens/TherapistDirectoryScreen";
 import { ThemeProvider, useTheme } from "@theme/ThemeProvider";
+import { toCopyLocale } from "@utils/locale";
 import { BlurView } from "expo-blur";
 import * as Haptics from "expo-haptics";
 import { LinearGradient } from "expo-linear-gradient";
@@ -84,6 +86,8 @@ type MobileTab = "chat" | "journey" | "therapists" | "settings";
 
 function AuthenticatedShell() {
   const theme = useTheme();
+  const { locale } = useLocale();
+  const copyLocale = toCopyLocale(locale);
   const insets = useSafeAreaInsets();
   const [activeTab, setActiveTab] = useState<MobileTab>("chat");
   const [lastNonChatTab, setLastNonChatTab] = useState<MobileTab>("journey");
@@ -128,6 +132,7 @@ function AuthenticatedShell() {
           marginTop: theme.spacing.md,
         },
         tabBar: {
+          flexDirection: "row",
           borderRadius: theme.radius.lg,
           borderWidth: 1,
           borderColor: theme.colors.glassBorder,
@@ -190,15 +195,26 @@ function AuthenticatedShell() {
     handleTabChange("settings");
   }, [handleTabChange]);
 
-  const tabItems = useMemo(
-    () => [
-      { key: "chat" as const, label: "对话" },
-      { key: "journey" as const, label: "旅程" },
-      { key: "therapists" as const, label: "顾问" },
-      { key: "settings" as const, label: "设置" },
-    ],
-    [],
-  );
+  const tabItems = useMemo(() => {
+    const labels =
+      {
+        zh: { chat: "对话", journey: "旅程", therapists: "顾问", settings: "设置" },
+        en: { chat: "Chat", journey: "Journey", therapists: "Therapists", settings: "Settings" },
+        ru: { chat: "Чат", journey: "Путь", therapists: "Терапевты", settings: "Настройки" },
+      }[copyLocale] ??
+      {
+        chat: "对话",
+        journey: "旅程",
+        therapists: "顾问",
+        settings: "设置",
+      };
+    return [
+      { key: "chat" as const, label: labels.chat },
+      { key: "journey" as const, label: labels.journey },
+      { key: "therapists" as const, label: labels.therapists },
+      { key: "settings" as const, label: labels.settings },
+    ];
+  }, [copyLocale]);
 
   return (
     <View style={styles.container}>
@@ -342,12 +358,14 @@ export default function App() {
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaProvider>
         <ThemeProvider>
-          <VoiceSettingsProvider>
+          <LocaleProvider>
             <AuthProvider>
-              <ExpoStatusBar style="dark" />
-              <AppShell />
+              <VoiceSettingsProvider>
+                <ExpoStatusBar style="dark" />
+                <AppShell />
+              </VoiceSettingsProvider>
             </AuthProvider>
-          </VoiceSettingsProvider>
+          </LocaleProvider>
         </ThemeProvider>
       </SafeAreaProvider>
     </GestureHandlerRootView>

@@ -1,8 +1,8 @@
 import { useAuth } from "@context/AuthContext";
+import { useLocale, LOCALE_KEYS } from "@context/LocaleContext";
 import { useTheme } from "@theme/ThemeProvider";
 import { getAcademicSwitchColors } from "@theme/switchColors";
 import { BlurView } from "expo-blur";
-import * as Localization from "expo-localization";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
@@ -25,6 +25,8 @@ import type {
   TherapistRecommendation,
   TherapistSummary,
 } from "../types/therapists";
+import { translateBatch } from "@services/translation";
+import { toCopyLocale, type CopyLocale } from "@utils/locale";
 
 type DetailState =
   | { status: "idle"; detail: null; error: null }
@@ -32,15 +34,123 @@ type DetailState =
   | { status: "loaded"; detail: TherapistDetail; error: null }
   | { status: "error"; detail: null; error: string };
 
+type DirectoryCopy = (typeof DIRECTORY_COPY)[CopyLocale];
+
+const DIRECTORY_COPY = {
+  zh: {
+    cardBadge: "推荐",
+    noSpecialties: "未提供擅长领域",
+    noLanguages: "未提供可用语言",
+    pricePrefix: "每次",
+    searchPlaceholder: "搜索姓名、流派或关键词",
+    recommendationTitle: "AI 推荐顾问",
+    recommendationSubtitle: "根据你与 AI 的对话生成，供你优先考虑。",
+    recommendationLead: "根据你与 AI 的对话，我们推荐以下三位顾问。",
+    recommendationFallback: "与当前主题匹配。",
+    headerTitle: "顾问目录",
+    headerSubtitle: "根据主题、语言和价格快速筛选合适的心理顾问。",
+    sourceLive: "实时数据",
+    sourceFallback: "离线示例数据",
+    resetFilters: "重置筛选",
+    filterFocus: "关注主题",
+    filterFocusEmpty: "暂无主题信息",
+    filterLanguages: "支持语言",
+    filterLanguagesEmpty: "暂无语言信息",
+    filterMinPrice: "价格下限（每次）",
+    filterMaxPrice: "价格上限（每次）",
+    minPricePrefix: "最低",
+    maxPricePrefix: "最高",
+    priceUnlimited: "不限",
+    onlyRecommended: "只看推荐顾问",
+    emptyState: "没有符合条件的顾问，请调整筛选条件。",
+    detailEmpty: "选择顾问即可查看详细介绍。",
+    detailLoading: "正在载入顾问详情…",
+    detailError: "无法加载顾问详情，请稍后再试。",
+    biographyFallback: "暂无详细介绍。",
+    recommendationReasonPrefix: "推荐理由：",
+    availabilityLabel: "可预约时间",
+    availabilityEmpty: "暂无排期信息。",
+  },
+  en: {
+    cardBadge: "Recommended",
+    noSpecialties: "No specialties provided",
+    noLanguages: "Languages not provided",
+    pricePrefix: "Per session",
+    searchPlaceholder: "Search by name, modality, or keyword",
+    recommendationTitle: "AI recommendations",
+    recommendationSubtitle: "Rooted in your AI conversations so you can triage faster.",
+    recommendationLead: "Based on your conversations with the AI, we recommend the following three therapists.",
+    recommendationFallback: "Aligned with your recent topic.",
+    headerTitle: "Therapist directory",
+    headerSubtitle: "Filter by topic, language, and price to find the right fit.",
+    sourceLive: "Live data",
+    sourceFallback: "Offline sample data",
+    resetFilters: "Reset filters",
+    filterFocus: "Focus areas",
+    filterFocusEmpty: "No topic information",
+    filterLanguages: "Supported languages",
+    filterLanguagesEmpty: "No language information",
+    filterMinPrice: "Minimum price (per session)",
+    filterMaxPrice: "Maximum price (per session)",
+    minPricePrefix: "Min",
+    maxPricePrefix: "Max",
+    priceUnlimited: "No limit",
+    onlyRecommended: "Show recommended only",
+    emptyState: "No therapists match. Adjust your filters.",
+    detailEmpty: "Select a therapist to view details.",
+    detailLoading: "Loading therapist details…",
+    detailError: "Unable to load therapist details. Please try again.",
+    biographyFallback: "No biography provided.",
+    recommendationReasonPrefix: "Reason: ",
+    availabilityLabel: "Available slots",
+    availabilityEmpty: "No availability provided.",
+  },
+  ru: {
+    cardBadge: "Рекомендовано",
+    noSpecialties: "Специализация не указана",
+    noLanguages: "Языки не указаны",
+    pricePrefix: "За сессию",
+    searchPlaceholder: "Поиск по имени, подходу или ключевым словам",
+    recommendationTitle: "Рекомендации ИИ",
+    recommendationSubtitle: "Основаны на ваших разговорах с ИИ, чтобы быстрее выбрать.",
+    recommendationLead: "По вашим разговорам с ИИ рекомендуем следующих трёх терапевтов.",
+    recommendationFallback: "Подходит под последние темы.",
+    headerTitle: "Каталог терапевтов",
+    headerSubtitle: "Фильтруйте по теме, языку и цене, чтобы найти подходящего специалиста.",
+    sourceLive: "Живые данные",
+    sourceFallback: "Офлайн-пример данных",
+    resetFilters: "Сбросить фильтры",
+    filterFocus: "Темы",
+    filterFocusEmpty: "Нет информации о темах",
+    filterLanguages: "Поддерживаемые языки",
+    filterLanguagesEmpty: "Нет информации о языках",
+    filterMinPrice: "Минимальная цена (за сессию)",
+    filterMaxPrice: "Максимальная цена (за сессию)",
+    minPricePrefix: "Мин",
+    maxPricePrefix: "Макс",
+    priceUnlimited: "Без ограничений",
+    onlyRecommended: "Только рекомендованные",
+    emptyState: "Нет совпадений. Измените фильтры.",
+    detailEmpty: "Выберите терапевта, чтобы увидеть детали.",
+    detailLoading: "Загружаем данные терапевта…",
+    detailError: "Не удалось загрузить данные. Попробуйте позже.",
+    biographyFallback: "Биография не указана.",
+    recommendationReasonPrefix: "Причина: ",
+    availabilityLabel: "Доступное время",
+    availabilityEmpty: "Нет данных о расписании.",
+  },
+} as const;
+
 type TherapistCardProps = {
   therapist: TherapistSummary;
   active: boolean;
   onPress: (therapist: TherapistSummary) => void;
+  copy: DirectoryCopy;
 };
 
 const GLASS_INTENSITY = Platform.OS === "ios" ? 145 : 165;
 
-function TherapistCard({ therapist, active, onPress }: TherapistCardProps) {
+function TherapistCard({ therapist, active, onPress, copy }: TherapistCardProps) {
   const theme = useTheme();
 
   const styles = useMemo(
@@ -97,16 +207,18 @@ function TherapistCard({ therapist, active, onPress }: TherapistCardProps) {
           <Text style={styles.name}>{therapist.name}</Text>
           <Text style={styles.title}>{therapist.title}</Text>
         </View>
-        {therapist.recommended && <Text style={styles.badge}>推荐</Text>}
+        {therapist.recommended && (
+          <Text style={styles.badge}>{copy.cardBadge}</Text>
+        )}
       </View>
       <Text style={styles.caption}>
-        {therapist.specialties.join(" · ") || "未提供擅长领域"}
+        {therapist.specialties.join(" · ") || copy.noSpecialties}
       </Text>
       <Text style={styles.caption}>
-        {therapist.languages.join(" / ") || "未提供可用语言"}
+        {therapist.languages.join(" / ") || copy.noLanguages}
       </Text>
       <Text style={styles.caption}>
-        每次 {therapist.price} {therapist.currency}
+        {copy.pricePrefix} {therapist.price} {therapist.currency}
       </Text>
     </Pressable>
   );
@@ -164,8 +276,10 @@ function renderAvailabilitySlot(slot: string, locale: string): string {
 }
 
 export function TherapistDirectoryScreen() {
-  const locale = Localization.locale ?? "zh-CN";
-  const isZh = locale.startsWith("zh");
+  const { locale } = useLocale();
+  const resolvedLocale = locale ?? LOCALE_KEYS.default;
+  const copyLocale = toCopyLocale(resolvedLocale);
+  const copy = DIRECTORY_COPY[copyLocale];
   const theme = useTheme();
   const switchColors = useMemo(() => getAcademicSwitchColors(theme), [theme]);
   const { userId } = useAuth();
@@ -185,7 +299,7 @@ export function TherapistDirectoryScreen() {
     isRefreshing,
     reload,
     error,
-  } = useTherapistDirectory(locale);
+  } = useTherapistDirectory(resolvedLocale);
 
   const [searchQuery, setSearchQuery] = useState("");
   const [cachedRecommendations, setCachedRecommendations] = useState<
@@ -197,6 +311,14 @@ export function TherapistDirectoryScreen() {
     detail: null,
     error: null,
   });
+  const [specialtyLabels, setSpecialtyLabels] = useState<Record<string, string>>(
+    {},
+  );
+  const [languageLabels, setLanguageLabels] = useState<Record<string, string>>(
+    {},
+  );
+  const lastSpecialtyKeyRef = useRef<string>("");
+  const lastLanguageKeyRef = useRef<string>("");
   useEffect(() => {
     if (!userId) {
       setCachedRecommendations([]);
@@ -222,6 +344,99 @@ export function TherapistDirectoryScreen() {
       cancelled = true;
     };
   }, [userId]);
+
+  useEffect(() => {
+    const key = `${copyLocale}|${specialties.join("|")}`;
+    if (specialties.length === 0 || copyLocale === "en") {
+      if (lastSpecialtyKeyRef.current !== "") {
+        lastSpecialtyKeyRef.current = "";
+      }
+      if (Object.keys(specialtyLabels).length > 0) {
+        setSpecialtyLabels({});
+      }
+      return;
+    }
+    if (key === lastSpecialtyKeyRef.current) {
+      return;
+    }
+    lastSpecialtyKeyRef.current = key;
+    let cancelled = false;
+    const entries = specialties.map((text) => ({ key: text, text }));
+    translateBatch({
+      targetLocale: resolvedLocale,
+      sourceLocale: "en-US",
+      namespace: "mobile.therapist-directory.specialties",
+      entries,
+    })
+      .then((response) => {
+        if (cancelled) {
+          return;
+        }
+        const mapped: Record<string, string> = {};
+        entries.forEach((entry) => {
+          mapped[entry.key] =
+            (response.translations?.[entry.key] as string | undefined) ??
+            entry.text;
+        });
+        setSpecialtyLabels(mapped);
+      })
+      .catch((err) => {
+        console.warn("[TherapistDirectory] Failed to translate specialties", err);
+        if (!cancelled) {
+          setSpecialtyLabels({});
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [copyLocale, resolvedLocale, specialties]);
+
+  useEffect(() => {
+    const key = `${copyLocale}|${languages.join("|")}`;
+    if (languages.length === 0 || copyLocale === "en") {
+      if (lastLanguageKeyRef.current !== "") {
+        lastLanguageKeyRef.current = "";
+      }
+      if (Object.keys(languageLabels).length > 0) {
+        setLanguageLabels({});
+      }
+      return;
+    }
+    if (key === lastLanguageKeyRef.current) {
+      return;
+    }
+    lastLanguageKeyRef.current = key;
+    let cancelled = false;
+    const entries = languages.map((text) => ({ key: text, text }));
+    translateBatch({
+      targetLocale: resolvedLocale,
+      sourceLocale: "en-US",
+      namespace: "mobile.therapist-directory.languages",
+      entries,
+    })
+      .then((response) => {
+        if (cancelled) {
+          return;
+        }
+        const mapped: Record<string, string> = {};
+        entries.forEach((entry) => {
+          mapped[entry.key] =
+            (response.translations?.[entry.key] as string | undefined) ??
+            entry.text;
+        });
+        setLanguageLabels(mapped);
+      })
+      .catch((err) => {
+        console.warn("[TherapistDirectory] Failed to translate languages", err);
+        if (!cancelled) {
+          setLanguageLabels({});
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [copyLocale, resolvedLocale, languages]);
+
   const filtered = useMemo(() => {
     const base = filteredByFilters;
     const term = searchQuery.trim().toLowerCase();
@@ -240,16 +455,10 @@ export function TherapistDirectoryScreen() {
       return haystack.includes(term);
     });
   }, [filteredByFilters, searchQuery]);
-  const searchPlaceholder = isZh
-    ? "搜索姓名、流派或关键词"
-    : "Search by name, modality, or keyword";
-  const recommendationTitle = isZh ? "AI 推荐顾问" : "AI recommendations";
-  const recommendationSubtitle = isZh
-    ? "根据你与 AI 的对话生成，供你优先考虑。"
-    : "Rooted in your AI conversations so you can triage faster.";
-  const recommendationLead = isZh
-    ? "根据你与 AI 的对话，我们推荐以下三位顾问。"
-    : "Based on your conversations with the AI, we recommend the following three therapists.";
+  const searchPlaceholder = copy.searchPlaceholder;
+  const recommendationTitle = copy.recommendationTitle;
+  const recommendationSubtitle = copy.recommendationSubtitle;
+  const recommendationLead = copy.recommendationLead;
   const recommendationSwatches = useMemo(
     () => theme.palette.recommendationSwatches,
     [theme.palette.recommendationSwatches],
@@ -424,7 +633,11 @@ export function TherapistDirectoryScreen() {
           paddingVertical: theme.spacing.xs,
           color: theme.colors.textPrimary,
         },
+        list: {
+          flex: 1,
+        },
         listContent: {
+          paddingTop: theme.spacing.lg,
           gap: theme.spacing.md,
           paddingBottom: theme.spacing.lg,
         },
@@ -474,20 +687,18 @@ export function TherapistDirectoryScreen() {
       setSelectedId(therapist.id);
       setDetailState({ status: "loading", detail: null, error: null });
       try {
-        const detail = await loadTherapistDetail(therapist.id, locale);
+        const detail = await loadTherapistDetail(therapist.id, "en-US");
         setDetailState({ status: "loaded", detail, error: null });
       } catch (err) {
         setDetailState({
           status: "error",
           detail: null,
           error:
-            err instanceof Error
-              ? err.message
-              : "无法加载顾问详情，请稍后再试。",
+            err instanceof Error ? err.message : copy.detailError,
         });
       }
     },
-    [locale],
+    [copy.detailError],
   );
 
   const handleResetFilters = useCallback(() => {
@@ -536,281 +747,280 @@ export function TherapistDirectoryScreen() {
         therapist={item}
         active={item.id === selectedId}
         onPress={handleSelect}
+        copy={copy}
       />
     ),
-    [handleSelect, selectedId],
+    [copy, handleSelect, selectedId],
   );
+  const listHeader = useMemo(
+    () => (
+      <View style={{ gap: theme.spacing.lg }}>
+        <View>
+          <Text style={styles.title}>{copy.headerTitle}</Text>
+          <Text style={styles.subtitle}>{copy.headerSubtitle}</Text>
+        </View>
 
-  return (
-    <View style={styles.container}>
-      <View>
-        <Text style={styles.title}>顾问目录</Text>
-        <Text style={styles.subtitle}>
-          根据主题、语言和价格快速筛选合适的心理顾问。
-        </Text>
-      </View>
+        <BlurView intensity={GLASS_INTENSITY} tint="light" style={styles.searchCard}>
+          <TextInput
+            style={styles.searchInput}
+            placeholder={searchPlaceholder}
+            placeholderTextColor={theme.colors.textSecondary}
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+            autoCapitalize="none"
+            autoCorrect={false}
+            clearButtonMode="while-editing"
+          />
+        </BlurView>
 
-      <BlurView intensity={GLASS_INTENSITY} tint="light" style={styles.searchCard}>
-        <TextInput
-          style={styles.searchInput}
-          placeholder={searchPlaceholder}
-          placeholderTextColor={theme.colors.textSecondary}
-          value={searchQuery}
-          onChangeText={setSearchQuery}
-          autoCapitalize="none"
-          autoCorrect={false}
-          clearButtonMode="while-editing"
-        />
-      </BlurView>
+        {cachedRecommendations.length > 0 && (
+          <BlurView
+            intensity={GLASS_INTENSITY + 5}
+            tint="light"
+            style={styles.recommendationCard}
+          >
+            <Text style={styles.recommendationTitle}>{recommendationTitle}</Text>
+            <Text style={styles.recommendationSubtitle}>{recommendationLead}</Text>
+            <Text style={styles.recommendationMeta}>{recommendationSubtitle}</Text>
+            <View style={styles.recommendationList}>
+              {cachedRecommendations.map((recommendation, index) => {
+                const label = String.fromCharCode(65 + index);
+                const backgroundColor =
+                  recommendationSwatches[index % recommendationSwatches.length];
+                const fallbackReason = copy.recommendationFallback;
+                return (
+                  <Pressable
+                    key={recommendation.id}
+                    style={({ pressed }) => [
+                      styles.recommendationItem,
+                      { backgroundColor },
+                      pressed && styles.recommendationItemPressed,
+                    ]}
+                    android_ripple={{
+                      color: "rgba(0,0,0,0.08)",
+                      foreground: true,
+                    }}
+                    onPress={() => focusTherapistById(recommendation.id)}
+                  >
+                    <Text style={styles.recommendationLabel}>{label}</Text>
+                    <View style={{ flex: 1, gap: 4 }}>
+                      <Text style={styles.recommendationName}>
+                        {`${label}. ${recommendation.name}`}
+                      </Text>
+                      <Text style={styles.recommendationReason}>
+                        {recommendation.reason?.trim().length
+                          ? recommendation.reason
+                          : fallbackReason}
+                      </Text>
+                      {recommendation.matchedKeywords.length > 0 && (
+                        <View style={styles.recommendationKeywordsRow}>
+                          {recommendation.matchedKeywords.map((keyword) => (
+                            <Text
+                              key={`${recommendation.id}-${keyword}`}
+                              style={styles.recommendationKeyword}
+                            >
+                              {keyword}
+                            </Text>
+                          ))}
+                        </View>
+                      )}
+                    </View>
+                  </Pressable>
+                );
+              })}
+            </View>
+          </BlurView>
+        )}
 
-      {cachedRecommendations.length > 0 && (
-        <BlurView
-          intensity={GLASS_INTENSITY + 5}
-          tint="light"
-          style={styles.recommendationCard}
-        >
-          <Text style={styles.recommendationTitle}>{recommendationTitle}</Text>
-          <Text style={styles.recommendationSubtitle}>
-            {recommendationLead}
-          </Text>
-          <Text style={styles.recommendationMeta}>
-            {recommendationSubtitle}
-          </Text>
-          <View style={styles.recommendationList}>
-            {cachedRecommendations.map((recommendation, index) => {
-              const label = String.fromCharCode(65 + index);
-              const backgroundColor =
-                recommendationSwatches[index % recommendationSwatches.length];
-              const fallbackReason = isZh
-                ? "与当前主题匹配。"
-                : "Aligned with what you raised recently.";
-              return (
-                <Pressable
-                  key={recommendation.id}
-                  style={({ pressed }) => [
-                    styles.recommendationItem,
-                    { backgroundColor },
-                    pressed && styles.recommendationItemPressed,
-                  ]}
-                  android_ripple={{
-                    color: "rgba(0,0,0,0.08)",
-                    foreground: true,
-                  }}
-                  onPress={() => focusTherapistById(recommendation.id)}
-                >
-                  <Text style={styles.recommendationLabel}>{label}</Text>
-                  <View style={{ flex: 1, gap: 4 }}>
-                    <Text style={styles.recommendationName}>
-                      {`${label}. ${recommendation.name}`}
-                    </Text>
-                    <Text style={styles.recommendationReason}>
-                      {recommendation.reason?.trim().length
-                        ? recommendation.reason
-                        : fallbackReason}
-                    </Text>
-                    {recommendation.matchedKeywords.length > 0 && (
-                      <View style={styles.recommendationKeywordsRow}>
-                        {recommendation.matchedKeywords.map((keyword) => (
-                          <Text
-                            key={`${recommendation.id}-${keyword}`}
-                            style={styles.recommendationKeyword}
-                          >
-                            {keyword}
-                          </Text>
-                        ))}
-                      </View>
-                    )}
-                  </View>
-                </Pressable>
-              );
-            })}
+        <BlurView intensity={GLASS_INTENSITY} tint="light" style={styles.filtersCard}>
+          <View
+            style={{
+              flexDirection: "row",
+              justifyContent: "space-between",
+              alignItems: "center",
+            }}
+          >
+            {source && (
+              <Text style={styles.badge}>
+                {source === "api" ? copy.sourceLive : copy.sourceFallback}
+              </Text>
+            )}
+            <Pressable onPress={handleResetFilters}>
+              <Text style={styles.filterReset}>{copy.resetFilters}</Text>
+            </Pressable>
+          </View>
+
+          <View>
+            <Text style={styles.filterLabel}>{copy.filterFocus}</Text>
+            <View style={styles.chipRow}>
+              {specialties.map((specialty) => (
+                <FilterChip
+                  key={specialty}
+                  label={specialtyLabels[specialty] ?? specialty}
+                  active={filters.specialty === specialty}
+                  onPress={() =>
+                    setFilters((prev) => ({
+                      ...prev,
+                      specialty: prev.specialty === specialty ? undefined : specialty,
+                    }))
+                  }
+                />
+              ))}
+              {specialties.length === 0 && (
+                <Text style={styles.subtitle}>{copy.filterFocusEmpty}</Text>
+              )}
+            </View>
+          </View>
+
+          <View>
+            <Text style={styles.filterLabel}>{copy.filterLanguages}</Text>
+            <View style={styles.chipRow}>
+              {languages.map((language) => (
+                <FilterChip
+                  key={language}
+                  label={languageLabels[language] ?? language}
+                  active={filters.language === language}
+                  onPress={() =>
+                    setFilters((prev) => ({
+                      ...prev,
+                      language: prev.language === language ? undefined : language,
+                    }))
+                  }
+                />
+              ))}
+              {languages.length === 0 && (
+                <Text style={styles.subtitle}>{copy.filterLanguagesEmpty}</Text>
+              )}
+            </View>
+          </View>
+
+          <View>
+            <Text style={styles.filterLabel}>{copy.filterMinPrice}</Text>
+            <TextInput
+              inputMode="numeric"
+              keyboardType="number-pad"
+              style={styles.input}
+              placeholder={
+                minPrice
+                  ? `${copy.minPricePrefix} ${minPrice} ${
+                      therapists[0]?.currency ?? "CNY"
+                    }`
+                  : copy.priceUnlimited
+              }
+              placeholderTextColor={theme.colors.textSecondary}
+              value={filters.minPrice === undefined ? "" : String(filters.minPrice)}
+              onChangeText={(value) => {
+                setFilters((prev) => {
+                  if (value.trim().length === 0) {
+                    return { ...prev, minPrice: undefined };
+                  }
+                  const parsed = Number.parseInt(value, 10);
+                  return {
+                    ...prev,
+                    minPrice: Number.isNaN(parsed) ? prev.minPrice : parsed,
+                  };
+                });
+              }}
+            />
+          </View>
+
+          <View>
+            <Text style={styles.filterLabel}>{copy.filterMaxPrice}</Text>
+            <TextInput
+              inputMode="numeric"
+              keyboardType="number-pad"
+              style={styles.input}
+              placeholder={
+                maxPrice
+                  ? `${copy.maxPricePrefix} ${maxPrice} ${
+                      therapists[0]?.currency ?? "CNY"
+                    }`
+                  : copy.priceUnlimited
+              }
+              placeholderTextColor={theme.colors.textSecondary}
+              value={filters.maxPrice === undefined ? "" : String(filters.maxPrice)}
+              onChangeText={(value) => {
+                setFilters((prev) => {
+                  if (value.trim().length === 0) {
+                    return { ...prev, maxPrice: undefined };
+                  }
+                  const parsed = Number.parseInt(value, 10);
+                  return {
+                    ...prev,
+                    maxPrice: Number.isNaN(parsed) ? prev.maxPrice : parsed,
+                  };
+                });
+              }}
+            />
+          </View>
+
+          <View
+            style={{
+              flexDirection: "row",
+              alignItems: "center",
+              justifyContent: "space-between",
+            }}
+          >
+            <Text style={styles.filterLabel}>{copy.onlyRecommended}</Text>
+            <Switch
+              value={Boolean(filters.recommendedOnly)}
+              trackColor={{
+                true: switchColors.trackTrue,
+                false: switchColors.trackFalse,
+              }}
+              thumbColor={
+                filters.recommendedOnly
+                  ? switchColors.thumbTrue
+                  : switchColors.thumbFalse
+              }
+              ios_backgroundColor={switchColors.iosFalse}
+              onValueChange={(value) =>
+                setFilters((prev) => ({
+                  ...prev,
+                  recommendedOnly: value,
+                }))
+              }
+            />
           </View>
         </BlurView>
-      )}
+      </View>
+    ),
+    [
+      cachedRecommendations,
+      copy,
+      focusTherapistById,
+      languages,
+      languageLabels,
+      maxPrice,
+      minPrice,
+      filters,
+      recommendationLead,
+      recommendationSubtitle,
+      recommendationTitle,
+      recommendationSwatches,
+      searchPlaceholder,
+      searchQuery,
+      setFilters,
+      specialties,
+      specialtyLabels,
+      switchColors,
+      theme.colors.textSecondary,
+      theme.colors.primary,
+      therapists,
+    ],
+  );
 
-      <BlurView intensity={GLASS_INTENSITY} tint="light" style={styles.filtersCard}>
-        <View
-          style={{
-            flexDirection: "row",
-            justifyContent: "space-between",
-            alignItems: "center",
-          }}
-        >
-          {source && (
-            <Text style={styles.badge}>
-              {source === "api" ? "实时数据" : "离线示例数据"}
-            </Text>
-          )}
-          <Pressable onPress={handleResetFilters}>
-            <Text style={styles.filterReset}>重置筛选</Text>
-          </Pressable>
-        </View>
-
-        <View>
-          <Text style={styles.filterLabel}>关注主题</Text>
-          <View style={styles.chipRow}>
-            {specialties.map((specialty) => (
-              <FilterChip
-                key={specialty}
-                label={specialty}
-                active={filters.specialty === specialty}
-                onPress={() =>
-                  setFilters((prev) => ({
-                    ...prev,
-                    specialty:
-                      prev.specialty === specialty ? undefined : specialty,
-                  }))
-                }
-              />
-            ))}
-            {specialties.length === 0 && (
-              <Text style={styles.subtitle}>暂无主题信息</Text>
-            )}
-          </View>
-        </View>
-
-        <View>
-          <Text style={styles.filterLabel}>支持语言</Text>
-          <View style={styles.chipRow}>
-            {languages.map((language) => (
-              <FilterChip
-                key={language}
-                label={language}
-                active={filters.language === language}
-                onPress={() =>
-                  setFilters((prev) => ({
-                    ...prev,
-                    language: prev.language === language ? undefined : language,
-                  }))
-                }
-              />
-            ))}
-            {languages.length === 0 && (
-              <Text style={styles.subtitle}>暂无语言信息</Text>
-            )}
-          </View>
-        </View>
-
-        <View>
-          <Text style={styles.filterLabel}>价格下限（每次）</Text>
-          <TextInput
-            inputMode="numeric"
-            keyboardType="number-pad"
-            style={styles.input}
-            placeholder={
-              minPrice
-                ? `最低 ${minPrice} ${therapists[0]?.currency ?? "CNY"}`
-                : "不限"
-            }
-            placeholderTextColor={theme.colors.textSecondary}
-            value={
-              filters.minPrice === undefined ? "" : String(filters.minPrice)
-            }
-            onChangeText={(value) => {
-              setFilters((prev) => {
-                if (value.trim().length === 0) {
-                  return { ...prev, minPrice: undefined };
-                }
-                const parsed = Number.parseInt(value, 10);
-                return {
-                  ...prev,
-                  minPrice: Number.isNaN(parsed) ? prev.minPrice : parsed,
-                };
-              });
-            }}
-          />
-        </View>
-
-        <View>
-          <Text style={styles.filterLabel}>价格上限（每次）</Text>
-          <TextInput
-            inputMode="numeric"
-            keyboardType="number-pad"
-            style={styles.input}
-            placeholder={
-              maxPrice
-                ? `最高 ${maxPrice} ${therapists[0]?.currency ?? "CNY"}`
-                : "不限"
-            }
-            placeholderTextColor={theme.colors.textSecondary}
-            value={
-              filters.maxPrice === undefined ? "" : String(filters.maxPrice)
-            }
-            onChangeText={(value) => {
-              setFilters((prev) => {
-                if (value.trim().length === 0) {
-                  return { ...prev, maxPrice: undefined };
-                }
-                const parsed = Number.parseInt(value, 10);
-                return {
-                  ...prev,
-                  maxPrice: Number.isNaN(parsed) ? prev.maxPrice : parsed,
-                };
-              });
-            }}
-          />
-        </View>
-
-        <View
-          style={{
-            flexDirection: "row",
-            alignItems: "center",
-            justifyContent: "space-between",
-          }}
-        >
-          <Text style={styles.filterLabel}>只看推荐顾问</Text>
-          <Switch
-            value={Boolean(filters.recommendedOnly)}
-            trackColor={{
-              true: switchColors.trackTrue,
-              false: switchColors.trackFalse,
-            }}
-            thumbColor={
-              filters.recommendedOnly
-                ? switchColors.thumbTrue
-                : switchColors.thumbFalse
-            }
-            ios_backgroundColor={switchColors.iosFalse}
-            onValueChange={(value) =>
-              setFilters((prev) => ({
-                ...prev,
-                recommendedOnly: value,
-              }))
-            }
-          />
-        </View>
-      </BlurView>
-
-      {isLoading ? (
-        <View style={{ flex: 1, justifyContent: "center" }}>
-          <ActivityIndicator size="large" color={theme.colors.primary} />
-        </View>
-      ) : (
-        <FlatList
-          ref={flatListRef}
-          data={filtered}
-          keyExtractor={(item) => item.id}
-          renderItem={renderTherapist}
-          contentContainerStyle={styles.listContent}
-          refreshing={isRefreshing}
-          onRefresh={reload}
-          ListEmptyComponent={
-            <Text style={styles.emptyState}>
-              没有符合条件的顾问，请调整筛选条件。
-            </Text>
-          }
-        />
-      )}
-
+  const renderDetailCard = useCallback(() => {
+    return (
       <BlurView intensity={GLASS_INTENSITY + 5} tint="light" style={styles.detailCard}>
         {detailState.status === "idle" && (
-          <Text style={styles.subtitle}>选择顾问即可查看详细介绍。</Text>
+          <Text style={styles.subtitle}>{copy.detailEmpty}</Text>
         )}
 
         {detailState.status === "loading" && (
           <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
             <ActivityIndicator size="small" color={theme.colors.primary} />
-            <Text style={styles.subtitle}>正在载入顾问详情…</Text>
+            <Text style={styles.subtitle}>{copy.detailLoading}</Text>
           </View>
         )}
 
@@ -825,7 +1035,7 @@ export function TherapistDirectoryScreen() {
             <Text style={styles.detailTitle}>{detailState.detail.name}</Text>
             <Text style={styles.detailBody}>{detailState.detail.title}</Text>
             <Text style={styles.detailBody}>
-              {detailState.detail.biography || "暂无详细介绍。"}
+              {detailState.detail.biography || copy.biographyFallback}
             </Text>
             {detailState.detail.recommendationReason && (
               <Text
@@ -834,18 +1044,19 @@ export function TherapistDirectoryScreen() {
                   { color: theme.colors.primary, fontWeight: "600" },
                 ]}
               >
-                推荐理由：{detailState.detail.recommendationReason}
+                {copy.recommendationReasonPrefix}
+                {detailState.detail.recommendationReason}
               </Text>
             )}
             <View style={{ gap: 4 }}>
-              <Text style={styles.filterLabel}>可预约时间</Text>
+              <Text style={styles.filterLabel}>{copy.availabilityLabel}</Text>
               <View style={styles.availabilityRow}>
                 {detailState.detail.availability.length === 0 ? (
-                  <Text style={styles.subtitle}>暂无排期信息。</Text>
+                  <Text style={styles.subtitle}>{copy.availabilityEmpty}</Text>
                 ) : (
                   detailState.detail.availability.map((slot) => (
                     <Text key={slot} style={styles.availabilityBadge}>
-                      {renderAvailabilitySlot(slot, locale)}
+                      {renderAvailabilitySlot(slot, resolvedLocale)}
                     </Text>
                   ))
                 )}
@@ -860,6 +1071,34 @@ export function TherapistDirectoryScreen() {
           </Text>
         )}
       </BlurView>
+    );
+  }, [copy, detailState, error, resolvedLocale, theme.colors.danger, theme.colors.primary, theme.colors.warning, theme.spacing.sm]);
+
+  const emptyComponent = useMemo(
+    () =>
+      isLoading ? (
+        <ActivityIndicator size="large" color={theme.colors.primary} />
+      ) : (
+        <Text style={styles.emptyState}>{copy.emptyState}</Text>
+      ),
+    [copy.emptyState, isLoading, theme.colors.primary],
+  );
+
+  return (
+    <View style={styles.container}>
+      <FlatList
+        ref={flatListRef}
+        data={filtered}
+        keyExtractor={(item) => item.id}
+        renderItem={renderTherapist}
+        style={styles.list}
+        contentContainerStyle={styles.listContent}
+        refreshing={isRefreshing}
+        onRefresh={reload}
+        ListHeaderComponent={listHeader}
+        ListFooterComponent={renderDetailCard}
+        ListEmptyComponent={emptyComponent}
+      />
     </View>
   );
 }

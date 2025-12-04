@@ -15,6 +15,7 @@
       "@constants/*": ["src/constants/*"],
       "@services/*": ["src/services/*"],
       "@types/*": ["src/types/*"],
+      "@utils/*": ["src/utils/*"],
       "shared/*": ["../shared/*"]
     }
   },

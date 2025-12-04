@@ -19,7 +19,7 @@ const alias = {
 
 config.watchFolders = [path.join(workspaceRoot, "shared")];
 
-config.resolver.disableHierarchicalLookup = true;
+config.resolver.disableHierarchicalLookup = false;
 config.resolver.nodeModulesPaths = [
   path.resolve(projectRoot, "node_modules"),
   path.resolve(workspaceRoot, "node_modules")

@@ -1,5 +1,6 @@
 import { VOICE_PITCH_PRESETS, VOICE_RATE_PRESETS } from "@constants/voice";
 import { useAuth } from "@context/AuthContext";
+import { useLocale } from "@context/LocaleContext";
 import { useVoiceSettings } from "@context/VoiceSettingsContext";
 import { useNetworkStatus } from "@hooks/useNetworkStatus";
 import { markStartupEvent } from "@hooks/useStartupProfiler";
@@ -30,6 +31,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import type { ChatMessage } from "../types/chat";
 import type { TherapistRecommendation } from "../types/therapists";
+import { toCopyLocale, type CopyLocale } from "@utils/locale";
 type MessageWithId = ChatMessage & { id: string };
 
 const PROMPT_COPY = {
@@ -69,6 +71,147 @@ const QUOTE_ATTRIBUTION = {
   zh: "—— 精神动力学提示",
   en: "— Psychodynamic reflection",
   ru: "— Психодинамическое наблюдение",
+} as const;
+
+const CHAT_COPY = {
+  zh: {
+    noSpecialties: "未提供擅长领域",
+    noLanguages: "未提供语言",
+    matchLabel: "匹配度",
+    focusLabel: "擅长",
+    languageLabel: "语言",
+    feeLabel: "费用",
+    voiceUnavailable: "离线模式暂不可用",
+    voiceTranscribing: "语音识别中…",
+    voiceRecording: "保持按住录音",
+    voiceIdle: "长按说话",
+    voicePlaybackLoading: "加载中",
+    voicePlaybackEnabled: "已开启",
+    voicePlaybackDisabled: "已关闭",
+    offlineSendError: "当前处于离线状态，请联网后再发送消息。",
+    sendErrorFallback: "发送消息失败，请稍后重试。",
+    recommendationIntro: "根据你和 AI 的对话，我们推荐下列治疗师，并附上简短理由。",
+    overflowTitle: "更多选项",
+    overflowSettingsLabel: "打开设置",
+    overflowSettingsHint: "切换配色、语音播报与账户偏好。",
+    composerPlaceholder: "请把此刻浮现的念头或观察输入在这里。",
+    modalTitle: "语音播报设置",
+    modalEnableLabel: "启用语音播报",
+    modalRateLabel: "语速",
+    modalPitchLabel: "音调",
+    modalHintLabel: "每条 AI 回复都会以当前语速和音调播报。",
+    modalDoneLabel: "完成",
+    promptLabel: "开放式引导",
+    recommendationsTitle: "AI 推荐治疗师",
+    recommendationFallback: "匹配主题",
+    highlightsTitle: "疗程亮点",
+    backLabel: "返回上一屏",
+    headerTitle: "MindWell 对话",
+    headerMeta: "心理动力 · 学术语气",
+    overflowAria: "打开更多操作，包括设置入口",
+    restoringLabel: "正在恢复会话…",
+    offlineBanner: "当前离线，已切换到本地缓存模式。",
+    voiceButtonTooltip: "按住进行语音输入",
+    voiceButtonOffline: "离线不可用",
+    voiceButtonRecording: "松开结束",
+    voiceButtonIdle: "按住语音",
+    playbackPrefix: "播报：",
+    playbackSettingsLabel: "打开语音播报设置",
+    sendingLabel: "发送中…",
+    sendLabel: "发送",
+  },
+  en: {
+    noSpecialties: "Not provided",
+    noLanguages: "Not provided",
+    matchLabel: "Match",
+    focusLabel: "Focus",
+    languageLabel: "Languages",
+    feeLabel: "Fee",
+    voiceUnavailable: "Unavailable while offline",
+    voiceTranscribing: "Transcribing…",
+    voiceRecording: "Hold to record",
+    voiceIdle: "Press and hold to speak",
+    voicePlaybackLoading: "Loading",
+    voicePlaybackEnabled: "Enabled",
+    voicePlaybackDisabled: "Disabled",
+    offlineSendError: "You appear to be offline. Please reconnect before sending a message.",
+    sendErrorFallback: "Failed to send message. Please try again.",
+    recommendationIntro: "Based on your conversations with the AI, we recommend these therapists and short rationales.",
+    overflowTitle: "More options",
+    overflowSettingsLabel: "Open Settings",
+    overflowSettingsHint: "Adjust palette, voice playback, and account preferences.",
+    composerPlaceholder: "Share whatever thought or observation is present.",
+    modalTitle: "Voice playback settings",
+    modalEnableLabel: "Enable playback",
+    modalRateLabel: "Rate",
+    modalPitchLabel: "Pitch",
+    modalHintLabel: "Each reply will play using the selected rate and pitch.",
+    modalDoneLabel: "Done",
+    promptLabel: "Open prompt",
+    recommendationsTitle: "AI therapist suggestions",
+    recommendationFallback: "Contextual match",
+    highlightsTitle: "Therapy highlights",
+    backLabel: "Return to previous tab",
+    headerTitle: "MindWell Dialogue",
+    headerMeta: "Psychodynamic · Academic tone",
+    overflowAria: "Open overflow actions, including Settings",
+    restoringLabel: "Restoring your session…",
+    offlineBanner: "Offline mode active — showing cached conversation.",
+    voiceButtonTooltip: "Hold to record voice input",
+    voiceButtonOffline: "Offline only",
+    voiceButtonRecording: "Release to stop",
+    voiceButtonIdle: "Hold to speak",
+    playbackPrefix: "Playback: ",
+    playbackSettingsLabel: "Open voice playback preferences",
+    sendingLabel: "Sending…",
+    sendLabel: "Send",
+  },
+  ru: {
+    noSpecialties: "Нет данных",
+    noLanguages: "Не указано",
+    matchLabel: "Совпадение",
+    focusLabel: "Профиль",
+    languageLabel: "Язык",
+    feeLabel: "Стоимость",
+    voiceUnavailable: "Недоступно офлайн",
+    voiceTranscribing: "Расшифровка…",
+    voiceRecording: "Удерживайте для записи",
+    voiceIdle: "Нажмите и удерживайте, чтобы говорить",
+    voicePlaybackLoading: "Загрузка",
+    voicePlaybackEnabled: "Включено",
+    voicePlaybackDisabled: "Выключено",
+    offlineSendError: "Вы офлайн. Подключитесь к сети и отправьте снова.",
+    sendErrorFallback: "Не удалось отправить сообщение. Попробуйте позже.",
+    recommendationIntro: "По вашим разговорам с ИИ предлагаем терапевтов и краткие причины.",
+    overflowTitle: "Больше опций",
+    overflowSettingsLabel: "Открыть настройки",
+    overflowSettingsHint: "Палитра, озвучка и параметры аккаунта.",
+    composerPlaceholder: "Поделитесь любой мыслью или наблюдением сейчас.",
+    modalTitle: "Настройки озвучки",
+    modalEnableLabel: "Включить озвучку",
+    modalRateLabel: "Скорость",
+    modalPitchLabel: "Тон",
+    modalHintLabel: "Каждый ответ будет озвучен с выбранной скоростью и тоном.",
+    modalDoneLabel: "Готово",
+    promptLabel: "Открытый запрос",
+    recommendationsTitle: "Рекомендации терапевтов ИИ",
+    recommendationFallback: "Контекстное совпадение",
+    highlightsTitle: "Ключевые моменты",
+    backLabel: "Вернуться на предыдущую вкладку",
+    headerTitle: "MindWell Диалог",
+    headerMeta: "Психодинамика · Академический тон",
+    overflowAria: "Дополнительные действия, включая Настройки",
+    restoringLabel: "Восстанавливаем сессию…",
+    offlineBanner: "Офлайн — показаны кэшированные диалоги.",
+    voiceButtonTooltip: "Удерживайте для голосового ввода",
+    voiceButtonOffline: "Недоступно офлайн",
+    voiceButtonRecording: "Отпустите, чтобы завершить",
+    voiceButtonIdle: "Удерживать и говорить",
+    playbackPrefix: "Озвучка: ",
+    playbackSettingsLabel: "Открыть настройки озвучки",
+    sendingLabel: "Отправка…",
+    sendLabel: "Отправить",
+  },
 } as const;
 
 const GLASS_INTENSITY = Platform.OS === "ios" ? 145 : 165;
@@ -157,9 +300,8 @@ function RecommendationCard({
   locale: string;
 }) {
   const theme = useTheme();
-  const normalized = locale.toLowerCase();
-  const isZh = normalized.startsWith("zh");
-  const isRu = normalized.startsWith("ru");
+  const copyLocale = toCopyLocale(locale);
+  const copy = CHAT_COPY[copyLocale];
   const styles = useMemo(
     () =>
       StyleSheet.create({
@@ -249,25 +391,13 @@ function RecommendationCard({
   const specialtiesLabel =
     recommendation.specialties.length > 0
       ? recommendation.specialties.join(" · ")
-      : isZh
-        ? "未提供擅长领域"
-        : isRu
-          ? "Нет данных"
-          : "Not provided";
+      : copy.noSpecialties;
   const languagesLabel =
     recommendation.languages.length > 0
       ? recommendation.languages.join(" / ")
-      : isZh
-        ? "未提供语言"
-        : isRu
-          ? "Не указано"
-          : "Not provided";
+      : copy.noLanguages;
   const priceLabel = `${recommendation.price} ${recommendation.currency}`;
-  const matchLabel = isZh
-    ? "匹配度"
-    : isRu
-      ? "Совпадение"
-      : "Match";
+  const matchLabel = copy.matchLabel;
 
   return (
     <View style={styles.card}>
@@ -297,19 +427,19 @@ function RecommendationCard({
       )}
       <View style={styles.metaRow}>
         <Text style={styles.metaLabel}>
-          {isZh ? "擅长" : isRu ? "Профиль" : "Focus"}
+          {copy.focusLabel}
         </Text>
         <Text style={styles.metaValue}>{specialtiesLabel}</Text>
       </View>
       <View style={styles.metaRow}>
         <Text style={styles.metaLabel}>
-          {isZh ? "语言" : isRu ? "Язык" : "Languages"}
+          {copy.languageLabel}
         </Text>
         <Text style={styles.metaValue}>{languagesLabel}</Text>
       </View>
       <View style={styles.metaRow}>
         <Text style={styles.metaLabel}>
-          {isZh ? "费用" : isRu ? "Стоимость" : "Fee"}
+          {copy.feeLabel}
         </Text>
         <Text style={styles.metaValue}>{priceLabel}</Text>
       </View>
@@ -321,18 +451,19 @@ function resolveVoiceStatusLabel(
   isRecording: boolean,
   isTranscribing: boolean,
   isOffline: boolean,
-  isZh: boolean,
+  copyLocale: CopyLocale,
 ): string {
+  const copy = CHAT_COPY[copyLocale];
   if (isOffline) {
-    return isZh ? "离线模式暂不可用" : "Unavailable while offline";
+    return copy.voiceUnavailable;
   }
   if (isTranscribing) {
-    return isZh ? "语音识别中…" : "Transcribing…";
+    return copy.voiceTranscribing;
   }
   if (isRecording) {
-    return isZh ? "保持按住录音" : "Hold to record";
+    return copy.voiceRecording;
   }
-  return isZh ? "长按说话" : "Press and hold to speak";
+  return copy.voiceIdle;
 }
 
 export function ChatScreen({
@@ -342,13 +473,16 @@ export function ChatScreen({
   const theme = useTheme();
   const switchColors = useMemo(() => getAcademicSwitchColors(theme), [theme]);
   const { tokens, userId } = useAuth();
+  const { locale } = useLocale();
   const cacheMarkedRef = useRef(false);
   const screenVisibleRef = useRef(false);
   const firstResponseRef = useRef(false);
   const listRef = useRef<FlatList<MessageWithId>>(null);
   const insets = useSafeAreaInsets();
-  const [activeLocale, setActiveLocale] = useState("zh-CN");
-  const isZhLocale = activeLocale.toLowerCase().startsWith("zh");
+  const resolvedLocale = useMemo(() => locale ?? "zh-CN", [locale]);
+  const copyLocale = toCopyLocale(resolvedLocale);
+  const copy = CHAT_COPY[copyLocale];
+  const isZhLocale = copyLocale === "zh";
   const {
     supported: voiceSupported,
     isRecording: isVoiceRecording,
@@ -358,7 +492,7 @@ export function ChatScreen({
     stop: stopVoiceInput,
     cancel: cancelVoiceInput,
     clearError: clearVoiceError,
-  } = useVoiceInput(activeLocale, tokens?.accessToken ?? null);
+  } = useVoiceInput(resolvedLocale, tokens?.accessToken ?? null);
   const {
     enabled: isVoicePlaybackEnabled,
     setEnabled: setVoicePlaybackEnabled,
@@ -389,16 +523,10 @@ export function ChatScreen({
   const networkStatus = useNetworkStatus(12000);
   const [voiceSettingsVisible, setVoiceSettingsVisible] = useState(false);
   const voicePlaybackStateLabel = voiceSettingsLoading
-    ? isZhLocale
-      ? "加载中"
-      : "Loading"
+    ? copy.voicePlaybackLoading
     : isVoicePlaybackEnabled
-      ? isZhLocale
-        ? "已开启"
-        : "Enabled"
-      : isZhLocale
-        ? "已关闭"
-        : "Disabled";
+      ? copy.voicePlaybackEnabled
+      : copy.voicePlaybackDisabled;
   const isOffline =
     !networkStatus.isConnected || !networkStatus.isInternetReachable;
   const composerPadding = useMemo(
@@ -430,6 +558,8 @@ export function ChatScreen({
           flexDirection: "row",
           alignItems: "center",
           justifyContent: "space-between",
+          flexWrap: "wrap",
+          gap: theme.spacing.sm,
           marginHorizontal: theme.spacing.md,
           marginTop: theme.spacing.md,
           paddingHorizontal: theme.spacing.md,
@@ -443,11 +573,18 @@ export function ChatScreen({
           flexDirection: "row",
           alignItems: "center",
           gap: theme.spacing.sm,
+          flexShrink: 1,
+          flexGrow: 1,
+          minWidth: 0,
         },
         headerRight: {
           flexDirection: "row",
           alignItems: "center",
           gap: theme.spacing.sm,
+          justifyContent: "flex-end",
+          flexShrink: 1,
+          flexGrow: 1,
+          minWidth: 0,
         },
         backButton: {
           width: 42,
@@ -480,11 +617,16 @@ export function ChatScreen({
           fontSize: 20,
           fontWeight: "700",
           color: theme.colors.textPrimary,
+          flexShrink: 1,
+          minWidth: 0,
         },
         headerMeta: {
           fontSize: 12,
           letterSpacing: 0.6,
           color: theme.colors.textSecondary,
+          flexShrink: 1,
+          minWidth: 0,
+          textAlign: "right",
         },
         listHeader: {
           paddingHorizontal: theme.spacing.md,
@@ -588,12 +730,11 @@ export function ChatScreen({
           backgroundColor: theme.colors.glassOverlay,
           padding: theme.spacing.md,
         },
-        composerRow: {
-          flexDirection: "row",
-          gap: theme.spacing.md,
+        composerContent: {
+          gap: theme.spacing.sm,
         },
-        voiceColumn: {
-          width: 96,
+        composerButtons: {
+          flexDirection: "row",
           alignItems: "center",
           gap: theme.spacing.sm,
         },
@@ -650,11 +791,6 @@ export function ChatScreen({
         },
         inputColumn: {
           flex: 1,
-          gap: theme.spacing.sm,
-        },
-        inputRow: {
-          flexDirection: "row",
-          alignItems: "center",
           gap: theme.spacing.sm,
         },
         input: {
@@ -869,9 +1005,6 @@ export function ChatScreen({
         );
         setMemoryHighlights(cached.memoryHighlights);
         scrollToLatestMessage(false);
-        if (cached.locale) {
-          setActiveLocale(cached.locale);
-        }
       }
       setRestoring(false);
     };
@@ -900,7 +1033,7 @@ export function ChatScreen({
       messages,
       recommendations,
       memoryHighlights,
-      locale: activeLocale,
+      locale: resolvedLocale,
     }).catch((error) => {
       console.warn("Failed to persist chat state", error);
     });
@@ -911,14 +1044,14 @@ export function ChatScreen({
     recommendations,
     memoryHighlights,
     isRestoring,
-    activeLocale,
+    resolvedLocale,
   ]);
 
   useEffect(() => {
-    if (!isOffline && error && error.includes("离线状态")) {
+    if (!isOffline && error === copy.offlineSendError) {
       setError(null);
     }
-  }, [isOffline, error]);
+  }, [copy.offlineSendError, error, isOffline]);
 
   useEffect(() => {
     if (!isRestoring && !screenVisibleRef.current) {
@@ -1012,11 +1145,7 @@ export function ChatScreen({
       return;
     }
     if (isOffline) {
-      setError(
-        isZhLocale
-          ? "当前处于离线状态，请联网后再发送消息。"
-          : "You appear to be offline. Please reconnect before sending a message.",
-      );
+      setError(copy.offlineSendError);
       if (Platform.OS === "ios" || Platform.OS === "android") {
         Haptics.notificationAsync(
           Haptics.NotificationFeedbackType.Warning,
@@ -1047,7 +1176,7 @@ export function ChatScreen({
         userId,
         sessionId,
         message: userMessage.content,
-        locale: activeLocale,
+        locale: resolvedLocale,
       });
       setSessionId(response.sessionId);
       const assistantMessage: MessageWithId = {
@@ -1057,7 +1186,7 @@ export function ChatScreen({
         createdAt: response.reply.createdAt,
       };
       appendMessage(assistantMessage);
-      const playbackLocale = response.resolvedLocale ?? activeLocale;
+      const playbackLocale = response.resolvedLocale ?? resolvedLocale;
       speakVoiceResponse({
         text: assistantMessage.content,
         locale: playbackLocale,
@@ -1066,9 +1195,6 @@ export function ChatScreen({
         normalizeTherapistRecommendations(response.recommendations),
       );
       setMemoryHighlights(response.memoryHighlights);
-      if (response.resolvedLocale) {
-        setActiveLocale(response.resolvedLocale);
-      }
       if (!firstResponseRef.current) {
         markStartupEvent("chat-first-response");
         firstResponseRef.current = true;
@@ -1076,7 +1202,7 @@ export function ChatScreen({
     } catch (err) {
       console.warn("Failed to send chat message", err);
       setError(
-        err instanceof Error ? err.message : "发送消息失败，请稍后重试。",
+        err instanceof Error ? err.message : copy.sendErrorFallback,
       );
     } finally {
       setSending(false);
@@ -1086,15 +1212,17 @@ export function ChatScreen({
     userId,
     inputValue,
     sessionId,
-    activeLocale,
+    resolvedLocale,
     isOffline,
     appendMessage,
     speakVoiceResponse,
+    copy.offlineSendError,
+    copy.sendErrorFallback,
   ]);
 
   const sendDisabled = isSending || isOffline || inputValue.trim().length === 0;
   const { promptText, quoteText, quoteAttribution } = useMemo(() => {
-    const localeKey = resolvePromptLocale(activeLocale);
+    const localeKey = resolvePromptLocale(resolvedLocale);
     const prompt = PROMPT_COPY[localeKey];
     const quoteOptions = PSYCHODYNAMIC_QUOTES.map(
       (entry) => entry[localeKey] ?? entry.en,
@@ -1109,28 +1237,18 @@ export function ChatScreen({
       quoteAttribution:
         QUOTE_ATTRIBUTION[localeKey] ?? QUOTE_ATTRIBUTION.en,
     };
-  }, [activeLocale]);
-  const recommendationIntro = isZhLocale
-    ? "根据你和 AI 的对话，我们推荐下列治疗师，并附上简短理由。"
-    : "Based on your conversations with the AI, we recommend these therapists and short rationales.";
-  const overflowTitle = isZhLocale ? "更多选项" : "More options";
-  const overflowSettingsLabel = isZhLocale ? "打开设置" : "Open Settings";
-  const overflowSettingsHint = isZhLocale
-    ? "切换配色、语音播报与账户偏好。"
-    : "Adjust palette, voice playback, and account preferences.";
-  const composerPlaceholder = isZhLocale
-    ? "请把此刻浮现的念头或观察输入在这里。"
-    : "Share whatever thought or observation is present.";
-  const modalTitle = isZhLocale ? "语音播报设置" : "Voice playback settings";
-  const modalEnableLabel = isZhLocale
-    ? "启用语音播报"
-    : "Enable playback";
-  const modalRateLabel = isZhLocale ? "语速" : "Rate";
-  const modalPitchLabel = isZhLocale ? "音调" : "Pitch";
-  const modalHintLabel = isZhLocale
-    ? "每条 AI 回复都会以当前语速和音调播报。"
-    : "Each reply will play using the selected rate and pitch.";
-  const modalDoneLabel = isZhLocale ? "完成" : "Done";
+  }, [resolvedLocale]);
+  const recommendationIntro = copy.recommendationIntro;
+  const overflowTitle = copy.overflowTitle;
+  const overflowSettingsLabel = copy.overflowSettingsLabel;
+  const overflowSettingsHint = copy.overflowSettingsHint;
+  const composerPlaceholder = copy.composerPlaceholder;
+  const modalTitle = copy.modalTitle;
+  const modalEnableLabel = copy.modalEnableLabel;
+  const modalRateLabel = copy.modalRateLabel;
+  const modalPitchLabel = copy.modalPitchLabel;
+  const modalHintLabel = copy.modalHintLabel;
+  const modalDoneLabel = copy.modalDoneLabel;
   const renderListHeader = useCallback(() => {
     return (
       <View style={styles.listHeader}>
@@ -1140,7 +1258,7 @@ export function ChatScreen({
           style={styles.promptCard}
         >
           <Text style={styles.promptLabel}>
-            {isZhLocale ? "开放式引导" : "Open prompt"}
+            {copy.promptLabel}
           </Text>
           <Text style={styles.promptText}>{promptText}</Text>
           <Text style={styles.quoteText}>{`“${quoteText}”`}</Text>
@@ -1149,7 +1267,7 @@ export function ChatScreen({
         {recommendations.length > 0 && (
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>
-              {isZhLocale ? "AI 推荐治疗师" : "AI therapist suggestions"}
+              {copy.recommendationsTitle}
             </Text>
             <Text style={styles.sectionSubtitle}>{recommendationIntro}</Text>
             {recommendations.map((recommendation, index) => (
@@ -1159,11 +1277,11 @@ export function ChatScreen({
               >
                 <Text style={styles.recommendationLead}>
                   {String.fromCharCode(65 + index)}.{" "}
-                  {recommendation.reason || (isZhLocale ? "匹配主题" : "Contextual match")}
+                  {recommendation.reason || copy.recommendationFallback}
                 </Text>
                 <RecommendationCard
                   recommendation={recommendation}
-                  locale={activeLocale}
+                  locale={resolvedLocale}
                 />
               </View>
             ))}
@@ -1172,7 +1290,7 @@ export function ChatScreen({
         {memoryHighlights.length > 0 && (
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>
-              {isZhLocale ? "疗程亮点" : "Therapy highlights"}
+              {copy.highlightsTitle}
             </Text>
             {memoryHighlights.map((memory) => (
               <View key={memory.summary} style={styles.highlight}>
@@ -1186,16 +1304,7 @@ export function ChatScreen({
         )}
       </View>
     );
-  }, [
-    isZhLocale,
-    styles,
-    promptText,
-    quoteText,
-    quoteAttribution,
-    recommendations,
-    memoryHighlights,
-    recommendationIntro,
-  ]);
+  }, [styles, promptText, quoteText, quoteAttribution, recommendations, memoryHighlights, recommendationIntro, copy]);
   const voiceDisabled = isSending || isVoiceTranscribing || isOffline;
 
   return (
@@ -1210,9 +1319,7 @@ export function ChatScreen({
             <Pressable
               android_ripple={androidRipple}
               accessibilityRole="button"
-              accessibilityLabel={
-                isZhLocale ? "返回上一屏" : "Return to previous tab"
-              }
+              accessibilityLabel={copy.backLabel}
               style={styles.backButton}
               onPress={() => {
                 Haptics.selectionAsync().catch(() => undefined);
@@ -1222,25 +1329,19 @@ export function ChatScreen({
               <Text style={styles.backIcon}>←</Text>
             </Pressable>
           )}
-          <Text style={styles.headerTitle}>
-            {isZhLocale ? "MindWell 对话" : "MindWell Dialogue"}
+          <Text style={styles.headerTitle} numberOfLines={1}>
+            {copy.headerTitle}
           </Text>
         </View>
         <View style={styles.headerRight}>
-          <Text style={styles.headerMeta}>
-            {isZhLocale
-              ? "心理动力 · 学术语气"
-              : "Psychodynamic · Academic tone"}
+          <Text style={styles.headerMeta} numberOfLines={1}>
+            {copy.headerMeta}
           </Text>
           {onOpenSettings && (
             <Pressable
               android_ripple={androidRipple}
               accessibilityRole="button"
-              accessibilityLabel={
-                isZhLocale
-                  ? "打开更多操作，包括设置入口"
-                  : "Open overflow actions, including Settings"
-              }
+              accessibilityLabel={copy.overflowAria}
               style={styles.overflowButton}
               onPress={() => setOverflowVisible(true)}
             >
@@ -1261,7 +1362,7 @@ export function ChatScreen({
               color: theme.colors.textSecondary,
             }}
           >
-            {isZhLocale ? "正在恢复会话…" : "Restoring your session…"}
+            {copy.restoringLabel}
           </Text>
         </View>
       ) : (
@@ -1297,9 +1398,7 @@ export function ChatScreen({
 
       {isOffline && (
         <Text style={styles.offlineNotice}>
-          {isZhLocale
-            ? "当前离线，已切换到本地缓存模式。"
-            : "Offline mode active — showing cached conversation."}
+          {copy.offlineBanner}
         </Text>
       )}
 
@@ -1309,97 +1408,76 @@ export function ChatScreen({
           tint="light"
           style={[styles.composer, { paddingBottom: composerPadding }]}
         >
-          <View style={styles.composerRow}>
-            {voiceSupported && (
-              <View style={styles.voiceColumn}>
-                <Pressable
-                  android_ripple={androidRipple}
-                  accessibilityRole="button"
-                  accessibilityLabel={
-                    isZhLocale ? "按住进行语音输入" : "Hold to record voice input"
-                  }
-                  onPressIn={handleVoiceStart}
-                  onPressOut={handleVoiceStop}
-                  onTouchCancel={handleVoiceCancel}
-                  disabled={voiceDisabled}
-                  style={[
-                    styles.voiceButton,
-                    isVoiceRecording && styles.voiceButtonActive,
-                    voiceDisabled && styles.voiceButtonDisabled,
-                  ]}
-                >
-                  <Text
-                    style={[
-                      styles.voiceButtonLabel,
-                      isVoiceRecording && styles.voiceButtonLabelActive,
-                      isOffline && { opacity: 0.7 },
-                    ]}
-                  >
-                    {isOffline
-                      ? isZhLocale
-                        ? "离线不可用"
-                        : "Offline only"
-                      : isVoiceRecording
-                        ? isZhLocale
-                          ? "松开结束"
-                          : "Release to stop"
-                        : isZhLocale
-                          ? "按住语音"
-                          : "Hold to speak"}
-                  </Text>
-                </Pressable>
-                <View style={styles.voiceStatusRow}>
-                  {isVoiceTranscribing && (
-                    <ActivityIndicator
-                      size="small"
-                      color={theme.colors.primary}
-                    />
-                  )}
-                  <Text style={styles.voiceStatusText}>
-                    {resolveVoiceStatusLabel(
-                      isVoiceRecording,
-                      isVoiceTranscribing,
-                      isOffline,
-                      isZhLocale,
-                    )}
-                  </Text>
-                </View>
-                <Text style={styles.voiceModeStatus}>
-                  {isZhLocale
-                    ? `播报：${voicePlaybackStateLabel}`
-                    : `Playback: ${voicePlaybackStateLabel}`}
-                </Text>
-              </View>
-            )}
-            <View style={styles.inputColumn}>
-              <View style={styles.inputRow}>
-                {voiceSupported && (
+          <View style={styles.composerContent}>
+            <TextInput
+              placeholder={composerPlaceholder}
+              placeholderTextColor={theme.colors.textSecondary}
+              value={inputValue}
+              onChangeText={handleInputChange}
+              style={styles.input}
+              editable={!isSending && !isVoiceRecording && !isVoiceTranscribing}
+              multiline
+            />
+            <View style={styles.composerButtons}>
+              {voiceSupported && (
+                <View style={{ flex: 1, minWidth: 0, gap: theme.spacing.xs }}>
                   <Pressable
                     android_ripple={androidRipple}
                     accessibilityRole="button"
-                    accessibilityLabel={
-                      isZhLocale
-                        ? "打开语音播报设置"
-                        : "Open voice playback preferences"
-                    }
-                    onPress={() => setVoiceSettingsVisible(true)}
-                    style={styles.voiceArrowButton}
+                    accessibilityLabel={copy.voiceButtonTooltip}
+                    onPressIn={handleVoiceStart}
+                    onPressOut={handleVoiceStop}
+                    onTouchCancel={handleVoiceCancel}
+                    disabled={voiceDisabled}
+                    style={[
+                      styles.voiceButton,
+                      isVoiceRecording && styles.voiceButtonActive,
+                      voiceDisabled && styles.voiceButtonDisabled,
+                    ]}
                   >
-                    <Text style={styles.voiceArrowIcon}>↢</Text>
+                    <Text
+                      style={[
+                        styles.voiceButtonLabel,
+                        isVoiceRecording && styles.voiceButtonLabelActive,
+                        isOffline && { opacity: 0.7 },
+                      ]}
+                    >
+                      {isOffline
+                        ? copy.voiceButtonOffline
+                        : isVoiceRecording
+                          ? copy.voiceButtonRecording
+                          : copy.voiceButtonIdle}
+                    </Text>
                   </Pressable>
-                )}
-                <TextInput
-                  placeholder={composerPlaceholder}
-                  placeholderTextColor={theme.colors.textSecondary}
-                  value={inputValue}
-                  onChangeText={handleInputChange}
-                  style={styles.input}
-                  editable={
-                    !isSending && !isVoiceRecording && !isVoiceTranscribing
-                  }
-                  multiline
-                />
-              </View>
+                  <View style={styles.voiceStatusRow}>
+                    {isVoiceTranscribing && (
+                      <ActivityIndicator size="small" color={theme.colors.primary} />
+                    )}
+                    <Text style={styles.voiceStatusText}>
+                      {resolveVoiceStatusLabel(
+                        isVoiceRecording,
+                        isVoiceTranscribing,
+                        isOffline,
+                        copyLocale,
+                      )}
+                    </Text>
+                  </View>
+                  <Text style={styles.voiceModeStatus}>
+                    {`${copy.playbackPrefix}${voicePlaybackStateLabel}`}
+                  </Text>
+                </View>
+              )}
+              {voiceSupported && (
+                <Pressable
+                  android_ripple={androidRipple}
+                  accessibilityRole="button"
+                  accessibilityLabel={copy.playbackSettingsLabel}
+                  onPress={() => setVoiceSettingsVisible(true)}
+                  style={styles.voiceArrowButton}
+                >
+                  <Text style={styles.voiceArrowIcon}>↢</Text>
+                </Pressable>
+              )}
               <Pressable
                 android_ripple={androidRipple}
                 onPress={handleSend}
@@ -1407,13 +1485,7 @@ export function ChatScreen({
                 disabled={sendDisabled}
               >
                 <Text style={styles.sendLabel}>
-                  {isSending
-                    ? isZhLocale
-                      ? "发送中…"
-                      : "Sending…"
-                    : isZhLocale
-                      ? "发送"
-                      : "Send"}
+                  {isSending ? copy.sendingLabel : copy.sendLabel}
                 </Text>
               </Pressable>
             </View>

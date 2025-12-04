@@ -1,9 +1,7 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import {
   exchangeGoogleCode,
-  exchangeSmsCode,
-  requestSmsChallenge,
-  type SmsChallengeResponse,
+  loginWithDemoCode,
   type TokenResponse,
 } from "@services/auth";
 import { clearChatState } from "@services/chatCache";
@@ -27,26 +25,13 @@ type TokenState = {
   expiresAt: number;
 };
 
-type ChallengeState = {
-  challengeId: string;
-  detail: string;
-  expiresAt: number;
-};
-
 type AuthContextValue = {
   status: AuthStatus;
   tokens: TokenState | null;
   userId: string | null;
-  challenge: ChallengeState | null;
-  isRequestingSms: boolean;
-  isVerifying: boolean;
+  isAuthenticating: boolean;
   error: string | null;
-  requestSms: (
-    phoneNumber: string,
-    countryCode: string,
-    locale?: string,
-  ) => Promise<void>;
-  verifySms: (code: string) => Promise<void>;
+  loginWithDemoCode: (code: string) => Promise<void>;
   loginWithGoogle: (code: string, redirectUri?: string) => Promise<void>;
   logout: () => Promise<void>;
 };
@@ -89,21 +74,11 @@ function toTokenState(response: TokenResponse): TokenState {
   };
 }
 
-function toChallengeState(response: SmsChallengeResponse): ChallengeState {
-  return {
-    challengeId: response.challengeId,
-    detail: response.detail,
-    expiresAt: computeExpiry(response.expiresIn),
-  };
-}
-
 export function AuthProvider({ children }: AuthProviderProps) {
   const [status, setStatus] = useState<AuthStatus>("loading");
   const [tokens, setTokens] = useState<TokenState | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
-  const [challenge, setChallenge] = useState<ChallengeState | null>(null);
-  const [isRequestingSms, setRequestingSms] = useState(false);
-  const [isVerifying, setVerifying] = useState(false);
+  const [isAuthenticating, setAuthenticating] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -143,98 +118,58 @@ export function AuthProvider({ children }: AuthProviderProps) {
     };
   }, []);
 
-  const requestSms = useCallback(
-    async (
-      phoneNumber: string,
-      countryCode: string,
-      locale: string = "zh-CN",
-    ) => {
-      setRequestingSms(true);
+  const handleLoginSuccess = useCallback((nextTokens: TokenState) => {
+    setTokens(nextTokens);
+    setUserId(deriveUserId(nextTokens));
+    setStatus("authenticated");
+  }, []);
+
+  const loginWithDemo = useCallback(
+    async (code: string) => {
+      setAuthenticating(true);
       setError(null);
       try {
-        const response = await requestSmsChallenge({
-          phoneNumber,
-          countryCode,
-          locale,
-        });
-        setChallenge(toChallengeState(response));
+        const response = await loginWithDemoCode({ code });
+        const nextTokens = toTokenState(response);
+        handleLoginSuccess(nextTokens);
+        await persistTokens(nextTokens);
       } catch (err) {
-        console.warn("Failed to request SMS challenge", err);
+        console.warn("Demo login failed", err);
         setError(
           err instanceof Error
             ? err.message
-            : "Failed to request SMS challenge.",
-        );
-        setChallenge(null);
-      } finally {
-        setRequestingSms(false);
-      }
-    },
-    [],
-  );
-
-  const verifySms = useCallback(
-    async (code: string) => {
-      if (!challenge) {
-        setError("No active challenge. Please request a new SMS code.");
-        return;
-      }
-      if (challenge.expiresAt <= Date.now()) {
-        setError("Verification code expired. Request a new one.");
-        setChallenge(null);
-        return;
-      }
-      setVerifying(true);
-      setError(null);
-      try {
-        const response = await exchangeSmsCode({
-          challengeId: challenge.challengeId,
-          code,
-        });
-        const nextTokens = toTokenState(response);
-        setTokens(nextTokens);
-        setUserId(deriveUserId(nextTokens));
-        setStatus("authenticated");
-        setChallenge(null);
-        await persistTokens(nextTokens);
-      } catch (err) {
-        console.warn("SMS verification failed", err);
-        setError(
-          err instanceof Error ? err.message : "Failed to verify SMS code.",
+            : "Demo login failed. Please try again.",
         );
       } finally {
-        setVerifying(false);
+        setAuthenticating(false);
       }
     },
-    [challenge],
+    [handleLoginSuccess],
   );
 
   const loginWithGoogle = useCallback(
     async (code: string, redirectUri?: string) => {
-      setVerifying(true);
+      setAuthenticating(true);
       setError(null);
       try {
         const response = await exchangeGoogleCode({ code, redirectUri });
-        const nextTokens = toTokenState(response);
-        setTokens(nextTokens);
-        setUserId(deriveUserId(nextTokens));
-        setStatus("authenticated");
-        await persistTokens(nextTokens);
+        const tokens = toTokenState(response);
+        handleLoginSuccess(tokens);
+        await persistTokens(tokens);
       } catch (err) {
         console.warn("Google login failed", err);
         setError(err instanceof Error ? err.message : "Google login failed.");
       } finally {
-        setVerifying(false);
+        setAuthenticating(false);
       }
     },
-    [],
+    [handleLoginSuccess],
   );
 
   const logout = useCallback(async () => {
     const currentUserId = userId;
     setTokens(null);
     setUserId(null);
-    setChallenge(null);
     setStatus("unauthenticated");
     setError(null);
     await persistTokens(null);
@@ -252,12 +187,9 @@ export function AuthProvider({ children }: AuthProviderProps) {
       status,
       tokens,
       userId,
-      challenge,
-      isRequestingSms,
-      isVerifying,
+      isAuthenticating,
       error,
-      requestSms,
-      verifySms,
+      loginWithDemoCode: loginWithDemo,
       loginWithGoogle,
       logout,
     }),
@@ -265,12 +197,9 @@ export function AuthProvider({ children }: AuthProviderProps) {
       status,
       tokens,
       userId,
-      challenge,
-      isRequestingSms,
-      isVerifying,
+      isAuthenticating,
       error,
-      requestSms,
-      verifySms,
+      loginWithDemo,
       loginWithGoogle,
       logout,
     ],
