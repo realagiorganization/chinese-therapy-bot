@@ -183,15 +183,34 @@ After running queries, close the session and clear your shell history so the Pos
    If oauth2-proxy isn’t running, you can temporarily point to `http://localhost:8000`, but the mobile app will also be confined to demo-only auth.
 3. Launch the development server:
    ```bash
-   npm run start                # Metro bundler
-   npm run ios                  # Requires an iOS simulator / device
-   npm run android              # Requires an Android emulator / device
+   npm run start                   # Metro bundler
+   npx expo start --clear --tunnel # Use this command if you not in the same network where mobile app deployed
+   npm run ios                     # Requires an iOS simulator / device
+   npm run android                 # Requires an Android emulator / device
    ```
    The chat composer exposes “press and hold” voice capture; the recorder falls back to server-side ASR when device APIs are unavailable.
 4. Performance and asset workflows:
    - `npm run profile:android` assembles a release bundle and outputs timing reports under `clients/mobile/dist/profile-android/`.
    - `npm run optimize:assets` applies Expo image compression; run it after introducing new media.
    - Review `docs/mobile_performance.md` alongside the `useStartupProfiler` logs to track launch latency and gesture responsiveness.
+
+### Mobile on real devices via ngrok (local backend)
+1. Launch the backend locally:
+   ```bash
+   cd services/backend
+   source .venv/bin/activate
+   export DATABASE_URL=postgresql+asyncpg://postgres:pass@localhost:5432/mydb
+   export DEMO_CODE_FILE=services/backend/config/demo_codes.json
+   mindwell-api --host 0.0.0.0 --port 8000
+   ```
+2. Expose the API: `ngrok http 8000 --host-header=rewrite` and copy the issued URL (e.g. `https://<slug>.ngrok-free.dev`).
+3. Update `clients/mobile/.env.local`:
+   ```bash
+   EXPO_PUBLIC_API_BASE_URL=https://<slug>.ngrok-free.dev/api
+   EXPO_PUBLIC_SPEECH_REGION=eastasia
+   ```
+4. Start Metro with tunnel: `cd clients/mobile && npx expo start --clear --tunnel` and open in Expo Go.
+5. Demo login codes live in `services/backend/config/demo_codes.json` (e.g. `DEMO-TEAM`); Google field accepts any string in dev mode.
 
 ### Voice & Media Services
 - Server-side ASR and optional TTS require Azure Cognitive Services credentials:

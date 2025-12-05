@@ -48,6 +48,15 @@ class ConversionMetrics(BaseModel):
     therapist_connect_rate: float
 
 
+class LocaleEngagementBreakdown(BaseModel):
+    """Locale-specific engagement and conversion signals."""
+
+    locale: str
+    chat_turns: int
+    therapist_profile_views: int
+    therapist_connect_clicks: int
+
+
 class AnalyticsSummary(BaseModel):
     """Aggregated analytics snapshot for a time window."""
 
@@ -55,3 +64,4 @@ class AnalyticsSummary(BaseModel):
     window_end: datetime
     engagement: JourneyEngagementMetrics
     conversion: ConversionMetrics
+    locale_breakdown: list[LocaleEngagementBreakdown]

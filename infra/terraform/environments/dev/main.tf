@@ -208,11 +208,10 @@ resource "azurerm_kubernetes_cluster" "core" {
   }
 
   network_profile {
-    network_plugin     = "azure"
-    load_balancer_sku  = "standard"
-    service_cidr       = var.aks_service_cidr
-    dns_service_ip     = var.aks_dns_service_ip
-    docker_bridge_cidr = var.aks_docker_bridge_cidr
+    network_plugin    = "azure"
+    load_balancer_sku = "standard"
+    service_cidr      = var.aks_service_cidr
+    dns_service_ip    = var.aks_dns_service_ip
   }
 
   azure_active_directory_role_based_access_control {
@@ -342,7 +341,7 @@ resource "azurerm_key_vault" "core" {
 resource "azurerm_key_vault_access_policy" "aks" {
   key_vault_id = azurerm_key_vault.core.id
   tenant_id    = var.azure_tenant_id
-  object_id    = azurerm_kubernetes_cluster.core.kubelet_identity[0].object_id
+  object_id    = var.kubelet_identity_object_id_override != "" ? var.kubelet_identity_object_id_override : azurerm_kubernetes_cluster.core.kubelet_identity[0].object_id
 
   secret_permissions = ["Get"]
 }
@@ -385,8 +384,8 @@ data "aws_iam_policy_document" "s3_access" {
       "${aws_s3_bucket.conversation_logs.arn}/*",
       aws_s3_bucket.summaries.arn,
       "${aws_s3_bucket.summaries.arn}/*",
-      aws_s3_bucket.media_assets.arn,
-      "${aws_s3_bucket.media_assets.arn}/*"
+      aws_s3_bucket.media.arn,
+      "${aws_s3_bucket.media.arn}/*"
     ]
   }
 }
@@ -421,7 +420,7 @@ resource "aws_s3_bucket" "summaries" {
   })
 }
 
-resource "aws_s3_bucket" "media_assets" {
+resource "aws_s3_bucket" "media" {
   bucket        = "${local.name_prefix}-${var.environment}-media"
   force_destroy = false
 
@@ -446,8 +445,8 @@ resource "aws_s3_bucket_versioning" "summaries" {
   }
 }
 
-resource "aws_s3_bucket_versioning" "media_assets" {
-  bucket = aws_s3_bucket.media_assets.id
+resource "aws_s3_bucket_versioning" "media" {
+  bucket = aws_s3_bucket.media.id
 
   versioning_configuration {
     status = "Enabled"
@@ -474,12 +473,111 @@ resource "aws_s3_bucket_server_side_encryption_configuration" "summaries" {
   }
 }
 
-resource "aws_s3_bucket_server_side_encryption_configuration" "media_assets" {
-  bucket = aws_s3_bucket.media_assets.id
+resource "aws_s3_bucket_server_side_encryption_configuration" "media" {
+  bucket = aws_s3_bucket.media.id
 
   rule {
     apply_server_side_encryption_by_default {
       sse_algorithm = "AES256"
+    }
+  }
+}
+
+resource "aws_s3_bucket_cors_configuration" "media" {
+  bucket = aws_s3_bucket.media.id
+
+  cors_rule {
+    allowed_methods = ["GET"]
+    allowed_origins = ["*"]
+    allowed_headers = ["*"]
+    max_age_seconds = 300
+  }
+}
+
+resource "aws_s3_bucket_lifecycle_configuration" "conversation_logs" {
+  bucket = aws_s3_bucket.conversation_logs.id
+
+  rule {
+    id     = "conversations-tiering"
+    status = "Enabled"
+
+    filter {
+      prefix = "conversations/"
+    }
+
+    transition {
+      days          = 30
+      storage_class = "STANDARD_IA"
+    }
+
+    transition {
+      days          = 90
+      storage_class = "GLACIER"
+    }
+
+    expiration {
+      days = 365
+    }
+
+    noncurrent_version_expiration {
+      noncurrent_days = 90
+    }
+  }
+}
+
+resource "aws_s3_bucket_lifecycle_configuration" "summaries" {
+  bucket = aws_s3_bucket.summaries.id
+
+  rule {
+    id     = "summaries-tiering"
+    status = "Enabled"
+
+    filter {
+      prefix = "summaries/"
+    }
+
+    transition {
+      days          = 60
+      storage_class = "STANDARD_IA"
+    }
+
+    transition {
+      days          = 180
+      storage_class = "GLACIER"
+    }
+
+    expiration {
+      days = 730
+    }
+
+    noncurrent_version_expiration {
+      noncurrent_days = 120
+    }
+  }
+}
+
+resource "aws_s3_bucket_lifecycle_configuration" "media" {
+  bucket = aws_s3_bucket.media.id
+
+  rule {
+    id     = "media-lifecycle"
+    status = "Enabled"
+
+    filter {
+      prefix = "uploads/"
+    }
+
+    transition {
+      days          = 90
+      storage_class = "STANDARD_IA"
+    }
+
+    expiration {
+      days = 365
+    }
+
+    abort_incomplete_multipart_upload {
+      days_after_initiation = 7
     }
   }
 }
@@ -500,12 +598,99 @@ resource "aws_s3_bucket_public_access_block" "summaries" {
   restrict_public_buckets = true
 }
 
-resource "aws_s3_bucket_public_access_block" "media_assets" {
-  bucket                  = aws_s3_bucket.media_assets.id
-  block_public_acls       = true
-  block_public_policy     = true
+resource "aws_s3_bucket_public_access_block" "media" {
+  bucket                  = aws_s3_bucket.media.id
+  block_public_acls       = false
+  block_public_policy     = false
   ignore_public_acls      = false
-  restrict_public_buckets = true
+  restrict_public_buckets = false
+}
+
+data "aws_iam_policy_document" "conversation_logs_secure_transport" {
+  statement {
+    sid    = "DenyInsecureTransport"
+    effect = "Deny"
+
+    principals {
+      type        = "*"
+      identifiers = ["*"]
+    }
+
+    actions = ["s3:*"]
+    resources = [
+      aws_s3_bucket.conversation_logs.arn,
+      "${aws_s3_bucket.conversation_logs.arn}/*",
+    ]
+
+    condition {
+      test     = "Bool"
+      variable = "aws:SecureTransport"
+      values   = ["false"]
+    }
+  }
+}
+
+resource "aws_s3_bucket_policy" "conversation_logs_secure_transport" {
+  bucket = aws_s3_bucket.conversation_logs.id
+  policy = data.aws_iam_policy_document.conversation_logs_secure_transport.json
+}
+
+data "aws_iam_policy_document" "summaries_secure_transport" {
+  statement {
+    sid    = "DenyInsecureTransport"
+    effect = "Deny"
+
+    principals {
+      type        = "*"
+      identifiers = ["*"]
+    }
+
+    actions = ["s3:*"]
+    resources = [
+      aws_s3_bucket.summaries.arn,
+      "${aws_s3_bucket.summaries.arn}/*",
+    ]
+
+    condition {
+      test     = "Bool"
+      variable = "aws:SecureTransport"
+      values   = ["false"]
+    }
+  }
+}
+
+resource "aws_s3_bucket_policy" "summaries_secure_transport" {
+  bucket = aws_s3_bucket.summaries.id
+  policy = data.aws_iam_policy_document.summaries_secure_transport.json
+}
+
+data "aws_iam_policy_document" "media_secure_transport" {
+  statement {
+    sid    = "DenyInsecureTransport"
+    effect = "Deny"
+
+    principals {
+      type        = "*"
+      identifiers = ["*"]
+    }
+
+    actions = ["s3:*"]
+    resources = [
+      aws_s3_bucket.media.arn,
+      "${aws_s3_bucket.media.arn}/*",
+    ]
+
+    condition {
+      test     = "Bool"
+      variable = "aws:SecureTransport"
+      values   = ["false"]
+    }
+  }
+}
+
+resource "aws_s3_bucket_policy" "media_secure_transport" {
+  bucket = aws_s3_bucket.media.id
+  policy = data.aws_iam_policy_document.media_secure_transport.json
 }
 
 # ---------------------------

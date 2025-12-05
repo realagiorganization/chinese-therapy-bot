@@ -8,7 +8,8 @@ module.exports = function (api) {
     "@hooks": "./src/hooks",
     "@context": "./src/context",
     "@services": "./src/services",
-    "@types": "./src/types"
+    "@types": "./src/types",
+    "@utils": "./src/utils"
   };
 
   return {

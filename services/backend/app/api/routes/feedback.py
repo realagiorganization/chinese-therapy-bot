@@ -1,3 +1,5 @@
+from datetime import datetime
+
 from fastapi import APIRouter, Depends, Query, status
 
 from app.api.deps import get_feedback_service
@@ -6,6 +8,7 @@ from app.schemas.feedback import (
     PilotFeedbackFilters,
     PilotFeedbackItem,
     PilotFeedbackListResponse,
+    PilotFeedbackReport,
 )
 from app.services.feedback import PilotFeedbackService
 
@@ -34,6 +37,16 @@ async def list_pilot_feedback(
     cohort: str | None = Query(default=None, description="Filter by pilot cohort tag."),
     channel: str | None = Query(default=None, description="Filter by primary channel (web/mobile/etc)."),
     role: str | None = Query(default=None, description="Filter by participant role."),
+    severity: str | None = Query(default=None, description="Filter by reported severity (e.g., high/blocker)."),
+    follow_up_needed: bool | None = Query(
+        default=None, description="Filter entries that require follow-up (true/false)."
+    ),
+    submitted_since: datetime | None = Query(
+        default=None, description="Include entries submitted at or after this ISO timestamp."
+    ),
+    submitted_until: datetime | None = Query(
+        default=None, description="Include entries submitted at or before this ISO timestamp."
+    ),
     minimum_trust_score: int | None = Query(
         default=None,
         ge=1,
@@ -58,6 +71,50 @@ async def list_pilot_feedback(
         cohort=cohort,
         channel=channel,
         role=role,
+        severity=severity,
+        follow_up_needed=follow_up_needed,
+        submitted_since=submitted_since,
+        submitted_until=submitted_until,
         minimum_trust_score=minimum_trust_score,
     )
     return await service.list_feedback(filters, limit=limit, offset=offset)
+
+
+@router.get(
+    "/pilot/report",
+    response_model=PilotFeedbackReport,
+    summary="Summarize pilot UAT feedback metrics by cohort or channel.",
+)
+async def summarize_pilot_feedback(
+    cohort: str | None = Query(default=None, description="Filter by pilot cohort tag."),
+    channel: str | None = Query(default=None, description="Filter by primary channel (web/mobile/etc)."),
+    role: str | None = Query(default=None, description="Filter by participant role."),
+    severity: str | None = Query(default=None, description="Filter by reported severity (e.g., high/blocker)."),
+    follow_up_needed: bool | None = Query(
+        default=None, description="Filter entries that require follow-up (true/false)."
+    ),
+    submitted_since: datetime | None = Query(
+        default=None, description="Include entries submitted at or after this ISO timestamp."
+    ),
+    submitted_until: datetime | None = Query(
+        default=None, description="Include entries submitted at or before this ISO timestamp."
+    ),
+    minimum_trust_score: int | None = Query(
+        default=None,
+        ge=1,
+        le=5,
+        description="Minimum trust score inclusive filter (1-5).",
+    ),
+    service: PilotFeedbackService = Depends(get_feedback_service),
+) -> PilotFeedbackReport:
+    filters = PilotFeedbackFilters(
+        cohort=cohort,
+        channel=channel,
+        role=role,
+        severity=severity,
+        follow_up_needed=follow_up_needed,
+        submitted_since=submitted_since,
+        submitted_until=submitted_until,
+        minimum_trust_score=minimum_trust_score,
+    )
+    return await service.summarize_feedback(filters)

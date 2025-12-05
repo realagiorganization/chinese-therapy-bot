@@ -29,6 +29,11 @@
       "code": "wH-6QywuxTOK3A==",
       "label": "MindWell Internal Demo",
       "chat_token_quota": 10
+    },
+    {
+      "code": "DEMO-TEAM",
+      "label": "MindWell Demo (easy to type)",
+      "chat_token_quota": 10
     }
   ]
 }

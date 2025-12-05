@@ -34,6 +34,10 @@ class PilotFeedbackFilters(BaseModel):
     cohort: str | None = None
     channel: str | None = None
     role: str | None = None
+    severity: str | None = None
+    follow_up_needed: bool | None = None
+    submitted_since: datetime | None = None
+    submitted_until: datetime | None = None
     minimum_trust_score: int | None = Field(default=None, ge=1, le=5)
 
 
@@ -64,3 +68,56 @@ class PilotFeedbackListResponse(BaseModel):
 
     total: int
     items: list[PilotFeedbackItem]
+
+
+class PilotFeedbackTagStat(BaseModel):
+    """Frequency breakdown for a feedback tag."""
+
+    tag: str
+    count: int
+
+
+class PilotFeedbackScorecard(BaseModel):
+    """Aggregated pilot feedback score averages."""
+
+    average_sentiment: float
+    average_trust: float
+    average_usability: float
+    tone_support_rate: float
+    trust_confidence_rate: float
+    usability_success_rate: float
+
+
+class PilotFeedbackInsight(BaseModel):
+    """Recent highlight/blocker excerpt."""
+
+    cohort: str
+    role: str
+    channel: str
+    scenario: str | None
+    participant_alias: str | None
+    sentiment_score: int
+    trust_score: int
+    usability_score: int
+    severity: str | None
+    tags: list[str]
+    highlights: str | None
+    blockers: str | None
+    follow_up_needed: bool
+    submitted_at: datetime
+
+
+class PilotFeedbackReport(BaseModel):
+    """Aggregated view of pilot feedback metrics."""
+
+    generated_at: datetime
+    total_entries: int
+    filters: PilotFeedbackFilters
+    average_scores: PilotFeedbackScorecard
+    severity_breakdown: dict[str, int]
+    channel_breakdown: dict[str, int]
+    role_breakdown: dict[str, int]
+    tag_frequency: list[PilotFeedbackTagStat]
+    follow_up_required: int
+    recent_highlights: list[PilotFeedbackInsight]
+    blocker_insights: list[PilotFeedbackInsight]

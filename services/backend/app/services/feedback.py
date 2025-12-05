@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from collections import Counter
+from datetime import datetime, timezone
 from typing import Iterable
 
 from sqlalchemy import Select, func, select
@@ -11,6 +13,10 @@ from app.schemas.feedback import (
     PilotFeedbackFilters,
     PilotFeedbackItem,
     PilotFeedbackListResponse,
+    PilotFeedbackReport,
+    PilotFeedbackScorecard,
+    PilotFeedbackTagStat,
+    PilotFeedbackInsight,
 )
 
 
@@ -84,12 +90,145 @@ class PilotFeedbackService:
             conditions.append(PilotFeedback.channel == filters.channel)
         if filters.role:
             conditions.append(PilotFeedback.role == filters.role)
+        if filters.severity:
+            conditions.append(PilotFeedback.severity == filters.severity)
+        if filters.follow_up_needed is not None:
+            conditions.append(PilotFeedback.follow_up_needed == filters.follow_up_needed)
+        if filters.submitted_since:
+            conditions.append(PilotFeedback.submitted_at >= filters.submitted_since)
+        if filters.submitted_until:
+            conditions.append(PilotFeedback.submitted_at <= filters.submitted_until)
         if filters.minimum_trust_score:
             conditions.append(PilotFeedback.trust_score >= filters.minimum_trust_score)
 
         if conditions:
             stmt = stmt.where(*conditions)
         return stmt
+
+    async def summarize_feedback(
+        self,
+        filters: PilotFeedbackFilters | None = None,
+        *,
+        highlight_limit: int = 5,
+    ) -> PilotFeedbackReport:
+        """Aggregate pilot feedback metrics for stakeholder reports."""
+        filters = filters or PilotFeedbackFilters()
+        stmt = select(PilotFeedback).order_by(PilotFeedback.submitted_at.desc())
+        stmt = self._apply_filters(stmt, filters)
+
+        result = await self._session.execute(stmt)
+        records = result.scalars().all()
+        return self._build_report(records, filters, highlight_limit=highlight_limit)
+
+    def _build_report(
+        self,
+        records: list[PilotFeedback],
+        filters: PilotFeedbackFilters,
+        *,
+        highlight_limit: int,
+    ) -> PilotFeedbackReport:
+        generated_at = datetime.now(timezone.utc)
+        total = len(records)
+        if total == 0:
+            return PilotFeedbackReport(
+                generated_at=generated_at,
+                total_entries=0,
+                filters=filters,
+                average_scores=PilotFeedbackScorecard(
+                    average_sentiment=0.0,
+                    average_trust=0.0,
+                    average_usability=0.0,
+                    tone_support_rate=0.0,
+                    trust_confidence_rate=0.0,
+                    usability_success_rate=0.0,
+                ),
+                severity_breakdown={},
+                channel_breakdown={},
+                role_breakdown={},
+                tag_frequency=[],
+                follow_up_required=0,
+                recent_highlights=[],
+                blocker_insights=[],
+            )
+
+        severity_counts = Counter((record.severity or "unspecified") for record in records)
+        channel_counts = Counter(record.channel for record in records)
+        role_counts = Counter(record.role for record in records)
+
+        sentiments = [record.sentiment_score for record in records]
+        trust_scores = [record.trust_score for record in records]
+        usability_scores = [record.usability_score for record in records]
+
+        def _avg(values: list[int]) -> float:
+            return round(sum(values) / len(values), 2) if values else 0.0
+
+        def _rate(values: list[int], threshold: int) -> float:
+            if not values:
+                return 0.0
+            passed = sum(1 for value in values if value >= threshold)
+            return round((passed / len(values)) * 100.0, 2)
+
+        tags_counter: Counter[str] = Counter()
+        for record in records:
+            for tag in record.tags or []:
+                normalized = tag.strip()
+                if not normalized:
+                    continue
+                tags_counter[normalized] += 1
+
+        tag_frequency = [
+            PilotFeedbackTagStat(tag=name, count=count)
+            for name, count in tags_counter.most_common(10)
+        ]
+
+        follow_up_required = sum(1 for record in records if record.follow_up_needed)
+
+        def _to_insight(record: PilotFeedback) -> PilotFeedbackInsight:
+            return PilotFeedbackInsight(
+                cohort=record.cohort,
+                role=record.role,
+                channel=record.channel,
+                scenario=record.scenario,
+                participant_alias=record.participant_alias,
+                sentiment_score=record.sentiment_score,
+                trust_score=record.trust_score,
+                usability_score=record.usability_score,
+                severity=record.severity,
+                tags=list(record.tags or []),
+                highlights=record.highlights,
+                blockers=record.blockers,
+                follow_up_needed=record.follow_up_needed,
+                submitted_at=record.submitted_at,
+            )
+
+        highlight_entries = [_to_insight(record) for record in records if record.highlights]
+        blocker_entries = [
+            _to_insight(record)
+            for record in records
+            if record.blockers
+            or (record.severity or "").lower() in {"high", "critical", "blocker"}
+        ]
+
+        return PilotFeedbackReport(
+            generated_at=generated_at,
+            total_entries=total,
+            filters=filters,
+            average_scores=PilotFeedbackScorecard(
+                average_sentiment=_avg(sentiments),
+                average_trust=_avg(trust_scores),
+                average_usability=_avg(usability_scores),
+                tone_support_rate=_rate(sentiments, 4),
+                trust_confidence_rate=_rate(trust_scores, 4),
+                usability_success_rate=_rate(usability_scores, 4),
+            ),
+            severity_breakdown=dict(severity_counts),
+            channel_breakdown=dict(channel_counts),
+            role_breakdown=dict(role_counts),
+            tag_frequency=tag_frequency,
+            follow_up_required=follow_up_required,
+            recent_highlights=highlight_entries[:highlight_limit],
+            blocker_insights=blocker_entries[:highlight_limit],
+        )
 
     @staticmethod
     def _normalize_tags(tags: Iterable[str]) -> list[str]:

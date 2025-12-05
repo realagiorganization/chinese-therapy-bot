@@ -25,7 +25,8 @@ describe("loadTherapists", () => {
           price_per_session: 520,
           currency: "CNY",
           is_recommended: true,
-          availability: ["Friday 20:00"]
+          availability: ["Friday 20:00"],
+          recommendation_reason: "Focuses on anxiety regulation themes."
         }
       ]
     };
@@ -47,7 +48,8 @@ describe("loadTherapists", () => {
       specialties: ["Anxiety regulation"],
       languages: ["en-US"],
       recommended: true,
-      price: 520
+      price: 520,
+      recommendationReason: "Focuses on anxiety regulation themes."
     });
     expect(fetchMock).toHaveBeenCalledOnce();
   });

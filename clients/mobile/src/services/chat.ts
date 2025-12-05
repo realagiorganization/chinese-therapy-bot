@@ -1,4 +1,8 @@
 import { apiRequest } from "./api/client";
+import {
+  normalizeTherapistRecommendation,
+  type ApiTherapistRecommendation,
+} from "./recommendations";
 import type { ChatMessage, ChatTurnResponse } from "../types/chat";
 
 type ApiChatResponse = {
@@ -9,13 +13,7 @@ type ApiChatResponse = {
     created_at: string;
   };
   recommended_therapist_ids: string[];
-  recommendations: {
-    id: string;
-    name: string;
-    expertise: string[];
-    summary: string;
-    avatar_url?: string | null;
-  }[];
+  recommendations: ApiTherapistRecommendation[];
   memory_highlights: {
     summary: string;
     keywords: string[];
@@ -59,13 +57,9 @@ export async function sendMessage(
     sessionId: response.session_id,
     reply,
     recommendedTherapistIds: response.recommended_therapist_ids,
-    recommendations: response.recommendations.map((rec) => ({
-      id: rec.id,
-      name: rec.name,
-      expertise: rec.expertise,
-      summary: rec.summary,
-      avatarUrl: rec.avatar_url ?? undefined,
-    })),
+    recommendations: response.recommendations.map((rec) =>
+      normalizeTherapistRecommendation(rec),
+    ),
     memoryHighlights: response.memory_highlights,
     resolvedLocale: response.resolved_locale ?? response.locale ?? "zh-CN",
   };

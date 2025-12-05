@@ -90,3 +90,50 @@ def test_list_pilot_feedback_filters_by_query(feedback_client: TestClient) -> No
     assert payload["total"] == 1
     assert len(payload["items"]) == 1
     assert payload["items"][0]["channel"] == "web"
+
+
+def test_pilot_feedback_report_endpoint_returns_summary(feedback_client: TestClient) -> None:
+    entries = [
+        {
+            "cohort": "pilot-2025w4",
+            "channel": "mobile",
+            "role": "participant",
+            "sentiment_score": 5,
+            "trust_score": 4,
+            "usability_score": 3,
+            "severity": "high",
+            "tags": ["latency"],
+            "highlights": "Loved the therapist tone.",
+            "blockers": "Streaming paused once.",
+            "follow_up_needed": True,
+        },
+        {
+            "cohort": "pilot-2025w4",
+            "channel": "web",
+            "role": "therapist",
+            "sentiment_score": 3,
+            "trust_score": 3,
+            "usability_score": 4,
+            "severity": "low",
+            "tags": ["directory"],
+            "highlights": "Directory copy is clear.",
+            "blockers": "",
+            "follow_up_needed": False,
+        },
+    ]
+    for payload in entries:
+        resp = feedback_client.post("/api/feedback/pilot", json=payload)
+        assert resp.status_code == 201
+
+    response = feedback_client.get(
+        "/api/feedback/pilot/report",
+        params={"cohort": "pilot-2025w4", "minimum_trust_score": 3},
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["total_entries"] == 2
+    assert payload["severity_breakdown"]["high"] == 1
+    assert payload["follow_up_required"] == 1
+    tags = {item["tag"] for item in payload["tag_frequency"]}
+    assert {"latency", "directory"}.issubset(tags)

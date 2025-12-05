@@ -65,6 +65,25 @@ npm run start           # launches Expo/Metro
 | `npm run profile:android` | Produces a profiled Android build under `dist/profile-android/`. |
 | `npm run optimize:assets` | Compresses image/audio assets via `expo optimize`. |
 
+## Local backend + ngrok (real devices)
+
+1. Поднимите backend с локальной БД (пример):
+   ```bash
+   cd services/backend
+   source .venv/bin/activate
+   export DATABASE_URL=postgresql+asyncpg://postgres:pass@localhost:5432/mydb
+   export DEMO_CODE_FILE=services/backend/config/demo_codes.json
+   mindwell-api --host 0.0.0.0 --port 8000
+   ```
+2. Пробросьте API наружу: `ngrok http 8000 --host-header=rewrite` и запомните выданный URL `https://<slug>.ngrok-free.dev`.
+3. Обновите `clients/mobile/.env.local`:
+   ```bash
+   EXPO_PUBLIC_API_BASE_URL=https://<slug>.ngrok-free.dev/api
+   EXPO_PUBLIC_SPEECH_REGION=eastasia
+   ```
+4. Запустите Metro с туннелем: `npx expo start --clear --tunnel` и откройте приложение в Expo Go.
+5. Для демо-входа используйте один из кодов в `services/backend/config/demo_codes.json` (например `DEMO-TEAM`), поле Google принимает любую строку в дев-режиме.
+
 ## Architecture Notes
 
 - `src/context/` – AuthContext (tokens, OTP state) and VoiceSettingsContext (rate,

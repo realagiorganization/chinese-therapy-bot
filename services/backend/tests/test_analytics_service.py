@@ -74,3 +74,36 @@ async def test_summarize_builds_expected_metrics(analytics_session: AsyncSession
     assert summary.conversion.signup_completion_rate == 1.0
     assert summary.conversion.therapist_connect_clicks == 1
     assert summary.conversion.therapist_connect_rate == 1.0
+    assert len(summary.locale_breakdown) == 1
+    assert summary.locale_breakdown[0].locale == "zh-CN"
+    assert summary.locale_breakdown[0].chat_turns == 1
+    assert summary.locale_breakdown[0].therapist_profile_views == 1
+    assert summary.locale_breakdown[0].therapist_connect_clicks == 1
+
+
+@pytest.mark.asyncio
+async def test_locale_breakdown_sorts_and_limits_results(analytics_session: AsyncSession) -> None:
+    service = ProductAnalyticsService(analytics_session)
+    user = uuid4()
+    session = uuid4()
+
+    locales = ["zh-CN", "zh-TW", "en-US", "fr-FR", "ja-JP", "ko-KR"]
+    for idx, locale in enumerate(locales, start=1):
+        for _ in range(idx):
+            await service.track_chat_turn(
+                user_id=user,
+                session_id=session,
+                locale=locale,
+                message_length=10,
+            )
+        if idx % 2 == 0:
+            await service.track_therapist_profile_view(user_id=user, therapist_id=None, locale=locale)
+        if idx % 3 == 0:
+            await service.track_therapist_connect_click(user_id=user, therapist_id=None, locale=locale)
+
+    summary = await service.summarize(window_hours=4)
+
+    assert len(summary.locale_breakdown) == 5  # default limit
+    assert summary.locale_breakdown[0].locale == "ko-KR"
+    assert summary.locale_breakdown[0].chat_turns == len(locales)
+    assert all(item.locale != "zh-CN" for item in summary.locale_breakdown)

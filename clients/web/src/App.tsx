@@ -19,6 +19,8 @@ type HighlightCard = {
 export default function App() {
   const { t, i18n } = useTranslation();
   const { isAuthenticated, clearTokens } = useAuth();
+  const gradientBackground =
+    "linear-gradient(0deg, var(--mw-gradient-bottom) 0%, var(--mw-gradient-mid) 38%, var(--mw-gradient-top) 80%)";
 
   const highlightCards: HighlightCard[] = [
     {
@@ -43,7 +45,7 @@ export default function App() {
           display: "grid",
           placeItems: "center",
           padding: "clamp(24px, 4vw, 64px)",
-          background: "linear-gradient(180deg, rgba(59,130,246,0.12) 0%, rgba(248,250,252,1) 45%)"
+          background: gradientBackground
         }}
       >
         <LoginPanel />
@@ -56,7 +58,7 @@ export default function App() {
       style={{
         minHeight: "100vh",
         padding: "clamp(24px, 4vw, 64px)",
-        background: "linear-gradient(180deg, rgba(59,130,246,0.08) 0%, rgba(248,250,252,1) 40%)"
+        background: gradientBackground
       }}
     >
       <div
@@ -97,8 +99,9 @@ export default function App() {
             display: "grid",
             gap: "var(--mw-spacing-md)",
             background:
-              "linear-gradient(135deg, rgba(37,99,235,0.92) 0%, rgba(59,130,246,0.78) 60%, rgba(255,255,255,0.98) 100%)",
-            color: "#0F172A"
+              "linear-gradient(135deg, var(--mw-color-accent-blue-green) 0%, rgba(255,255,255,0.92) 65%, rgba(255,255,255,0.98) 100%)",
+            color: "#0F172A",
+            border: "1px solid rgba(255,255,255,0.6)"
           }}
         >
           <Typography variant="overline" style={{ color: "rgba(15,23,42,0.72)" }}>

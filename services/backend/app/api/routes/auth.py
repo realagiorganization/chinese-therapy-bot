@@ -2,7 +2,13 @@ from fastapi import APIRouter, Body, Depends, HTTPException, Request, status
 
 from app.api.deps import get_auth_service
 from app.core.config import AppSettings, get_settings
-from app.schemas.auth import DemoLoginRequest, SessionRequest, TokenRefreshRequest, TokenResponse
+from app.schemas.auth import (
+    DemoLoginRequest,
+    GoogleLoginRequest,
+    SessionRequest,
+    TokenRefreshRequest,
+    TokenResponse,
+)
 from app.services.auth import AuthService, OAuth2Identity
 
 router = APIRouter()
@@ -99,6 +105,29 @@ async def login_with_demo_code(
 
     try:
         return await service.login_with_demo_code(
+            payload,
+            user_agent=user_agent,
+            ip_address=ip_address,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.post(
+    "/google",
+    response_model=TokenResponse,
+    summary="Получить токены по коду Google OAuth.",
+)
+async def login_with_google_code(
+    payload: GoogleLoginRequest,
+    request: Request,
+    service: AuthService = Depends(get_auth_service),
+) -> TokenResponse:
+    user_agent = payload.user_agent or request.headers.get("user-agent")
+    ip_address = payload.ip_address or (request.client.host if request.client else None)
+
+    try:
+        return await service.login_with_google_code(
             payload,
             user_agent=user_agent,
             ip_address=ip_address,

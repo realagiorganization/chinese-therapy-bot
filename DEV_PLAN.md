@@ -198,6 +198,18 @@
 
 ---
 
+### **Messenger-Style Visual System (Phase 9)**
+
+**Status:** Completed — mobile clients now mirror the `Messenger_creation.jpg` brief with gradient + typography parity and QA tooling to toggle palettes.
+
+- **Palette selector & AsyncStorage propagation:** Settings includes a bilingual palette grid that switches between the yellow–green, pink–green, and blue–green gradients defined in `clients/mobile/src/theme/palettes.ts` with persistence in `ThemeProvider` (`clients/mobile/src/theme/ThemeProvider.tsx`). Palette swatches are reused across Chat/Therapist screens for the frosted-glass overlays.
+- **Outlined chrome + keyboard states:** Chat/Therapist shells swap inset buttons for outlined treatments, keep a top-left back arrow when the keyboard is visible, and hide the four-tab nav bar until the keyboard dismisses (`clients/mobile/src/screens/ChatScreen.tsx`). The voice-mode arrow now lives on the left side of the composer while the microphone toggle holds the right edge.
+- **Academic prompt copy + quotes:** The chat prompt greeting was rewritten with the requested academic tone and now surfaces a localized psychodynamic quote + attribution selector on every session load (`clients/mobile/src/screens/ChatScreen.tsx`).
+- **Therapist recommendations block:** Therapist Directory renders the “Based on your conversations…” intro plus rationale A/B/C press targets ahead of the full grid, borrowing the palette highlight swatches to keep parity with the Messenger reference (`clients/mobile/src/screens/TherapistDirectoryScreen.tsx`).
+- **Settings entry brainstorm:** Settings now documents alternate entry placements (bottom tab, Journey link, composer chip) alongside the palette selector so QA can evaluate non-top-left placements without crowding the glass header (`clients/mobile/src/screens/SettingsScreen.tsx`).
+
+---
+
 ## **7. Deployment & Operations**
 
 **Status:** Release management handbook published (`docs/release_management.md`) with changelog (`docs/changelog.md`) seeded; automation agents documented in `AGENTS.md`.

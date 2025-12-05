@@ -32,6 +32,22 @@ class DemoLoginRequest(BaseModel):
     ip_address: Optional[str] = Field(default=None)
 
 
+class GoogleLoginRequest(BaseModel):
+    """Request payload for exchanging a Google authorization code for tokens."""
+
+    code: constr(min_length=1, strip_whitespace=True) = Field(
+        ...,
+        description="Authorization code returned by Google OAuth.",
+    )
+    redirect_uri: Optional[str] = Field(
+        default=None,
+        description="Redirect URI used when requesting the authorization code.",
+    )
+    session_id: Optional[str] = Field(default=None)
+    user_agent: Optional[str] = Field(default=None)
+    ip_address: Optional[str] = Field(default=None)
+
+
 class TokenRefreshRequest(BaseModel):
     refresh_token: str = Field(..., description="Previously issued refresh token.")
     session_id: Optional[str] = Field(

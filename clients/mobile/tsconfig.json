@@ -12,8 +12,11 @@
       "@screens/*": ["src/screens/*"],
       "@hooks/*": ["src/hooks/*"],
       "@context/*": ["src/context/*"],
+      "@constants/*": ["src/constants/*"],
       "@services/*": ["src/services/*"],
-      "@types/*": ["src/types/*"]
+      "@types/*": ["src/types/*"],
+      "@utils/*": ["src/utils/*"],
+      "shared/*": ["../shared/*"]
     }
   },
   "include": ["./App.tsx", "./index.ts", "./app.config.ts", "src/**/*"]

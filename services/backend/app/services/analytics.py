@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections import defaultdict
 from datetime import datetime, timedelta, timezone
 from enum import Enum
 from typing import Any
@@ -15,6 +16,7 @@ from app.schemas.analytics import (
     AnalyticsSummary,
     ConversionMetrics,
     JourneyEngagementMetrics,
+    LocaleEngagementBreakdown,
 )
 
 
@@ -216,11 +218,14 @@ class ProductAnalyticsService:
             therapist_connect_rate=round(therapist_conversion, 3),
         )
 
+        locale_breakdown = await self._locale_breakdown(*timeframe_filters)
+
         return AnalyticsSummary(
             window_start=start,
             window_end=end,
             engagement=engagement,
             conversion=conversion,
+            locale_breakdown=locale_breakdown,
         )
 
     async def _create_event(
@@ -275,6 +280,53 @@ class ProductAnalyticsService:
         result = await self._session.execute(stmt)
         value = result.scalar()
         return int(value or 0)
+
+    async def _locale_breakdown(
+        self,
+        *filters,
+        limit: int = 5,
+    ) -> list[LocaleEngagementBreakdown]:
+        event_types = {
+            AnalyticsEventType.CHAT_TURN_SENT.value: "chat_turns",
+            AnalyticsEventType.THERAPIST_PROFILE_VIEW.value: "therapist_profile_views",
+            AnalyticsEventType.THERAPIST_CONNECT_CLICK.value: "therapist_connect_clicks",
+        }
+        tracked_types = tuple(event_types.keys())
+        stmt = (
+            select(AnalyticsEvent.event_type, AnalyticsEvent.properties)
+            .where(AnalyticsEvent.event_type.in_(tracked_types), *filters)
+        )
+        result = await self._session.execute(stmt)
+        locale_totals: dict[str, dict[str, int]] = defaultdict(
+            lambda: {
+                "chat_turns": 0,
+                "therapist_profile_views": 0,
+                "therapist_connect_clicks": 0,
+            }
+        )
+        for event_type, properties in result.all():
+            locale = (properties or {}).get("locale") or "unknown"
+            metric_key = event_types[event_type]
+            locale_totals[locale][metric_key] += 1
+
+        breakdown = [
+            LocaleEngagementBreakdown(
+                locale=locale,
+                chat_turns=metrics["chat_turns"],
+                therapist_profile_views=metrics["therapist_profile_views"],
+                therapist_connect_clicks=metrics["therapist_connect_clicks"],
+            )
+            for locale, metrics in locale_totals.items()
+        ]
+        breakdown.sort(
+            key=lambda item: (
+                item.chat_turns,
+                item.therapist_profile_views,
+                item.therapist_connect_clicks,
+            ),
+            reverse=True,
+        )
+        return breakdown[:limit]
 
     def _normalize_datetime(self, value: datetime | None) -> datetime:
         if value is None:

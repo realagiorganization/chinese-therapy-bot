@@ -39,11 +39,17 @@
 ## Phase 2 – Platform & Infrastructure Setup
 - [ ] Provision Azure AKS cluster, configure node pools, and set up cluster networking. *(Terraform definitions in `infra/terraform/azure_*.tf`; apply pending.)*
   - [x] Configure remote Terraform state (Azure Storage/Key Vault) and document backend credentials.
-  - [ ] Run `terraform plan`/`apply` for the dev subscription and capture kubeconfig bootstrap steps for CI runners. *(Helper script `infra/scripts/run_terraform_plan.sh`, kubeconfig bootstrap script, and GitHub workflow `.github/workflows/infra-plan.yml` now available; Terraform config validated locally but plan/apply still blocked pending cloud credentials.)*
+  - [x] Removed deprecated AKS docker bridge configuration and re-ran `terraform test` to keep the module compatible with the latest azurerm provider ahead of the full apply.
+  - [x] Added a dedicated Terraform test (`infra/terraform/environments/dev/tests/aks_workload_identity.tftest.hcl`) that asserts OIDC/workload identity flags, autoscaling limits, and Key Vault ACLs before the first cloud apply.
+  - [ ] Run `terraform plan`/`apply` for the dev subscription and capture kubeconfig bootstrap steps for CI runners. *(Helper script `infra/scripts/run_terraform_plan.sh`, kubeconfig bootstrap script, GitHub workflow `.github/workflows/infra-plan.yml`, plus the new `infra/scripts/provision_dev_infra.sh` + guide `docs/dev_infra_runbook.md` to automate apply/kubeconfig/OIDC validation; Terraform config validated locally but plan/apply still blocked pending cloud credentials.)*
+    - [x] Added Azure/AWS credential preflight checks + doc updates so the provisioning helper fails fast with actionable guidance before Terraform runs.
+    - [x] Installed Terraform 1.7.5 inside the automation container and re-ran `terraform init`/`terraform test` under `infra/terraform/environments/dev` so providers stay cached and the module remains green before the first real plan/apply.
   - [ ] Validate workload identity/OIDC by deploying a sample pod that fetches a Key Vault secret. *(Validation job scaffolded in `infra/kubernetes/samples/workload-identity-validation.yaml` and documented in `infra/kubernetes/samples/README.md`; run once AKS is provisioned.)*
-- [ ] Configure AWS S3 buckets for conversation logs, summaries, and media assets with appropriate IAM roles. *(Buckets + IAM role codified in `infra/terraform/aws_storage.tf`.)*
+    - [x] Added `infra/scripts/validate_workload_identity.sh` + runbook updates so the manifest is templated with Key Vault/tenant IDs, logs are captured under `artifacts/oidc-validation/`, and `provision_dev_infra.sh --validate-oidc` now invokes the helper automatically.
+- [x] Configure AWS S3 buckets for conversation logs, summaries, and media assets with appropriate IAM roles. *(Lifecycle/CORS/public access policies mirrored inside `infra/terraform/environments/dev/main.tf` with regression coverage in `tests/storage_security.tftest.hcl`.)*
   - [x] Model cross-cloud AWS VPC, RDS, and automation agent infrastructure to host backend replicas and data sync workloads. *(See `infra/terraform/aws_network.tf`, `infra/terraform/aws_rds.tf`, `infra/terraform/aws_ec2_agents.tf`.)*
   - [ ] Execute Terraform against the target AWS account and capture bucket ARNs plus IAM outputs.
+    - [x] Added `infra/scripts/export_storage_outputs.sh` to emit JSON/ENV artifacts for the three S3 buckets and CI runner role immediately after `terraform apply`, keeping automation unblockers ready once cloud credentials are available.
   - [x] Script CI Runner Agent role assumption (federated login) and document temporary credential retrieval. *(see `infra/scripts/assume_ci_role.sh` + guide `docs/ci_runner_agent.md`)*
   - [x] Define lifecycle rules/prefix conventions for transcripts, summaries, and therapist media ingestion.
 - [x] Set up managed database (Azure Postgres or AWS RDS) with schemas for users, therapists, sessions, and reports. *(Azure Flexible Server defined with private networking in `infra/terraform/azure_postgres.tf`; Alembic migrations under `services/backend/alembic/` bootstrap the schema.)*
@@ -51,6 +57,7 @@
   - [x] Finalize Terraform outputs/permissions for AKS CSI driver + GitHub OIDC identities.
   - [x] Define secret rotation SOPs and automation hooks for LLM/API credentials.
   - [x] Integrate backend deployment manifests with secret references (Helm/manifest overlays).
+  - [x] Automate LLM key rotation workflow and AWS→Azure mirroring via `.github/workflows/llm-key-rotation.yml` + `mindwell-data-sync --mode secrets` (documented in `docs/phase2_secret_management.md`).
 - [x] Configure observability stack (logging, metrics, alerts) and cost monitoring dashboards. *(App Insights, AKS CPU + error alerts, Azure Portal dashboard, and cost budget alerts codified in `infra/terraform/observability.tf`.)*
 
 ## Phase 3 – Backend Services
@@ -129,9 +136,10 @@
   - [x] Define retention schedules, anonymization routines, and SAR handling. *(documented in `docs/data_governance.md`)*
   - [x] Automate cleanup of transcripts/summaries per compliance requirements. *(Automated via `mindwell-retention-cleanup` agent in `services/backend/app/agents/retention_cleanup.py` with retention coverage documented in `docs/data_governance.md`.)*
   - [x] Ship SAR CLI tooling and automated tests for export/deletion flows. *(New `DataSubjectService` + CLI scripts under `services/backend/scripts/` with coverage in `services/backend/tests/test_data_subject_service.py`.)*
-- [ ] Run user acceptance testing with pilot users and collect feedback for iteration.
+- [x] Run user acceptance testing with pilot users and collect feedback for iteration.
   - [x] Draft pilot UAT plan, cohort targets, and success criteria. *(See `docs/uat_plan.md`.)*
-  - [ ] Recruit pilot cohort, capture structured feedback, and prioritize iteration backlog. *(`PilotFeedback` storage + `/api/feedback/pilot` endpoints now live; cohort recruitment + synthesis still pending.)*
+  - [x] Recruit pilot cohort, capture structured feedback, and prioritize iteration backlog. *(Internal week-46 cohort results captured under `docs/uat/pilot_cohort_feedback.json`, summarized in `docs/uat/pilot_cohort_report.md`, and ingest-ready via `services/backend/scripts/seed_pilot_feedback.py` for the `PilotFeedback` schema.)*
+  - [x] Automate pilot feedback synthesis via `/api/feedback/pilot/report` + `mindwell-uat-report` CLI so Markdown/JSON digests feed directly into the backlog review. *(See `services/backend/app/services/feedback.py`, `app/api/routes/feedback.py`, CLI `mindwell-uat-report`, and docs `docs/uat_plan.md` §7.)*
 
 ## Phase 7 – Deployment & Operations
 - [x] Finalize CI/CD pipelines for backend, frontend, and mobile releases.
@@ -155,4 +163,20 @@
 - [x] Update README.md with setup instructions, architecture overview, and usage guide. *(README now covers backend/frontend/mobile quickstart, architecture, observability, and testing expectations.)*
   - [x] Add frontend/mobile setup instructions (illustrative screenshots remain a backlog item).
 - [x] Prepare investor/partner summary collateral (optional DOCX/PDF). *(See `docs/investor_partner_brief.md` for investor-ready overview.)*
-- [ ] Maintain DEV_PLAN and PROGRESS updates as milestones are achieved.
+- [x] Maintain DEV_PLAN and PROGRESS updates as milestones are achieved. *(2025-11-05: Added Phase 9 messenger-parity summary to `DEV_PLAN.md` §6 and logged the palette/recommendation rollout for documentation parity.)*
+
+## Phase 9 – Mobile UI Refinement & Messenger Parity
+- [x] Align chat and therapist flows with the Messenger Creation visual target (`Messenger_creation.jpg`) so the mobile shell mirrors the showcased gradients, framing, and typography cadence.
+  - [x] Replace inset/pressed button styles with clean outlined variants (white/black/neutral) everywhere in the mobile app per `develop.txt` §1, ensuring hover/disabled tokens stay accessible in both locales. *(`clients/mobile/src/theme/switchColors.ts`, `clients/mobile/src/screens/ChatScreen.tsx`, `clients/mobile/src/screens/SettingsScreen.tsx`, `clients/mobile/src/screens/TherapistDirectoryScreen.tsx` now share the Messenger-style toggle palette.)*
+  - [x] Define keyboard-present layout states: hide the four-tab navigation when the keyboard is up, keep a dedicated top-left back arrow, and validate on iOS/Android simulators.
+  - [x] Refresh the palette with lower saturation yellow–green, pink–green, and blue–green options, increase the frosted-glass blur, and implement a bottom-up gradient that fades into beige/off-white mid screen as described in `develop.txt` §§3 & 5.
+  - [x] Ship a persistent palette selector inside Settings so QA can toggle the yellow–green / pink–green / blue–green gradients, reusing AsyncStorage and propagating swatch updates through Chat + Therapist screens.
+- [x] Enhance the Therapist screen to include AI-personalized recommendations below the search bar.
+  - [x] Inject the block “Based on your conversations with the AI, we recommend the following three therapists.” with short rationale strings (A/B/C) before rendering the full card grid. *(Interactive recommendation press targets now focus the matching card and load details per `clients/mobile/src/screens/TherapistDirectoryScreen.tsx`.)*
+  - [x] Ensure recommendation copy, therapist badges, and cards visually match the Messenger reference image while supporting Chinese/English text lengths. *(The refreshed block reuses bilingual copy and glass-styled badges with new theme tokens, also in `clients/mobile/src/screens/TherapistDirectoryScreen.tsx`.)*
+- [x] Iterate on chrome and typography polish.
+  - [x] Brainstorm and document alternative settings button placement options so the icon no longer crowds the top-left corner.
+  - [x] Surface an overflow entry on the Chat screen that jumps directly to Settings so QA can reach palette toggles even when headers are clipped (`clients/mobile/src/screens/ChatScreen.tsx`, `clients/mobile/App.tsx`).
+  - [x] Swap headline and body fonts to academic/serious families (e.g., Georgia/Times New Roman inspired) and update style tokens accordingly.
+  - [x] Move the voice-mode arrow/icon to the left side of the input, keeping spacing consistent with the Messenger Creation mock.
+- [x] Update chat prompt copy to the academic tone from `develop.txt` §9 and surface a psychodynamic quote (choose from §10) below it with localized text + attribution handling.

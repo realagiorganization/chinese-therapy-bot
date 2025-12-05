@@ -79,6 +79,14 @@ and capture feedback to close Phase 6 of the development roadmap.
   - Participant feedback themes
   - Metrics vs success criteria
   - Backlog recommendations tagged by severity/effort
+- Automate the artifact with `mindwell-uat-report` (or the `/api/feedback/pilot/report` endpoint) so the facilitator can export Markdown/JSON snapshots per cohort. Example:
+  ```bash
+  mindwell-uat-report \
+    --cohort pilot-2025w4 \
+    --submitted-since 2025-11-10 \
+    --format markdown \
+    --output docs/reports/uat/2025-11-15-pilot-summary.md
+  ```
 
 ## 8. Next Steps
 

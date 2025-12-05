@@ -25,7 +25,16 @@ class DemoCodeRegistry:
         file_path: str | None,
         default_chat_quota: int,
     ) -> None:
-        self._path = Path(file_path).expanduser() if file_path else None
+        path = Path(file_path).expanduser() if file_path else None
+        if not path or not path.exists():
+            fallback = Path(__file__).resolve().parents[2] / "config" / "demo_codes.json"
+            if fallback.exists():
+                logger.info(
+                    "Файл демо-кодов не найден по указанному пути; используем встроенный список %s",
+                    fallback,
+                )
+                path = fallback
+        self._path = path
         self._default_chat_quota = default_chat_quota if default_chat_quota >= 0 else 0
         self._lock = threading.Lock()
         self._cache: dict[str, DemoCodeEntry] = {}

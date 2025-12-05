@@ -1,6 +1,7 @@
 import { useJourneyReports } from "@hooks/useJourneyReports";
+import { useLocale, LOCALE_KEYS } from "@context/LocaleContext";
 import { useTheme } from "@theme/ThemeProvider";
-import * as Localization from "expo-localization";
+import { toCopyLocale, type CopyLocale } from "@utils/locale";
 import { useEffect, useMemo, useState } from "react";
 import {
   Pressable,
@@ -26,11 +27,71 @@ function resolveLocale(locale: string | null | undefined): string {
 
 type DetailTab = "summary" | "transcript";
 
+const JOURNEY_COPY = {
+  zh: {
+    title: "成长旅程",
+    subtitle: "回顾每日亮点、每周主题和重要对话片段。",
+    fallbackBadge: "使用示例数据",
+    dailyTitle: "每日总结",
+    dailyEmpty: "暂无总结，请稍后再试或继续与 MindWell 对话。",
+    moodUp: (delta: number) => `情绪提升 +${delta}`,
+    moodDown: (delta: number) => `情绪下降 ${delta}`,
+    moodFlat: "情绪平稳",
+    tabSummary: "摘要",
+    tabTranscript: "对话片段",
+    conversationEmpty: "暂无对话记录，继续与 MindWell 交流以丰富总结。",
+    speakerUser: "你",
+    speakerAssistant: "MindWell",
+    weeklyTitle: "每周主题",
+    weeklyEmpty: "暂无每周总结，完成更多会话后将自动生成。",
+    actionItems: "行动建议",
+  },
+  en: {
+    title: "Journey",
+    subtitle: "Review daily highlights, weekly themes, and key conversation slices.",
+    fallbackBadge: "Using sample data",
+    dailyTitle: "Daily snapshots",
+    dailyEmpty: "No daily summary yet. Try again or keep chatting with MindWell.",
+    moodUp: (delta: number) => `Mood up +${delta}`,
+    moodDown: (delta: number) => `Mood down ${delta}`,
+    moodFlat: "Mood stable",
+    tabSummary: "Summary",
+    tabTranscript: "Conversation",
+    conversationEmpty: "No conversation slices yet. Keep chatting to fill this.",
+    speakerUser: "You",
+    speakerAssistant: "MindWell",
+    weeklyTitle: "Weekly themes",
+    weeklyEmpty: "No weekly summary yet. We'll generate it after more sessions.",
+    actionItems: "Action items",
+  },
+  ru: {
+    title: "Прогресс",
+    subtitle: "Смотрите ежедневные акценты, недельные темы и ключевые фрагменты диалогов.",
+    fallbackBadge: "Пример данных",
+    dailyTitle: "Ежедневные итоги",
+    dailyEmpty: "Сводки пока нет. Попробуйте позже или продолжайте общение с MindWell.",
+    moodUp: (delta: number) => `Настроение выросло +${delta}`,
+    moodDown: (delta: number) => `Настроение снизилось ${delta}`,
+    moodFlat: "Настроение стабильно",
+    tabSummary: "Сводка",
+    tabTranscript: "Диалоги",
+    conversationEmpty: "Нет фрагментов. Продолжайте диалоги, чтобы они появились.",
+    speakerUser: "Вы",
+    speakerAssistant: "MindWell",
+    weeklyTitle: "Недельные темы",
+    weeklyEmpty: "Недельной сводки пока нет. Она появится после ещё нескольких сессий.",
+    actionItems: "Рекомендации",
+  },
+} as const;
+
 export function JourneyScreen() {
-  const systemLocale = resolveLocale(Localization.locale);
+  const { locale } = useLocale();
+  const resolvedLocale = resolveLocale(locale ?? LOCALE_KEYS.default);
+  const copyLocale: CopyLocale = toCopyLocale(resolvedLocale);
+  const copy = JOURNEY_COPY[copyLocale];
   const theme = useTheme();
   const { daily, weekly, conversationsByDate, isLoading, source, refresh } =
-    useJourneyReports(systemLocale);
+    useJourneyReports(resolvedLocale);
 
   const [selectedDailyId, setSelectedDailyId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<DetailTab>("summary");
@@ -64,23 +125,23 @@ export function JourneyScreen() {
 
   const formatShortDate = useMemo(
     () =>
-      new Intl.DateTimeFormat(systemLocale, {
+      new Intl.DateTimeFormat(resolvedLocale, {
         month: "short",
         day: "numeric",
         weekday: "short",
       }),
-    [systemLocale],
+    [resolvedLocale],
   );
 
   const formatLongDate = useMemo(
     () =>
-      new Intl.DateTimeFormat(systemLocale, {
+      new Intl.DateTimeFormat(resolvedLocale, {
         year: "numeric",
         month: "long",
         day: "numeric",
         weekday: "long",
       }),
-    [systemLocale],
+    [resolvedLocale],
   );
 
   const styles = useMemo(
@@ -253,21 +314,19 @@ export function JourneyScreen() {
       >
         <View style={styles.headerRow}>
           <View>
-            <Text style={styles.title}>成长旅程</Text>
-            <Text style={styles.subtitle}>
-              回顾每日亮点、每周主题和重要对话片段。
-            </Text>
+            <Text style={styles.title}>{copy.title}</Text>
+            <Text style={styles.subtitle}>{copy.subtitle}</Text>
           </View>
           {source === "fallback" && (
-            <Text style={styles.fallbackBadge}>使用示例数据</Text>
+            <Text style={styles.fallbackBadge}>{copy.fallbackBadge}</Text>
           )}
         </View>
 
         <View style={styles.section}>
-          <Text style={styles.subtitle}>每日总结</Text>
+          <Text style={styles.subtitle}>{copy.dailyTitle}</Text>
           {daily.length === 0 ? (
             <Text style={styles.emptyState}>
-              暂无总结，请稍后再试或继续与 MindWell 对话。
+              {copy.dailyEmpty}
             </Text>
           ) : (
             <View style={styles.dailyList}>
@@ -275,10 +334,10 @@ export function JourneyScreen() {
                 const isActive = report.id === selectedDailyId;
                 const moodLabel =
                   report.moodDelta > 0
-                    ? `情绪提升 +${report.moodDelta}`
+                    ? copy.moodUp(report.moodDelta)
                     : report.moodDelta < 0
-                      ? `情绪下降 ${report.moodDelta}`
-                      : "情绪平稳";
+                      ? copy.moodDown(report.moodDelta)
+                      : copy.moodFlat;
                 return (
                   <Pressable
                     key={report.id}
@@ -325,7 +384,7 @@ export function JourneyScreen() {
                       activeTab === "summary" && styles.tabLabelActive,
                     ]}
                   >
-                    摘要
+                    {copy.tabSummary}
                   </Text>
                 </Pressable>
                 <Pressable
@@ -341,7 +400,7 @@ export function JourneyScreen() {
                       activeTab === "transcript" && styles.tabLabelActive,
                     ]}
                   >
-                    对话片段
+                    {copy.tabTranscript}
                   </Text>
                 </Pressable>
               </View>
@@ -350,7 +409,7 @@ export function JourneyScreen() {
                 <Text style={styles.summaryText}>{selectedDaily.summary}</Text>
               ) : conversationsForSelected.length === 0 ? (
                 <Text style={styles.emptyState}>
-                  暂无对话记录，继续与 MindWell 交流以丰富总结。
+                  {copy.conversationEmpty}
                 </Text>
               ) : (
                 conversationsForSelected.map((conversation) => (
@@ -366,7 +425,10 @@ export function JourneyScreen() {
                           style={styles.conversationBubble}
                         >
                           <Text style={styles.bubbleMeta}>
-                            {message.role === "user" ? "你" : "MindWell"} ·{" "}
+                            {message.role === "user"
+                              ? copy.speakerUser
+                              : copy.speakerAssistant}{" "}
+                            ·{" "}
                             {timestamp}
                           </Text>
                           <Text style={styles.summaryText}>
@@ -383,10 +445,10 @@ export function JourneyScreen() {
         </View>
 
         <View style={styles.section}>
-          <Text style={styles.subtitle}>每周主题</Text>
+          <Text style={styles.subtitle}>{copy.weeklyTitle}</Text>
           {weekly.length === 0 ? (
             <Text style={styles.emptyState}>
-              暂无每周总结，完成更多会话后将自动生成。
+              {copy.weeklyEmpty}
             </Text>
           ) : (
             weekly.map((report) => (
@@ -406,7 +468,7 @@ export function JourneyScreen() {
                 <Text style={styles.summaryText}>{report.highlights}</Text>
                 {report.actionItems.length > 0 && (
                   <View style={{ gap: 4 }}>
-                    <Text style={styles.subtitle}>行动建议</Text>
+                    <Text style={styles.subtitle}>{copy.actionItems}</Text>
                     {report.actionItems.map((item) => (
                       <Text key={item} style={styles.summaryText}>
                         • {item}

@@ -1,8 +1,15 @@
 export type TherapistRecommendation = {
   id: string;
   name: string;
-  expertise: string[];
-  summary: string;
+  title: string;
+  specialties: string[];
+  languages: string[];
+  price: number;
+  currency: string;
+  recommended: boolean;
+  score: number;
+  reason: string;
+  matchedKeywords: string[];
   avatarUrl?: string;
 };
 
