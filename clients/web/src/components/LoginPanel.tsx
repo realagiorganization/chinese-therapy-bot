@@ -267,6 +267,9 @@ export function LoginPanel() {
         <Typography variant="caption" style={{ color: "var(--text-secondary)" }}>
           {t("auth.email_hint")}
         </Typography>
+        <Typography variant="caption" style={{ color: "var(--text-secondary)" }}>
+          {t("auth.register_steps")}
+        </Typography>
         <label style={{ display: "grid", gap: "4px", fontSize: "0.9rem" }}>
           <span style={{ color: "var(--text-secondary)" }}>{t("auth.email_label")}</span>
           <input
