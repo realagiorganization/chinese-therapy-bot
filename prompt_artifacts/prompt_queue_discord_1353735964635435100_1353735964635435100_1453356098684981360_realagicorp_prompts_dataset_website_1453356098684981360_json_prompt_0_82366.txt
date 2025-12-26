@@ -1,0 +1,27 @@
+Prompt ID: prompt_queue_discord_1353735964635435100_1353735964635435100_1453356098684981360_realagicorp_prompts_dataset_website_1453356098684981360_json_prompt_0_82366
+Timestamp: 2025-12-26T18:17:10.145328Z
+Source: discord
+Queue: prompt_queue::discord_1353735964635435100_1353735964635435100_1453356098684981360_realagicorp_prompts_dataset_website_1453356098684981360_json
+Run: 1/1
+Content:
+Discord channel: prompts_dataset_website
+Channel ID: 1453356098684981360
+Messages aggregated: 2
+
+Discord channel: prompts_dataset_website | ID: 1453356098684981360 | Reaction filter: :white_check_mark:
+
+Messages with required reaction:
+[1] (2025-12-24T12:22:11.398+00:00 | drybox | id=1453362119277019210) Repository:
+repository_hint = https://github.com/realagiorganization/dataset_website
+cycles_hint = 1
+Task:
+We need to develop a website for user registration and authorization in our system step by step.
+Input data: We have blob storage with artifacts on Azure, where we also deploy Kubernetes. On AWS, we have S3 and EC2, which host VM instances, one of which runs our GitHub runner. Most of our compute credits are on Azure, so we need to deploy services there. We also have Google Cloud. Use the repository https://github.com/realagiorganization/chinese-therapy-bot as a development example, as it contains working service deployment and decommissioning scripts, as well as a working frontend and backend. We also have a repository at https://github.com/realagiorganization/dataset, which is where we're developing the website + database integration.
+Recommendations: If the PROGRESS.md file hasn't yet been created in the repository, create it from the attached dev_plan.txt. If PROGRESS.md has already been created, continue working on the plan's steps. When a step is completed, mark it in PROGRESS.md and move on to the next step. As you work, you can supplement PROGRESS.md with new plan steps if necessary.
+General work plan:
+AGENTS.md is a free file; use it at your own discretion.
+In the ENVS.md file, write down all the environment variables the application will use, separating them into mandatory and optional. Each environment variable must be described.
+The README.md file must describe the application's operation and usage (after all development steps in PROGRESS.md are completed).
+Check the correctness of the steps already completed in PROGRESS.md and continue development according to the plan
+[2] (2025-12-24T13:33:23.672+00:00 | drybox | id=1453380038492946517) Here is the technical specification file
+Attachments: dev_plan_en.txt: /out/1353735964635435100/_media/dev_plan_en-e3f17.txt
