@@ -3,53 +3,23 @@ import type { FormEvent } from "react";
 import { useTranslation } from "react-i18next";
 
 import { AuthError, exchangeOAuthSession, loginWithDemoCode } from "../api/auth";
+import { trackAnalyticsEvent } from "../api/analytics";
 import { getAuthProxyUrl } from "../api/client";
+import { isPendingOAuth, setPendingOAuth, triggerOAuthRedirect } from "../auth/oauthState";
 import { useAuth } from "../auth/AuthContext";
 import { Button, Card, Typography } from "../design-system";
 import { LocaleSwitcher } from "./LocaleSwitcher";
 
-const OAUTH_PENDING_KEY = "mindwell:oauth:pending";
+type AuthViewHandler = () => void;
 
 type EmailStatus = "idle" | "checking" | "redirecting";
 type DemoStatus = "idle" | "submitting";
 
-function setPendingOAuth(status: boolean): void {
-  if (typeof window === "undefined") {
-    return;
-  }
-  try {
-    if (status) {
-      window.localStorage.setItem(OAUTH_PENDING_KEY, "1");
-    } else {
-      window.localStorage.removeItem(OAUTH_PENDING_KEY);
-    }
-  } catch {
-    // ignore storage failures
-  }
-}
+type LoginPanelProps = {
+  onShowRegistration?: AuthViewHandler;
+};
 
-function isPendingOAuth(): boolean {
-  if (typeof window === "undefined") {
-    return false;
-  }
-  try {
-    return window.localStorage.getItem(OAUTH_PENDING_KEY) === "1";
-  } catch {
-    return false;
-  }
-}
-
-function triggerOAuthRedirect(url: string): void {
-  if (typeof window !== "undefined" && window.location) {
-    window.location.assign(url);
-    return;
-  }
-  if (typeof document !== "undefined" && document.location) {
-    document.location.href = url;
-  }
-}
-
-export function LoginPanel() {
+export function LoginPanel({ onShowRegistration }: LoginPanelProps) {
   const { t } = useTranslation();
   const { setTokens } = useAuth();
 
@@ -90,6 +60,20 @@ export function LoginPanel() {
             expiresAt: Date.now() + tokens.expiresIn * 1000
           });
           setError(null);
+          await trackAnalyticsEvent({
+            eventType: "oauth_redirect_success",
+            funnelStage: "activation",
+            properties: {
+              flow: "oauth2-proxy"
+            }
+          });
+          await trackAnalyticsEvent({
+            eventType: "signup_completed",
+            funnelStage: "conversion",
+            properties: {
+              flow: "oauth2-proxy"
+            }
+          });
         }
       } catch (err) {
         if (cancelled || skipOAuthRef.current) {
@@ -162,7 +146,7 @@ export function LoginPanel() {
       const oauthStartUrl = `${getAuthProxyUrl("/oauth2/start")}?${search.toString()}`;
       triggerOAuthRedirect(oauthStartUrl);
     },
-    [email, t]
+    [t]
   );
 
   const handleDemoLogin = useCallback(
@@ -200,8 +184,22 @@ export function LoginPanel() {
         });
         setDemoStatus("idle");
         setDemoCode(trimmed);
+        await trackAnalyticsEvent({
+          eventType: "demo_code_success",
+          funnelStage: "activation",
+          properties: {
+            codeLength: trimmed.length
+          }
+        });
       } catch (err) {
         setDemoStatus("idle");
+        await trackAnalyticsEvent({
+          eventType: "demo_code_failure",
+          funnelStage: "activation",
+          properties: {
+            codeLength: trimmed.length
+          }
+        });
         if (err instanceof AuthError) {
           setError(err.message);
         } else if (err instanceof Error) {
@@ -211,7 +209,7 @@ export function LoginPanel() {
         }
       }
     },
-    [demoCode, setTokens, t]
+    [setTokens, t]
   );
 
   const emailButtonLabel = useMemo(() => {
@@ -266,6 +264,9 @@ export function LoginPanel() {
         </Typography>
         <Typography variant="caption" style={{ color: "var(--text-secondary)" }}>
           {t("auth.email_hint")}
+        </Typography>
+        <Typography variant="caption" style={{ color: "var(--text-secondary)" }}>
+          {t("auth.register_steps")}
         </Typography>
         <label style={{ display: "grid", gap: "4px", fontSize: "0.9rem" }}>
           <span style={{ color: "var(--text-secondary)" }}>{t("auth.email_label")}</span>
@@ -324,6 +325,17 @@ export function LoginPanel() {
           {demoStatus === "submitting" ? t("auth.demo_submitting") : t("auth.demo_cta")}
         </Button>
       </form>
+
+      {onShowRegistration && (
+        <div style={{ display: "grid", gap: "6px" }}>
+          <Typography variant="caption" style={{ color: "var(--text-secondary)" }}>
+            {t("auth.no_account")}
+          </Typography>
+          <Button type="button" variant="ghost" onClick={onShowRegistration}>
+            {t("auth.register_cta")}
+          </Button>
+        </div>
+      )}
 
       {error && (
         <div

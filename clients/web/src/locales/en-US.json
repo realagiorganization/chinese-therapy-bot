@@ -15,10 +15,11 @@
     "insight_summary": "Anxiety mentions dropped 18% over the past three days."
   },
   "auth": {
-    "title": "Sign in to MindWell",
-    "subtitle": "Authenticate with your email to continue your journey. Demo access is optional for invited guests.",
-    "email_section": "Email authentication",
+    "title": "Register or sign in to MindWell",
+    "subtitle": "Use your email to create an account or continue your journey. Demo access is for invited guests.",
+    "email_section": "Create an account with email",
     "email_hint": "oauth2-proxy validates your identity. We never store your password.",
+    "register_steps": "Step 1: Enter your email. Step 2: Authenticate. Step 3: Return to MindWell.",
     "email_label": "Email address",
     "email_placeholder": "you@example.com",
     "email_cta": "Continue with email",
@@ -30,7 +31,33 @@
     "demo_placeholder": "DEMO-TEAM",
     "demo_cta": "Use demo code",
     "demo_submitting": "Verifying code...",
+    "no_account": "New to MindWell?",
+    "register_cta": "Create an account",
     "logout": "Sign out",
+    "registration": {
+      "title": "Create your MindWell account",
+      "subtitle": "Tell us a bit about you, then verify your email to start your journey.",
+      "section": "Registration details",
+      "hint": "We will redirect you to our secure identity provider to confirm your email.",
+      "oauth_pending": "We are verifying your identity with our secure login partner.",
+      "name_label": "Full name",
+      "name_placeholder": "Your name",
+      "email_label": "Work email",
+      "email_placeholder": "you@company.com",
+      "terms_label": "I agree to the MindWell Terms of Service and Privacy Policy.",
+      "cta": "Create account",
+      "submitting": "Submitting registration...",
+      "redirecting": "Redirecting to verify...",
+      "have_account": "Already have a MindWell account?",
+      "login_cta": "Back to sign in",
+      "errors": {
+        "name_required": "Please enter your full name.",
+        "email_invalid": "Enter a valid email address.",
+        "terms_required": "Please accept the terms to continue.",
+        "already_registered": "This email is already registered. Please sign in.",
+        "unknown": "We couldn't submit your registration. Please try again."
+      }
+    },
     "errors": {
       "email_required": "Please enter an email address.",
       "demo_required": "Enter the demo code.",
