@@ -18,6 +18,8 @@ from app.models import RefreshToken, User
 from app.schemas.auth import (
     DemoLoginRequest,
     GoogleLoginRequest,
+    RegistrationRequest,
+    RegistrationResponse,
     TokenRefreshRequest,
     TokenResponse,
 )
@@ -162,6 +164,54 @@ class AuthService:
             user_agent=payload.user_agent,
             ip_address=payload.ip_address,
         )
+
+    async def register_user(
+        self,
+        payload: RegistrationRequest,
+        *,
+        user_agent: str | None = None,
+        ip_address: str | None = None,
+    ) -> RegistrationResponse:
+        """Register a user record before redirecting to the identity provider."""
+        email = payload.email.strip().lower()
+        if not email:
+            raise ValueError("Необходимо указать email.")
+        if not payload.accept_terms:
+            raise ValueError("Необходимо принять условия использования.")
+
+        stmt = select(User).where(User.email == email).limit(1)
+        result = await self._session.execute(stmt)
+        user = result.scalar_one_or_none()
+
+        display_name = payload.display_name.strip()
+        locale = (payload.locale or "zh-CN").strip() or "zh-CN"
+
+        if user:
+            if display_name and user.display_name != display_name:
+                user.display_name = display_name
+            if locale and user.locale != locale:
+                user.locale = locale
+            await self._session.flush()
+            status = "pending" if user.account_type == "pending" else "existing"
+            return RegistrationResponse(status=status, user_id=user.id)
+
+        user = User(
+            email=email,
+            display_name=display_name,
+            locale=locale,
+            account_type="pending",
+        )
+        self._sync_chat_quota(user, 0)
+        self._session.add(user)
+        await self._session.flush()
+
+        logger.debug(
+            "Registered pending account for %s (user_agent=%s, ip_address=%s)",
+            email,
+            user_agent,
+            ip_address,
+        )
+        return RegistrationResponse(status="registered", user_id=user.id)
 
     async def _upsert_oauth_user(self, *, subject: str, email: str, name: str | None) -> User:
         stmt = select(User).where(User.external_id == subject).limit(1)

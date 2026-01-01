@@ -183,5 +183,5 @@
 
 ## Phase 10 – Registration & Authorization Website
 - [x] Updated the web login panel copy to cover registration steps and clarify the oauth2-proxy flow. *(see `clients/web/src/components/LoginPanel.tsx`, `clients/web/src/locales/en-US.json`.)*
-- [ ] Add a dedicated registration screen with form validation once the identity provider and backend registration endpoint are finalized.
-- [ ] Add auth funnel telemetry (registration start, OAuth redirect success, demo-code success/failure) to analytics events.
+- [x] Added a dedicated registration screen with form validation plus a backend registration endpoint. *(`clients/web/src/components/RegistrationPanel.tsx`, `clients/web/src/App.tsx`, `clients/web/src/api/auth.ts`, `services/backend/app/api/routes/auth.py`, `services/backend/app/services/auth.py`.)*
+- [x] Added auth funnel telemetry (registration start, OAuth redirect success, demo-code success/failure) to analytics events. *(`clients/web/src/api/analytics.ts`, `clients/web/src/components/LoginPanel.tsx`, `clients/web/src/components/RegistrationPanel.tsx`.)*

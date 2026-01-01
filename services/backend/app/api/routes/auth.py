@@ -5,6 +5,8 @@ from app.core.config import AppSettings, get_settings
 from app.schemas.auth import (
     DemoLoginRequest,
     GoogleLoginRequest,
+    RegistrationRequest,
+    RegistrationResponse,
     SessionRequest,
     TokenRefreshRequest,
     TokenResponse,
@@ -105,6 +107,30 @@ async def login_with_demo_code(
 
     try:
         return await service.login_with_demo_code(
+            payload,
+            user_agent=user_agent,
+            ip_address=ip_address,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.post(
+    "/register",
+    response_model=RegistrationResponse,
+    status_code=status.HTTP_201_CREATED,
+    summary="Зарегистрировать пользователя перед OAuth редиректом.",
+)
+async def register_account(
+    payload: RegistrationRequest,
+    request: Request,
+    service: AuthService = Depends(get_auth_service),
+) -> RegistrationResponse:
+    user_agent = payload.user_agent or request.headers.get("user-agent")
+    ip_address = payload.ip_address or (request.client.host if request.client else None)
+
+    try:
+        return await service.register_user(
             payload,
             user_agent=user_agent,
             ip_address=ip_address,

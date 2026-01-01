@@ -1,4 +1,5 @@
 from typing import Optional
+from uuid import UUID
 
 from pydantic import BaseModel, Field, constr
 
@@ -66,3 +67,42 @@ class TokenResponse(BaseModel):
     refresh_token: str
     token_type: str = Field(default="bearer")
     expires_in: int = Field(default=3600)
+
+
+class RegistrationRequest(BaseModel):
+    email: constr(
+        min_length=3,
+        max_length=254,
+        strip_whitespace=True,
+        pattern=r"^[^\s@]+@[^\s@]+\.[^\s@]+$",
+    )
+    display_name: constr(min_length=1, max_length=120) = Field(
+        ...,
+        description="Display name captured during registration.",
+    )
+    locale: Optional[str] = Field(
+        default=None, description="Preferred locale for the new account."
+    )
+    accept_terms: bool = Field(
+        default=False, description="User accepted the terms of service."
+    )
+    session_id: Optional[str] = Field(
+        default=None, description="Optional client session identifier."
+    )
+    user_agent: Optional[str] = Field(
+        default=None, description="Client user agent string used for telemetry."
+    )
+    ip_address: Optional[str] = Field(
+        default=None, description="Caller IP address recorded for audit purposes."
+    )
+
+
+class RegistrationResponse(BaseModel):
+    status: str = Field(
+        ...,
+        description="Registration status: registered, pending, or existing.",
+    )
+    user_id: UUID | None = Field(
+        default=None,
+        description="User identifier created during registration.",
+    )

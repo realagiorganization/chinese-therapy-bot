@@ -1,12 +1,15 @@
+import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 
 import { useAuth } from "./auth/AuthContext";
+import { isPendingOAuth } from "./auth/oauthState";
 import { Button, Card, Typography } from "./design-system";
 import { ChatPanel } from "./components/ChatPanel";
 import { ExploreModules } from "./components/ExploreModules";
 import { LoginPanel } from "./components/LoginPanel";
 import { JourneyDashboard } from "./components/JourneyDashboard";
 import { LocaleSwitcher } from "./components/LocaleSwitcher";
+import { RegistrationPanel } from "./components/RegistrationPanel";
 import { TherapistDirectory } from "./components/TherapistDirectory";
 
 type HighlightCard = {
@@ -19,6 +22,8 @@ type HighlightCard = {
 export default function App() {
   const { t, i18n } = useTranslation();
   const { isAuthenticated, clearTokens } = useAuth();
+  const [authView, setAuthView] = useState<"login" | "register">("login");
+  const pendingOAuth = useMemo(() => isPendingOAuth(), []);
   const gradientBackground =
     "linear-gradient(0deg, var(--mw-gradient-bottom) 0%, var(--mw-gradient-mid) 38%, var(--mw-gradient-top) 80%)";
 
@@ -38,6 +43,7 @@ export default function App() {
   ];
 
   if (!isAuthenticated) {
+    const showLogin = pendingOAuth || authView === "login";
     return (
       <div
         style={{
@@ -48,7 +54,11 @@ export default function App() {
           background: gradientBackground
         }}
       >
-        <LoginPanel />
+        {showLogin ? (
+          <LoginPanel onShowRegistration={() => setAuthView("register")} />
+        ) : (
+          <RegistrationPanel onShowLogin={() => setAuthView("login")} />
+        )}
       </div>
     );
   }

@@ -18,6 +18,11 @@ export type TokenPair = {
   tokenType: string;
 };
 
+export type RegistrationResult = {
+  status: "registered" | "pending" | "existing";
+  userId: string | null;
+};
+
 async function parseJson(response: Response): Promise<unknown> {
   try {
     return await response.json();
@@ -47,6 +52,17 @@ function normalizeTokenResponse(payload: Record<string, unknown> | null | undefi
   };
 }
 
+function normalizeRegistrationResponse(
+  payload: Record<string, unknown> | null | undefined
+): RegistrationResult {
+  const data = payload ?? {};
+  const status = asString(data.status) as RegistrationResult["status"];
+  return {
+    status: status || "existing",
+    userId: asString(data.user_id) || null
+  };
+}
+
 export async function exchangeOAuthSession(options: {
   sessionId?: string;
   userAgent?: string;
@@ -72,6 +88,41 @@ export async function exchangeOAuthSession(options: {
 
   const payload = asRecord((await response.json()) as unknown);
   return normalizeTokenResponse(payload);
+}
+
+export async function registerWithEmail(options: {
+  email: string;
+  displayName: string;
+  locale?: string;
+  acceptTerms: boolean;
+  sessionId?: string;
+  userAgent?: string;
+  ipAddress?: string;
+}): Promise<RegistrationResult> {
+  const endpoint = `${getApiBaseUrl()}/api/auth/register`;
+  const response = await fetch(endpoint, {
+    method: "POST",
+    credentials: "include",
+    headers: buildAuthHeaders(),
+    body: buildBody({
+      email: options.email,
+      display_name: options.displayName,
+      locale: options.locale ?? null,
+      accept_terms: options.acceptTerms,
+      session_id: options.sessionId ?? null,
+      user_agent: options.userAgent ?? null,
+      ip_address: options.ipAddress ?? null
+    })
+  });
+
+  if (!response.ok) {
+    const payload = asRecord(await parseJson(response));
+    const detail = asString(payload?.detail, `Registration failed (${response.status}).`);
+    throw new AuthError(detail, response.status);
+  }
+
+  const payload = asRecord((await response.json()) as unknown);
+  return normalizeRegistrationResponse(payload);
 }
 
 export async function loginWithDemoCode(options: {

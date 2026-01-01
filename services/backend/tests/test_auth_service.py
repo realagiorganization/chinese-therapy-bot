@@ -10,7 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 
 from app.core.config import AppSettings
 from app.models.entities import RefreshToken, User
-from app.schemas.auth import DemoLoginRequest, TokenRefreshRequest
+from app.schemas.auth import DemoLoginRequest, RegistrationRequest, TokenRefreshRequest
 from app.services.auth import AuthService, OAuth2Identity
 from app.services.demo_codes import DemoCodeEntry
 
@@ -193,6 +193,70 @@ async def test_multiple_oauth_sessions_allowed(
     tokens = tokens_result.scalars().all()
     assert len(tokens) == 2
     assert all(token.revoked_at is None for token in tokens)
+
+
+@pytest.mark.asyncio
+async def test_register_user_creates_pending_account(
+    auth_session: AsyncSession,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    registry = StubDemoRegistry()
+    service = make_auth_service(auth_session, registry)
+
+    monkeypatch.setattr(AuthService, "_now", lambda self: datetime.now(timezone.utc))
+
+    payload = RegistrationRequest(
+        email="new-user@example.com",
+        display_name="New User",
+        locale="en-US",
+        accept_terms=True,
+    )
+
+    response = await service.register_user(payload)
+
+    assert response.status == "registered"
+    assert response.user_id is not None
+
+    users_result = await auth_session.execute(select(User))
+    user = users_result.scalar_one()
+    assert user.email == "new-user@example.com"
+    assert user.display_name == "New User"
+    assert user.locale == "en-US"
+    assert user.account_type == "pending"
+    assert user.chat_token_quota == 0
+    assert user.chat_tokens_remaining == 0
+
+
+@pytest.mark.asyncio
+async def test_register_user_returns_existing_status(
+    auth_session: AsyncSession,
+) -> None:
+    registry = StubDemoRegistry()
+    service = make_auth_service(auth_session, registry)
+
+    user = User(
+        email="existing@example.com",
+        display_name="Existing User",
+        locale="zh-CN",
+        account_type="email",
+    )
+    auth_session.add(user)
+    await auth_session.flush()
+
+    payload = RegistrationRequest(
+        email="existing@example.com",
+        display_name="Updated Name",
+        locale="en-US",
+        accept_terms=True,
+    )
+
+    response = await service.register_user(payload)
+
+    assert response.status == "existing"
+    users_result = await auth_session.execute(select(User))
+    stored = users_result.scalar_one()
+    assert stored.display_name == "Updated Name"
+    assert stored.locale == "en-US"
 
 
 @pytest.mark.asyncio
